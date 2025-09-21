@@ -94,7 +94,8 @@
       "Bash(npx next lint:*)",
       "Bash(npm run lint:*)",
       "Bash(npm run:*)",
-      "Bash(xargs:*)"
+      "Bash(xargs:*)",
+      "Read(//Users/owner/Downloads/**)"
     ],
     "deny": [],
     "ask": []

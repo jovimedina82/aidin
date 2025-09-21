@@ -98,6 +98,62 @@ export async function GET(request) {
       }
     })
 
+    // Company view counts (with assignee requirement for grouped views)
+    const companyOpen = await prisma.ticket.count({
+      where: {
+        ...accessWhere,
+        status: 'OPEN',
+        assigneeId: { not: null }
+      }
+    })
+
+    const companyPending = await prisma.ticket.count({
+      where: {
+        ...accessWhere,
+        status: 'PENDING',
+        assigneeId: { not: null }
+      }
+    })
+
+    const companyOnHold = await prisma.ticket.count({
+      where: {
+        ...accessWhere,
+        status: 'ON_HOLD',
+        assigneeId: { not: null }
+      }
+    })
+
+    const companySolved = await prisma.ticket.count({
+      where: {
+        ...accessWhere,
+        status: 'SOLVED',
+        assigneeId: { not: null },
+        updatedAt: {
+          gte: oneMonthAgo
+        }
+      }
+    })
+
+    const companySolvedHistory = await prisma.ticket.count({
+      where: {
+        ...accessWhere,
+        status: 'SOLVED',
+        assigneeId: { not: null },
+        updatedAt: {
+          lt: oneMonthAgo
+        }
+      }
+    })
+
+    // Unassigned New tickets (all new tickets without assignee)
+    const unassignedNew = await prisma.ticket.count({
+      where: {
+        ...accessWhere,
+        status: 'NEW',
+        assigneeId: null
+      }
+    })
+
     const closed = await prisma.ticket.count({
       where: {
         ...accessWhere,
@@ -175,6 +231,20 @@ export async function GET(request) {
       }
     })
 
+    const personalSolvedHistory = await prisma.ticket.count({
+      where: {
+        ...accessWhere,
+        OR: [
+          { requesterId: user.id },
+          { assigneeId: user.id }
+        ],
+        status: 'SOLVED',
+        updatedAt: {
+          lt: oneMonthAgo
+        }
+      }
+    })
+
     // Update unsolved to include NEW and ON_HOLD status
     const unsolvedUpdated = await prisma.ticket.count({
       where: {
@@ -197,12 +267,21 @@ export async function GET(request) {
       onHold,
       newTickets,
       closed,
+      unassignedNew,
       personal: {
         newTickets: personalNew,
         open: personalOpen,
         pending: personalPending,
         onHold: personalOnHold,
-        solved: personalSolved
+        solved: personalSolved,
+        solvedHistory: personalSolvedHistory
+      },
+      company: {
+        open: companyOpen,
+        pending: companyPending,
+        onHold: companyOnHold,
+        solved: companySolved,
+        solvedHistory: companySolvedHistory
       }
     }
 

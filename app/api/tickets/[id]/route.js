@@ -131,12 +131,53 @@ export async function PUT(request, { params }) {
       }
     }
 
+    // Get the current ticket to check current state for auto status changes
+    const currentTicket = await prisma.ticket.findUnique({
+      where: { id: params.id }
+    })
+
+    if (!currentTicket) {
+      return NextResponse.json({ error: 'Ticket not found' }, { status: 404 })
+    }
+
+    // Apply automatic assignment and status change rules
+    const updateData = { ...data }
+
+    // Check if current user is admin
+    const isAdmin = roleNames.includes('Admin')
+
+    // Rule 1: Auto-change status from NEW to OPEN when ticket is assigned
+    if (data.assigneeId && currentTicket.status === 'NEW') {
+      updateData.status = 'OPEN'
+    }
+
+    // Rule 2: Auto-assign ticket to current user when changing status from NEW to OPEN/PENDING/ON_HOLD/SOLVED
+    // if the ticket is currently unassigned
+    if (data.status &&
+        currentTicket.status === 'NEW' &&
+        !currentTicket.assigneeId &&
+        ['OPEN', 'PENDING', 'ON_HOLD', 'SOLVED'].includes(data.status)) {
+      updateData.assigneeId = currentUser.id
+    }
+
+    // Rule 3: Auto-change status from NEW to OPEN when taking (self-assigning) an unassigned NEW ticket
+    if (data.assigneeId === currentUser.id &&
+        currentTicket.status === 'NEW' &&
+        !currentTicket.assigneeId) {
+      updateData.status = 'OPEN'
+    }
+
+    // Rule 4: Admin privilege - when changing status to NEW, automatically unassign the ticket
+    if (isAdmin && data.status === 'NEW') {
+      updateData.assigneeId = null
+    }
+
     const ticket = await prisma.ticket.update({
       where: {
         id: params.id
       },
       data: {
-        ...data,
+        ...updateData,
         updatedAt: new Date()
       },
       include: {

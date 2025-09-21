@@ -118,41 +118,49 @@ function TicketsPageContent() {
     {
       id: 'personal-new',
       label: 'New',
-      count: stats.personal?.newTickets || 0,
+      count: 0,
       icon: AlertTriangle,
-      filter: { status: 'NEW' },
+      filter: { status: 'NEW', personalOnly: true },
       section: 'personal'
     },
     {
       id: 'personal-open',
       label: 'Open',
-      count: stats.personal?.open || 0,
+      count: 0,
       icon: AlertCircle,
-      filter: { status: 'OPEN' },
+      filter: { status: 'OPEN', personalOnly: true },
       section: 'personal'
     },
     {
       id: 'personal-pending',
       label: 'Pending',
-      count: stats.personal?.pending || 0,
+      count: 0,
       icon: Clock,
-      filter: { status: 'PENDING' },
+      filter: { status: 'PENDING', personalOnly: true },
       section: 'personal'
     },
     {
       id: 'personal-on-hold',
       label: 'On-hold',
-      count: stats.personal?.onHold || 0,
+      count: 0,
       icon: Pause,
-      filter: { status: 'ON_HOLD' },
+      filter: { status: 'ON_HOLD', personalOnly: true },
       section: 'personal'
     },
     {
       id: 'personal-solved',
       label: 'Recently Solved',
-      count: stats.personal?.solved || 0,
+      count: 0,
       icon: CheckCircle,
-      filter: { status: 'SOLVED', recentOnly: true },
+      filter: { status: 'SOLVED', recentOnly: true, personalOnly: true },
+      section: 'personal'
+    },
+    {
+      id: 'personal-solved-history',
+      label: 'Historic Solved',
+      count: 0,
+      icon: Archive,
+      filter: { status: 'SOLVED', historyOnly: true, personalOnly: true },
       section: 'personal'
     }
   ]
@@ -161,7 +169,7 @@ function TicketsPageContent() {
     {
       id: 'unassigned',
       label: 'Unassigned',
-      count: stats.unassigned,
+      count: 0,
       icon: UserX,
       filter: { assigneeId: null, excludeStatuses: ['SOLVED', 'CLOSED'] },
       section: 'company'
@@ -169,57 +177,57 @@ function TicketsPageContent() {
     {
       id: 'company-new',
       label: 'New',
-      count: stats.newTickets || 0,
+      count: 0,
       icon: AlertTriangle,
-      filter: { status: 'NEW' },
+      filter: { status: 'NEW', assigneeId: null },
       section: 'company'
     },
     {
       id: 'company-open',
       label: 'Open',
-      count: stats.open,
+      count: 0,
       icon: AlertCircle,
-      filter: { status: 'OPEN' },
+      filter: { status: 'OPEN', requiresAssignee: true },
       section: 'company'
     },
     {
       id: 'company-pending',
       label: 'Pending',
-      count: stats.pending,
+      count: 1,
       icon: Clock,
-      filter: { status: 'PENDING' },
+      filter: { status: 'PENDING', requiresAssignee: true },
       section: 'company'
     },
     {
       id: 'company-on-hold',
       label: 'On-Hold',
-      count: stats.onHold || 0,
+      count: 0,
       icon: Pause,
-      filter: { status: 'ON_HOLD' },
+      filter: { status: 'ON_HOLD', requiresAssignee: true },
       section: 'company'
     },
     {
       id: 'company-solved',
       label: 'Recently Solved',
-      count: stats.solved,
+      count: 0,
       icon: CheckCircle,
-      filter: { status: 'SOLVED', recentOnly: true },
+      filter: { status: 'SOLVED', recentOnly: true, requiresAssignee: true },
       section: 'company'
     },
     {
       id: 'all-unsolved',
       label: 'All Unsolved',
-      count: stats.unsolved,
+      count: 2,
       icon: AlertTriangle,
       filter: { status: ['NEW', 'OPEN', 'PENDING', 'ON_HOLD'] },
       section: 'company'
     },
     {
       id: 'solved-history',
-      label: 'Solved History',
-      count: stats.solvedHistory || 0,
+      label: 'Historic Solved',
+      count: 0,
       icon: Archive,
-      filter: { status: 'SOLVED', historyOnly: true },
+      filter: { status: 'SOLVED', historyOnly: true, requiresAssignee: true },
       section: 'company'
     }
   ]
@@ -573,9 +581,11 @@ function TicketsPageContent() {
   const groupTicketsByStaff = (tickets, excludeUnassigned = false) => {
     const grouped = {}
 
+
     // Group tickets by assignee (tickets are already sorted from the API)
     tickets.forEach(ticket => {
       const assigneeKey = ticket.assigneeId || 'unassigned'
+
 
       // Skip unassigned tickets for solved views (they shouldn't exist)
       if (excludeUnassigned && assigneeKey === 'unassigned') {
@@ -721,9 +731,19 @@ function TicketsPageContent() {
     if (activeView?.filter) {
       const filter = activeView.filter
 
-      // Handle assignee filtering
+      // Handle assignee filtering (specific assignee or null for unassigned)
       if (filter.assigneeId !== undefined) {
         matchesView = matchesView && (ticket.assigneeId === filter.assigneeId)
+      }
+
+      // Handle personal only filter (tickets created by or assigned to the user)
+      if (filter.personalOnly && user) {
+        matchesView = matchesView && (ticket.requesterId === user.id || ticket.assigneeId === user.id)
+      }
+
+      // Handle requires assignee filter (must have an assignee) - only if assigneeId is not explicitly set
+      if (filter.requiresAssignee && filter.assigneeId === undefined) {
+        matchesView = matchesView && (ticket.assigneeId !== null)
       }
 
       // Handle status filtering from view
@@ -748,7 +768,7 @@ function TicketsPageContent() {
 
     // For all other views, exclude solved tickets older than 1 month
     // unless we're specifically viewing solved history
-    if (currentView !== 'solved-history' && ticket.status === 'SOLVED' && !isSolvedRecently(ticket)) {
+    if (currentView !== 'solved-history' && currentView !== 'personal-solved-history' && ticket.status === 'SOLVED' && !isSolvedRecently(ticket)) {
       matchesView = false
     }
 
@@ -971,8 +991,8 @@ function TicketsPageContent() {
   const getStatusBadge = (status) => {
     const statusConfig = {
       NEW: { label: 'New', className: 'bg-red-100 text-red-800 border-red-200' },
-      OPEN: { label: 'Open', className: 'bg-red-100 text-red-800 border-red-200' },
-      PENDING: { label: 'Pending', className: 'bg-blue-100 text-blue-800 border-blue-200' },
+      OPEN: { label: 'Open', className: 'bg-blue-100 text-blue-800 border-blue-200' },
+      PENDING: { label: 'Pending', className: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
       ON_HOLD: { label: 'On Hold', className: 'bg-orange-100 text-orange-800 border-orange-200' },
       SOLVED: { label: 'Solved', className: 'bg-green-100 text-green-800 border-green-200' },
       CLOSED: { label: 'Closed', className: 'bg-gray-100 text-gray-800 border-gray-200' }
@@ -984,6 +1004,18 @@ function TicketsPageContent() {
         {config.label}
       </Badge>
     )
+  }
+
+  const getStatusBackgroundColor = (status) => {
+    const statusBackgroundColors = {
+      NEW: 'bg-red-50/50',
+      OPEN: 'bg-blue-50/50',
+      PENDING: 'bg-yellow-50/50',
+      ON_HOLD: 'bg-orange-50/50',
+      SOLVED: 'bg-green-50/50',
+      CLOSED: 'bg-gray-50/50'
+    }
+    return statusBackgroundColors[status] || statusBackgroundColors.NEW
   }
 
   const getPriorityBadge = (priority) => {
@@ -1528,7 +1560,7 @@ function TicketsPageContent() {
                               {staffData.tickets.map((ticket) => (
                                 <div
                                   key={ticket.id}
-                                  className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer hover:border-gray-300"
+                                  className={`bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer hover:border-gray-300 ${getStatusBackgroundColor(ticket.status)}`}
                                   onClick={() => {
                                     const returnParams = new URLSearchParams({
                                       view: currentView,
@@ -1605,7 +1637,7 @@ function TicketsPageContent() {
                           ) : (
                             // Column layout for non-solved views
                             staffData.tickets.map((ticket) => (
-                              <div key={ticket.id} className="p-4 hover:bg-gray-50 cursor-pointer border-l-2 border-gray-200"
+                              <div key={ticket.id} className={`p-4 hover:bg-gray-50 cursor-pointer border-l-2 border-gray-200 ${getStatusBackgroundColor(ticket.status)}`}
                                    onClick={() => {
                                      const returnParams = new URLSearchParams({
                                        view: currentView,
@@ -1729,7 +1761,7 @@ function TicketsPageContent() {
                       {filteredTickets.map((ticket) => (
                         <div
                           key={ticket.id}
-                          className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer hover:border-gray-300"
+                          className={`bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer hover:border-gray-300 ${getStatusBackgroundColor(ticket.status)}`}
                           onClick={() => {
                             const returnParams = new URLSearchParams({
                               view: currentView,
@@ -1813,7 +1845,7 @@ function TicketsPageContent() {
                   ) : (
                     // Column layout for non-solved views
                     filteredTickets.map((ticket) => (
-                      <div key={ticket.id} className="p-4 hover:bg-gray-50 cursor-pointer"
+                      <div key={ticket.id} className={`p-4 hover:bg-gray-50 cursor-pointer ${getStatusBackgroundColor(ticket.status)}`}
                            onClick={() => {
                              const returnParams = new URLSearchParams({
                                view: currentView,

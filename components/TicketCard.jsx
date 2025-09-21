@@ -13,12 +13,21 @@ const priorityColors = {
 }
 
 const statusColors = {
-  NEW: 'bg-gray-100 text-gray-800 border-gray-200',
+  NEW: 'bg-red-100 text-red-800 border-red-200',
   OPEN: 'bg-blue-100 text-blue-800 border-blue-200',
   PENDING: 'bg-yellow-100 text-yellow-800 border-yellow-200',
   ON_HOLD: 'bg-orange-100 text-orange-800 border-orange-200',
   SOLVED: 'bg-green-100 text-green-800 border-green-200',
   CLOSED: 'bg-gray-100 text-gray-800 border-gray-200'
+}
+
+const statusBackgroundColors = {
+  NEW: 'bg-red-50/50',
+  OPEN: 'bg-blue-50/50',
+  PENDING: 'bg-yellow-50/50',
+  ON_HOLD: 'bg-orange-50/50',
+  SOLVED: 'bg-green-50/50',
+  CLOSED: 'bg-gray-50/50'
 }
 
 export default function TicketCard({ ticket, onClick }) {
@@ -30,8 +39,8 @@ export default function TicketCard({ ticket, onClick }) {
     : null
 
   return (
-    <Card 
-      className="cursor-pointer hover:shadow-md transition-shadow duration-200"
+    <Card
+      className={`cursor-pointer hover:shadow-md transition-shadow duration-200 ${statusBackgroundColors[ticket.status]}`}
       onClick={() => onClick(ticket)}
     >
       <CardHeader className="pb-3">

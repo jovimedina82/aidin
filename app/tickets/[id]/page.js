@@ -112,7 +112,15 @@ export default function TicketDetailPage({ params }) {
       const response = await makeAuthenticatedRequest('/api/users')
       if (response.ok) {
         const data = await response.json()
-        setUsers(data)
+        // Filter to only show Staff, Manager, and Admin users
+        const staffUsers = data.filter(user => {
+          const userRoles = user.roles || []
+          return userRoles.some(role => {
+            const roleName = typeof role === 'string' ? role : (role.role?.name || role.name)
+            return ['Staff', 'Manager', 'Admin'].includes(roleName)
+          })
+        })
+        setUsers(staffUsers)
       }
     } catch (error) {
       console.error('Failed to fetch users:', error)

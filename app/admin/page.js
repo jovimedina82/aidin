@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../components/AuthProvider'
-import DashboardLayout from '../../components/DashboardLayout'
+import SidebarLayout from '../../components/SidebarLayout'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -415,7 +415,7 @@ export default function AdminPage() {
 
   if (!isAdmin) {
     return (
-      <DashboardLayout>
+      <SidebarLayout>
         <div className="flex items-center justify-center h-full">
           <Card className="w-full max-w-md">
             <CardContent className="p-8 text-center">
@@ -427,12 +427,12 @@ export default function AdminPage() {
             </CardContent>
           </Card>
         </div>
-      </DashboardLayout>
+      </SidebarLayout>
     )
   }
 
   return (
-    <DashboardLayout>
+    <SidebarLayout>
       <div className="p-8">
         {/* Header */}
         <div className="mb-8">
@@ -998,6 +998,6 @@ export default function AdminPage() {
           </DialogContent>
         </Dialog>
       </div>
-    </DashboardLayout>
+    </SidebarLayout>
   )
 }

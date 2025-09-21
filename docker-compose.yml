@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  helpdesk-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=file:./data/helpdesk.db
+      - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+      - NEXTAUTH_SECRET=your-nextauth-secret-change-this-too
+      - NEXTAUTH_URL=http://localhost:3000
+    volumes:
+      - helpdesk_data:/app/data
+      - helpdesk_uploads:/app/public/uploads
+      - .:/app
+    restart: unless-stopped
+
+volumes:
+  helpdesk_data:
+    driver: local
+  helpdesk_uploads:
+    driver: local
+
+networks:
+  default:
+    name: helpdesk-network

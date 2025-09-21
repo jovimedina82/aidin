@@ -1,0 +1,152 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* CSS Variables - Design System */
+@layer base {
+  :root {
+    /* Colors */
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 195 60% 40%;  /* Surterre blue */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 45 100% 51%;  /* Surterre gold */
+    --accent-foreground: 0 0% 13%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 195 60% 40%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 195 60% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 45 100% 51%;
+    --accent-foreground: 0 0% 13%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 195 60% 50%;
+  }
+}
+
+/* Base Styles */
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Custom Components */
+@layer components {
+  /* Navigation */
+  .surterre-nav {
+    @apply bg-white/95 backdrop-blur-md border-b border-border;
+  }
+
+  /* Logo */
+  .surterre-logo {
+    @apply flex items-center gap-3;
+  }
+
+  .surterre-logo-text {
+    @apply flex flex-col;
+  }
+
+  .surterre-logo-title {
+    @apply text-xl font-bold tracking-tight text-foreground;
+  }
+
+  .surterre-logo-subtitle {
+    @apply text-[10px] uppercase tracking-[0.1em] opacity-70 font-medium;
+  }
+
+  /* Buttons */
+  .surterre-btn {
+    @apply font-medium tracking-wide transition-all duration-200;
+  }
+
+  .surterre-btn-primary {
+    @apply bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 hover:shadow-md hover:-translate-y-[1px];
+  }
+}
+
+/* Animations */
+@keyframes float-left-right {
+  0% {
+    transform: translateX(-100vw) translateY(-50%);
+  }
+  50% {
+    transform: translateX(100vw) translateY(-50%);
+  }
+  100% {
+    transform: translateX(-100vw) translateY(-50%);
+  }
+}
+
+@keyframes float-left-right-delay {
+  0% {
+    transform: translateX(-100vw) translateY(-50%);
+  }
+  50% {
+    transform: translateX(100vw) translateY(-50%);
+  }
+  100% {
+    transform: translateX(-100vw) translateY(-50%);
+  }
+}
+
+@keyframes float-left-right-slow {
+  0% {
+    transform: translateX(-100vw) translateY(50%);
+  }
+  50% {
+    transform: translateX(100vw) translateY(50%);
+  }
+  100% {
+    transform: translateX(-100vw) translateY(50%);
+  }
+}
+
+.animate-float-left-right {
+  animation: float-left-right 12s ease-in-out infinite;
+}
+
+.animate-float-left-right-delay {
+  animation: float-left-right-delay 15s ease-in-out infinite;
+  animation-delay: -5s;
+}
+
+.animate-float-left-right-slow {
+  animation: float-left-right-slow 18s ease-in-out infinite;
+  animation-delay: -8s;
+}
+
+.animate-float-single-slow {
+  animation: float-left-right 25s ease-in-out infinite;
+}

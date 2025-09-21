@@ -1,0 +1,234 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id              String          @id @default(uuid())
+  email           String          @unique
+  password        String?
+  firstName       String
+  lastName        String
+  phone           String?
+  userType        String          @default("Client")
+  managerId       String?         // Reference to manager/supervisor
+  isActive        Boolean         @default(true)
+  lastLoginAt     DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  azureId         String?         @unique
+  comments        TicketComment[]
+  assignedTickets Ticket[]        @relation("TicketAssignee")
+  createdTickets  Ticket[]        @relation("TicketRequester")
+  roles           UserRole[]
+  preferences     UserPreference?
+  departments     UserDepartment[]
+
+  // Hierarchical relationships
+  manager         User?           @relation("UserManager", fields: [managerId], references: [id])
+  directReports   User[]          @relation("UserManager")
+
+  @@map("users")
+}
+
+model Role {
+  id          String     @id @default(uuid())
+  name        String     @unique
+  description String?
+  permissions Json
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  users       UserRole[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  id     String @id @default(uuid())
+  userId String
+  roleId String
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+model Ticket {
+  id              String          @id @default(uuid())
+  ticketNumber    String          @unique
+  title           String
+  description     String
+  status          TicketStatus    @default(NEW)
+  priority        TicketPriority  @default(NORMAL)
+  category        String?
+  requesterId     String?
+  assigneeId      String?
+  departmentId    String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  resolvedAt      DateTime?
+  closedAt        DateTime?
+  comments        TicketComment[]
+  assignee        User?           @relation("TicketAssignee", fields: [assigneeId], references: [id])
+  requester       User?           @relation("TicketRequester", fields: [requesterId], references: [id])
+  aiDecision      AIDecision?
+  kbUsage         TicketKBUsage[]
+
+  @@map("tickets")
+}
+
+model TicketComment {
+  id        String   @id @default(uuid())
+  ticketId  String
+  userId    String
+  content   String
+  isPublic  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@map("ticket_comments")
+}
+
+enum TicketStatus {
+  NEW
+  OPEN
+  PENDING
+  ON_HOLD
+  SOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+model WeeklyTicketStats {
+  id                String   @id @default(uuid())
+  weekStartDate     DateTime // Monday of the week
+  weekEndDate       DateTime // Sunday of the week
+  year              Int      // Year of the week
+  weekNumber        Int      // Week number (1-53)
+  totalTickets      Int      @default(0)
+  newTickets        Int      @default(0)
+  openTickets       Int      @default(0)
+  pendingTickets    Int      @default(0)
+  onHoldTickets     Int      @default(0)
+  solvedTickets     Int      @default(0)
+  closedTickets     Int      @default(0)
+  unassignedTickets Int      @default(0)
+  effectiveness     Float    @default(0) // percentage (solvedTickets / totalTickets * 100)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([year, weekNumber])
+  @@map("weekly_ticket_stats")
+}
+
+model UserPreference {
+  id                   String   @id @default(uuid())
+  userId               String   @unique
+  personalViewOrder    String?  // JSON array of view IDs
+  companyViewOrder     String?  // JSON array of view IDs
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+model Department {
+  id          String             @id @default(uuid())
+  name        String             @unique
+  description String?
+  color       String             @default("gray")
+  isActive    Boolean            @default(true)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  users       UserDepartment[]
+  keywords    DepartmentKeyword[]
+  knowledgeBase KnowledgeBase[]
+
+  @@map("departments")
+}
+
+model UserDepartment {
+  id           String     @id @default(uuid())
+  userId       String
+  departmentId String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, departmentId])
+  @@map("user_departments")
+}
+
+model DepartmentKeyword {
+  id           String     @id @default(uuid())
+  departmentId String
+  keyword      String
+  weight       Float      @default(1.0)
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@unique([departmentId, keyword])
+  @@map("department_keywords")
+}
+
+model KnowledgeBase {
+  id           String    @id @default(uuid())
+  title        String
+  content      String
+  tags         String?   // JSON array of tags
+  departmentId String?
+  isActive     Boolean   @default(true)
+  embedding    String?   // JSON array of embeddings
+  usageCount   Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  ticketResponses TicketKBUsage[]
+
+  @@map("knowledge_base")
+}
+
+model TicketKBUsage {
+  id          String        @id @default(uuid())
+  ticketId    String
+  kbId        String
+  relevance   Float         @default(0.0)
+  usedInResponse Boolean    @default(false)
+  createdAt   DateTime      @default(now())
+  ticket      Ticket        @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  knowledgeBase KnowledgeBase @relation(fields: [kbId], references: [id], onDelete: Cascade)
+
+  @@unique([ticketId, kbId])
+  @@map("ticket_kb_usage")
+}
+
+model AIDecision {
+  id                String    @id @default(uuid())
+  ticketId          String    @unique
+  suggestedDepartment String?
+  departmentConfidence Float? @default(0.0)
+  keywordMatches    String?   // JSON array of matched keywords
+  aiReasoning       String?
+  finalDepartment   String?
+  wasOverridden     Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  ticket            Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@map("ai_decisions")
+}

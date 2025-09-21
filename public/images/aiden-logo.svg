@@ -1,0 +1,39 @@
+<svg width="400" height="200" viewBox="0 0 400 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g transform="translate(100, 100) scale(1.4)">
+    <!-- Exact recreation of your triangle A design -->
+    <!-- Left leg - skewed parallelogram -->
+    <path d="M-20 20 L-6 20 L0 -20 L-14 -20 Z" fill="#5B9BD5"/>
+
+    <!-- Right leg - skewed parallelogram -->
+    <path d="M6 20 L20 20 L14 -20 L0 -20 Z" fill="#5B9BD5"/>
+
+    <!-- Horizontal crossbar -->
+    <rect x="-14" y="2" width="28" height="6" fill="#5B9BD5"/>
+  </g>
+
+  <!-- Modern typography -->
+  <g transform="translate(180, 80)">
+    <!-- AIDEN text -->
+    <text x="0" y="35"
+          font-family="system-ui, -apple-system, 'Segoe UI', sans-serif"
+          font-size="42"
+          font-weight="700"
+          letter-spacing="-1px"
+          fill="#1F2937">
+      AIDEN
+    </text>
+
+    <!-- Underline accent -->
+    <rect x="0" y="45" width="60" height="3" fill="#5B9BD5" rx="1.5"/>
+
+    <!-- HELPDESK subtitle -->
+    <text x="0" y="70"
+          font-family="system-ui, -apple-system, 'Segoe UI', sans-serif"
+          font-size="14"
+          font-weight="500"
+          letter-spacing="2px"
+          fill="#6B7280">
+      HELPDESK
+    </text>
+  </g>
+</svg>

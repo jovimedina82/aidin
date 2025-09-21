@@ -10,11 +10,11 @@ const seedData = {
       org: 'Surterre Properties'
     },
     {
-      email: 'agent@surterreproperties.com',
+      email: 'staff@surterreproperties.com',
       password: 'admin123',
       firstName: 'John',
-      lastName: 'Agent',
-      roles: ['Agent'],
+      lastName: 'Staff',
+      roles: ['Staff'],
       org: 'Surterre Properties'
     },
     {
@@ -34,7 +34,7 @@ const seedData = {
       priority: 'HIGH',
       category: 'Account Access',
       requester: 'user@surterreproperties.com',
-      assignee: 'agent@surterreproperties.com'
+      assignee: 'staff@surterreproperties.com'
     },
     {
       title: 'Printer not working in Office 201',
@@ -51,7 +51,7 @@ const seedData = {
       priority: 'LOW',
       category: 'Feature Request',
       requester: 'user@surterreproperties.com',
-      assignee: 'agent@surterreproperties.com'
+      assignee: 'staff@surterreproperties.com'
     },
     {
       title: 'VPN connection issues',
@@ -68,7 +68,7 @@ const seedData = {
       priority: 'NORMAL',
       category: 'Technical Issue',
       requester: 'user@surterreproperties.com',
-      assignee: 'agent@surterreproperties.com'
+      assignee: 'staff@surterreproperties.com'
     }
   ]
 }

@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server'
-import { PrismaClient } from '../../../../../lib/generated/prisma/index.js'
-import { getCurrentUser } from '../../../../../lib/auth.js'
+import { prisma } from "@/lib/prisma"
+import { getCurrentUser } from "@/lib/auth"
 import { generateEmbedding } from '../../../../../lib/ai/knowledge-search.js'
 
-const prisma = new PrismaClient()
 
 export async function PUT(request, { params }) {
   try {

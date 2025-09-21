@@ -1,117 +1,135 @@
 import { NextResponse } from 'next/server'
-import { PrismaClient } from '../../../lib/generated/prisma/index.js'
-import { generateTicketResponse, categorizeTicket, processTicketWithAI } from '../../../lib/openai.js'
+import { prisma } from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/auth'
+import {
+  ApiError,
+  ApiSuccess,
+  withErrorHandler,
+  parseQueryParams,
+  buildWhereClause,
+  validateRequired
+} from '@/lib/api-utils'
+import { QueryOptimizations, PerformanceMonitor } from '@/lib/performance'
+import { generateTicketResponse, categorizeTicket, processTicketWithAI } from '@/lib/openai'
+import { buildTicketAccessWhere } from '@/lib/access-control'
 
-const prisma = new PrismaClient()
+export const GET = withErrorHandler(async (request) => {
+  PerformanceMonitor.start('tickets-fetch')
 
-export async function GET(request) {
-  try {
-    const { searchParams } = new URL(request.url)
-    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')) : undefined
-    const statuses = searchParams.getAll('status')
-    const excludeStatuses = searchParams.getAll('excludeStatus')
-    const priority = searchParams.get('priority')
-    const assigneeId = searchParams.get('assigneeId')
-    const unassigned = searchParams.get('unassigned')
-    const sortBy = searchParams.get('sortBy') || 'createdAt'
-    const sortOrder = searchParams.get('sortOrder') || 'desc'
-
-    const where = {}
-
-    // Handle multiple status filters
-    if (statuses.length > 0) {
-      where.status = { in: statuses }
-    } else if (excludeStatuses.length > 0) {
-      where.status = { notIn: excludeStatuses }
-    }
-
-    if (priority) where.priority = priority
-
-    // Handle assignee filtering
-    if (unassigned === 'true') {
-      where.assigneeId = null
-    } else if (assigneeId) {
-      where.assigneeId = assigneeId
-    }
-
-    // Build orderBy clause
-    let orderBy = {}
-
-    // Handle priority sorting with custom order (URGENT > HIGH > NORMAL > LOW)
-    if (sortBy === 'priority') {
-      // For priority, we need to use a raw query to sort properly
-      // Since Prisma sorts enums alphabetically, we'll add a secondary sort by createdAt
-      orderBy = [
-        { priority: sortOrder },
-        { createdAt: 'desc' } // Secondary sort for consistent ordering
-      ]
-    } else if (sortBy === 'requester') {
-      // Sort by requester's first name then last name
-      orderBy = [
-        { requester: { firstName: sortOrder } },
-        { requester: { lastName: sortOrder } },
-        { createdAt: 'desc' } // Tertiary sort for consistent ordering
-      ]
-    } else {
-      orderBy[sortBy] = sortOrder
-    }
-
-    console.log('Tickets API - Query params:', { sortBy, sortOrder, statuses, excludeStatuses, unassigned })
-    console.log('Tickets API - Where clause:', JSON.stringify(where, null, 2))
-    console.log('Tickets API - OrderBy clause:', JSON.stringify(orderBy, null, 2))
-
-    const tickets = await prisma.ticket.findMany({
-      where,
-      include: {
-        requester: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true
-          }
-        },
-        assignee: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true
-          }
-        },
-        comments: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true
-              }
-            }
-          },
-          orderBy: {
-            createdAt: 'desc'
-          }
-        }
-      },
-      orderBy,
-      take: limit
-    })
-
-    return NextResponse.json({ tickets })
-  } catch (error) {
-    console.error('Error fetching tickets:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch tickets' },
-      { status: 500 }
-    )
+  const user = await getCurrentUser(request)
+  if (!user) {
+    throw new Error('UNAUTHORIZED')
   }
-}
+
+  const { searchParams } = new URL(request.url)
+
+  // Parse query parameters with defaults
+  const params = parseQueryParams(searchParams, {
+    limit: 100,
+    page: 1,
+    sortBy: 'createdAt',
+    sortOrder: 'desc',
+    unassigned: false
+  })
+
+  const statuses = searchParams.getAll('status')
+  const excludeStatuses = searchParams.getAll('excludeStatus')
+  const priority = searchParams.get('priority')
+  const assigneeId = searchParams.get('assigneeId')
+
+  // Build where clause with access control
+  const accessWhere = await buildTicketAccessWhere(user)
+  const where = { ...accessWhere }
+
+  // Handle status filters
+  if (statuses.length > 0) {
+    where.status = { in: statuses }
+  } else if (excludeStatuses.length > 0) {
+    where.status = { notIn: excludeStatuses }
+  }
+
+  if (priority) where.priority = priority
+
+  // Handle assignee filtering
+  if (params.unassigned) {
+    where.assigneeId = null
+  } else if (assigneeId) {
+    where.assigneeId = assigneeId
+  }
+
+  // Build orderBy clause
+  let orderBy = {}
+  switch (params.sortBy) {
+    case 'priority':
+      orderBy = [
+        { priority: params.sortOrder },
+        { createdAt: 'desc' }
+      ]
+      break
+    case 'requester':
+      orderBy = [
+        { requester: { firstName: params.sortOrder } },
+        { requester: { lastName: params.sortOrder } },
+        { createdAt: 'desc' }
+      ]
+      break
+    default:
+      orderBy[params.sortBy] = params.sortOrder
+  }
+
+  // Use optimized select for better performance
+  const tickets = await prisma.ticket.findMany({
+    where,
+    select: {
+      ...QueryOptimizations.ticketSelect,
+      requester: {
+        select: QueryOptimizations.userSelect
+      },
+      assignee: {
+        select: QueryOptimizations.userSelect
+      },
+      _count: {
+        select: {
+          comments: true
+        }
+      }
+    },
+    orderBy,
+    take: params.limit,
+    skip: (params.page - 1) * params.limit
+  })
+
+  // Get total count for pagination
+  const total = await prisma.ticket.count({ where })
+
+  PerformanceMonitor.end('tickets-fetch')
+
+  return ApiSuccess.ok({
+    tickets,
+    pagination: {
+      total,
+      page: params.page,
+      limit: params.limit,
+      hasMore: (params.page * params.limit) < total
+    }
+  })
+})
 
 export async function POST(request) {
   try {
+    // Authentication check
+    const user = await getCurrentUser(request)
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized access. Please log in.' },
+        { status: 401 }
+      )
+    }
+
     const data = await request.json()
+
+    // Set requesterId to current user if not provided
+    const requesterId = data.requesterId || user.id
 
     // Enhanced AI processing with routing and categorization
     let category = data.category
@@ -121,7 +139,7 @@ export async function POST(request) {
 
     if (!category || !departmentId) {
       try {
-        const aiProcessing = await processTicketWithAI(data.title, data.description, data.requesterId)
+        const aiProcessing = await processTicketWithAI(data.title, data.description, requesterId)
 
         // Use AI results if not manually specified
         if (!category) {
@@ -167,7 +185,7 @@ export async function POST(request) {
         status: finalStatus,
         priority,
         category,
-        requesterId: data.requesterId,
+        requesterId: requesterId,
         assigneeId: finalAssigneeId,
         departmentId
       },

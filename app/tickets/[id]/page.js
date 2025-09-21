@@ -51,9 +51,9 @@ export default function TicketDetailPage({ params }) {
   const [submittingComment, setSubmittingComment] = useState(false)
   const [users, setUsers] = useState([])
 
-  const isAgent = user?.roles?.some(role => ['Admin', 'Manager', 'Agent'].includes(role))
+  const isStaff = user?.roles?.some(role => ['Admin', 'Manager', 'Staff'].includes(role))
   const isAdmin = user?.roles?.some(role => ['Admin', 'Manager'].includes(role))
-  const canEdit = isAgent || ticket?.requesterId === user?.id
+  const canEdit = isStaff || ticket?.requesterId === user?.id
 
   // Handle back navigation to previous view
   const handleBackNavigation = () => {
@@ -80,11 +80,11 @@ export default function TicketDetailPage({ params }) {
   useEffect(() => {
     if (params.id) {
       fetchTicket()
-      if (isAgent) {
+      if (isStaff) {
         fetchUsers()
       }
     }
-  }, [params.id, isAgent])
+  }, [params.id, isStaff])
 
   const fetchTicket = async () => {
     try {
@@ -453,18 +453,25 @@ export default function TicketDetailPage({ params }) {
                       )}
                     </div>
                     
-                    {/* Agent Actions */}
-                    {isAgent && (
+                    {/* Staff Actions */}
+                    {isStaff && (
                       <div className="flex items-center space-x-3">
                         {/* Take it Button (for unassigned tickets) */}
-                        {!ticket.assignee && (
-                          <Button 
+                        {!ticket.assignee && !(isStaff && !isAdmin && ticket.requesterId === user?.id) && (
+                          <Button
                             onClick={() => assignToSelf()}
                             className="bg-green-600 hover:bg-green-700 text-white"
                           >
                             <User className="w-4 h-4 mr-2" />
                             Take it!
                           </Button>
+                        )}
+
+                        {/* Message for staff who can't take their own tickets */}
+                        {!ticket.assignee && isStaff && !isAdmin && ticket.requesterId === user?.id && (
+                          <div className="text-sm text-amber-600 bg-amber-50 px-3 py-2 rounded border border-amber-200">
+                            Staff members cannot take tickets they created themselves. Please wait for another staff member, manager, or admin to assign this ticket.
+                          </div>
                         )}
                         
                         {/* Admin Take Over Button (for tickets assigned to others) */}
@@ -596,7 +603,7 @@ export default function TicketDetailPage({ params }) {
                       />
                       
                       <div className="flex items-center justify-between">
-                        {isAgent && (
+                        {isStaff && (
                           <div className="flex items-center space-x-2">
                             <Switch
                               id="internal"
@@ -636,7 +643,7 @@ export default function TicketDetailPage({ params }) {
                 <CardContent className="space-y-4">
                   <div>
                     <label className="text-sm font-medium">Status</label>
-                    {isAgent ? (
+                    {isStaff ? (
                       <Select
                         value={ticket.status}
                         onValueChange={(value) => handleUpdateTicket('status', value)}
@@ -664,7 +671,7 @@ export default function TicketDetailPage({ params }) {
 
                   <div>
                     <label className="text-sm font-medium">Priority</label>
-                    {isAgent ? (
+                    {isStaff ? (
                       <Select
                         value={ticket.priority}
                         onValueChange={(value) => handleUpdateTicket('priority', value)}
@@ -688,7 +695,7 @@ export default function TicketDetailPage({ params }) {
                     )}
                   </div>
 
-                  {isAgent && (
+                  {isStaff && (
                     <div>
                       <label className="text-sm font-medium">Assignee</label>
                       <Select

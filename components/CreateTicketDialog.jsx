@@ -22,56 +22,64 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Plus, Loader2 } from 'lucide-react'
-import { toast } from 'sonner'
+import { useApiCall } from '@/hooks/useAsyncOperation'
+import { useForm } from '@/hooks/useForm'
+
+const INITIAL_VALUES = {
+  title: '',
+  description: '',
+  priority: 'NORMAL'
+}
+
+const VALIDATION_RULES = {
+  title: {
+    required: true,
+    minLength: 3,
+    maxLength: 200,
+    message: 'Title must be between 3 and 200 characters'
+  },
+  description: {
+    required: true,
+    minLength: 10,
+    maxLength: 2000,
+    message: 'Description must be between 10 and 2000 characters'
+  }
+}
 
 export default function CreateTicketDialog({ onTicketCreated }) {
   const { makeAuthenticatedRequest } = useAuth()
   const [open, setOpen] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    priority: 'NORMAL'
-  })
+
+  const apiCall = useApiCall(makeAuthenticatedRequest)
+  const form = useForm(INITIAL_VALUES, VALIDATION_RULES)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    
-    if (!formData.title.trim() || !formData.description.trim()) {
-      toast.error('Please fill in all required fields')
+
+    if (!form.validate()) {
       return
     }
 
-    setLoading(true)
-    
     try {
-      const response = await makeAuthenticatedRequest('/api/tickets', {
+      const ticket = await apiCall.call('/api/tickets', {
         method: 'POST',
-        body: JSON.stringify(formData)
+        body: JSON.stringify(form.values)
+      }, {
+        showSuccessToast: true,
+        successMessage: 'Ticket created successfully!',
+        onSuccess: (data) => {
+          form.reset()
+          setOpen(false)
+          onTicketCreated?.(data)
+        }
       })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to create ticket')
-      }
-
-      toast.success('Ticket created successfully!')
-      setFormData({ title: '', description: '', priority: 'NORMAL' })
-      setOpen(false)
-      
-      if (onTicketCreated) {
-        onTicketCreated(data)
-      }
     } catch (error) {
-      toast.error(error.message)
-    } finally {
-      setLoading(false)
+      // Error handling is done by useApiCall
     }
   }
 
-  const handleChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+  const handlePriorityChange = (value) => {
+    form.setValue('priority', value)
   }
 
   return (
@@ -96,27 +104,30 @@ export default function CreateTicketDialog({ onTicketCreated }) {
             <Input
               id="title"
               placeholder="Brief description of your issue"
-              value={formData.title}
-              onChange={(e) => handleChange('title', e.target.value)}
-              required
+              {...form.getFieldProps('title')}
+              className={form.errors.title && form.touched.title ? 'border-red-500' : ''}
             />
+            {form.errors.title && form.touched.title && (
+              <p className="text-sm text-red-600">{form.errors.title}</p>
+            )}
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="description">Description *</Label>
             <Textarea
               id="description"
               placeholder="Provide detailed information about your issue, including steps to reproduce, error messages, etc."
-              value={formData.description}
-              onChange={(e) => handleChange('description', e.target.value)}
-              className="min-h-[120px]"
-              required
+              {...form.getFieldProps('description')}
+              className={`min-h-[120px] ${form.errors.description && form.touched.description ? 'border-red-500' : ''}`}
             />
+            {form.errors.description && form.touched.description && (
+              <p className="text-sm text-red-600">{form.errors.description}</p>
+            )}
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="priority">Priority</Label>
-            <Select value={formData.priority} onValueChange={(value) => handleChange('priority', value)}>
+            <Select value={form.values.priority} onValueChange={handlePriorityChange}>
               <SelectTrigger>
                 <SelectValue placeholder="Select priority" />
               </SelectTrigger>
@@ -128,13 +139,13 @@ export default function CreateTicketDialog({ onTicketCreated }) {
               </SelectContent>
             </Select>
           </div>
-          
+
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button type="submit" disabled={apiCall.loading}>
+              {apiCall.loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Create Ticket
             </Button>
           </DialogFooter>

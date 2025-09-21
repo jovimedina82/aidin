@@ -1,11 +1,18 @@
 import { NextResponse } from 'next/server'
-import { PrismaClient } from '../../../../lib/generated/prisma/index.js'
-import { getCurrentUser } from '../../../../lib/auth.js'
+import { prisma } from "@/lib/prisma"
+import { getCurrentUser } from "@/lib/auth"
+import { hasTicketAccess, canTakeTicket } from "@/lib/access-control"
 
-const prisma = new PrismaClient()
 
 export async function GET(request, { params }) {
   try {
+    // Get current user for access control
+    const currentUser = await getCurrentUser(request)
+    if (!currentUser) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+
     const ticket = await prisma.ticket.findUnique({
       where: {
         id: params.id
@@ -52,6 +59,16 @@ export async function GET(request, { params }) {
       )
     }
 
+    // Apply access control
+    const hasAccess = await hasTicketAccess(currentUser, ticket)
+
+    if (!hasAccess) {
+      return NextResponse.json(
+        { error: 'Access denied' },
+        { status: 403 }
+      )
+    }
+
     return NextResponse.json(ticket)
   } catch (error) {
     console.error('Error fetching ticket:', error)
@@ -65,6 +82,54 @@ export async function GET(request, { params }) {
 export async function PUT(request, { params }) {
   try {
     const data = await request.json()
+
+    // Get current user for validation
+    const currentUser = await getCurrentUser(request)
+    if (!currentUser) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Get user roles
+    const userRoles = currentUser?.roles || []
+    const roleNames = userRoles.map(role =>
+      typeof role === 'string' ? role : (role.role?.name || role.name)
+    )
+
+    // If assigneeId is being updated, validate staff assignment rules
+    if (data.assigneeId) {
+      // Get the current ticket to check who created it
+      const currentTicket = await prisma.ticket.findUnique({
+        where: { id: params.id }
+      })
+
+      if (!currentTicket) {
+        return NextResponse.json({ error: 'Ticket not found' }, { status: 404 })
+      }
+
+      // Staff validation - staff cannot be assigned to tickets they created
+      if (currentTicket.requesterId === data.assigneeId) {
+        // Get the assignee's roles to check if they are staff
+        const assignee = await prisma.user.findUnique({
+          where: { id: data.assigneeId },
+          include: {
+            roles: {
+              include: {
+                role: true
+              }
+            }
+          }
+        })
+
+        if (assignee) {
+          const assigneeRoles = assignee.roles.map(role => role.role.name)
+          if (assigneeRoles.includes('Staff')) {
+            return NextResponse.json({
+              error: 'Staff members cannot be assigned to tickets they created themselves. Please assign to another staff member, manager, or admin.'
+            }, { status: 403 })
+          }
+        }
+      }
+    }
 
     const ticket = await prisma.ticket.update({
       where: {
@@ -164,6 +229,12 @@ export async function PATCH(request, { params }) {
 
       // Rule 3: When changing FROM 'NEW' to any other status, auto-assign to current user
       if (currentTicket.status === 'NEW' && data.status !== 'NEW') {
+        // Rule 3a: Staff validation - staff cannot take tickets they created themselves
+        if (currentTicket.requesterId === currentUser.id && roleNames.includes('Staff')) {
+          return NextResponse.json({
+            error: 'Staff members cannot take tickets they created themselves. This ticket must be assigned to another staff member, manager, or admin.'
+          }, { status: 403 })
+        }
         updateData.assigneeId = currentUser.id
       }
     }

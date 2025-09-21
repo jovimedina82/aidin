@@ -69,8 +69,8 @@ function TicketsPageContent() {
   const [draggedIndex, setDraggedIndex] = useState(null)
   const [dragOverIndex, setDragOverIndex] = useState(null)
   const [draggedSection, setDraggedSection] = useState(null)
-  const [expandedAgents, setExpandedAgents] = useState(new Set())
-  const [agents, setAgents] = useState([])
+  const [expandedStaff, setExpandedStaff] = useState(new Set())
+  const [staff, setStaff] = useState([])
 
   // Role-based permissions
   // Handle both role formats: string array or object array
@@ -116,11 +116,19 @@ function TicketsPageContent() {
   // Sidebar views configuration organized by sections
   const personalViews = [
     {
+      id: 'personal-new',
+      label: 'New',
+      count: stats.personal?.newTickets || 0,
+      icon: AlertTriangle,
+      filter: { status: 'NEW' },
+      section: 'personal'
+    },
+    {
       id: 'personal-open',
       label: 'Open',
       count: stats.personal?.open || 0,
       icon: AlertCircle,
-      filter: { assigneeId: user?.id, status: 'OPEN' },
+      filter: { status: 'OPEN' },
       section: 'personal'
     },
     {
@@ -128,7 +136,7 @@ function TicketsPageContent() {
       label: 'Pending',
       count: stats.personal?.pending || 0,
       icon: Clock,
-      filter: { assigneeId: user?.id, status: 'PENDING' },
+      filter: { status: 'PENDING' },
       section: 'personal'
     },
     {
@@ -136,7 +144,7 @@ function TicketsPageContent() {
       label: 'On-hold',
       count: stats.personal?.onHold || 0,
       icon: Pause,
-      filter: { assigneeId: user?.id, status: 'ON_HOLD' },
+      filter: { status: 'ON_HOLD' },
       section: 'personal'
     },
     {
@@ -144,7 +152,7 @@ function TicketsPageContent() {
       label: 'Recently Solved',
       count: stats.personal?.solved || 0,
       icon: CheckCircle,
-      filter: { assigneeId: user?.id, status: 'SOLVED', recentOnly: true },
+      filter: { status: 'SOLVED', recentOnly: true },
       section: 'personal'
     }
   ]
@@ -222,7 +230,7 @@ function TicketsPageContent() {
     fetchStats()
     fetchTickets()
     if (isAdmin) {
-      fetchAgents()
+      fetchStaff()
     }
   }, [currentView])
 
@@ -254,7 +262,7 @@ function TicketsPageContent() {
     if (expanded) {
       try {
         const expandedArray = JSON.parse(expanded)
-        setExpandedAgents(new Set(expandedArray))
+        setExpandedStaff(new Set(expandedArray))
       } catch (error) {
         console.error('Failed to parse expanded agents:', error)
       }
@@ -340,7 +348,7 @@ function TicketsPageContent() {
     }
   }
 
-  const fetchAgents = async () => {
+  const fetchStaff = async () => {
     try {
       const response = await makeAuthenticatedRequest('/api/users')
       if (response.ok) {
@@ -351,9 +359,9 @@ function TicketsPageContent() {
           const roleNames = userRoles.map(role =>
             typeof role === 'string' ? role : (role.role?.name || role.name)
           )
-          return roleNames.includes('Agent') || roleNames.includes('Admin')
+          return roleNames.includes('Staff') || roleNames.includes('Admin')
         }) || []
-        setAgents(agentUsers)
+        setStaff(agentUsers)
       }
     } catch (error) {
       console.error('Failed to fetch agents:', error)
@@ -552,17 +560,17 @@ function TicketsPageContent() {
   }
 
   // Helper functions for hierarchical view
-  const toggleAgentExpansion = (agentId) => {
-    const newExpanded = new Set(expandedAgents)
-    if (newExpanded.has(agentId)) {
-      newExpanded.delete(agentId)
+  const toggleStaffExpansion = (staffId) => {
+    const newExpanded = new Set(expandedStaff)
+    if (newExpanded.has(staffId)) {
+      newExpanded.delete(staffId)
     } else {
-      newExpanded.add(agentId)
+      newExpanded.add(staffId)
     }
-    setExpandedAgents(newExpanded)
+    setExpandedStaff(newExpanded)
   }
 
-  const groupTicketsByAgent = (tickets, excludeUnassigned = false) => {
+  const groupTicketsByStaff = (tickets, excludeUnassigned = false) => {
     const grouped = {}
 
     // Group tickets by assignee (tickets are already sorted from the API)
@@ -617,21 +625,21 @@ function TicketsPageContent() {
     return grouped
   }
 
-  const getAgentName = (agentKey, assigneeData, allGroupedTickets) => {
-    if (agentKey === 'unassigned') return 'Unassigned'
+  const getStaffName = (staffKey, assigneeData, allGroupedTickets) => {
+    if (staffKey === 'unassigned') return 'Unassigned'
 
     let baseName = ''
     if (assigneeData) {
       baseName = `${assigneeData.firstName} ${assigneeData.lastName}`
     } else {
-      // Fallback to agents array lookup
-      const agent = agents.find(a => a.id === agentKey)
-      baseName = agent ? `${agent.firstName} ${agent.lastName}` : `Deleted User (${agentKey.slice(-8)})`
+      // Fallback to staff array lookup
+      const staffMember = staff.find(a => a.id === staffKey)
+      baseName = staffMember ? `${staffMember.firstName} ${staffMember.lastName}` : `Deleted User (${staffKey.slice(-8)})`
     }
 
     // Check for duplicate names and add numbers if needed
     if (allGroupedTickets) {
-      const sameNameAgents = []
+      const sameNameStaff = []
 
       // Find all agents with the same base name
       Object.keys(allGroupedTickets).forEach(key => {
@@ -644,20 +652,20 @@ function TicketsPageContent() {
         if (ticketGroup?.assignee) {
           otherName = `${ticketGroup.assignee.firstName} ${ticketGroup.assignee.lastName}`
         } else {
-          // Fallback to agents array lookup
-          const agent = agents.find(a => a.id === key)
-          otherName = agent ? `${agent.firstName} ${agent.lastName}` : `Deleted User (${key.slice(-8)})`
+          // Fallback to staff array lookup
+          const staffMember = staff.find(a => a.id === key)
+          otherName = staffMember ? `${staffMember.firstName} ${staffMember.lastName}` : `Deleted User (${key.slice(-8)})`
         }
 
         if (otherName === baseName) {
-          sameNameAgents.push(key)
+          sameNameStaff.push(key)
         }
       })
 
       // If there are duplicates, add numbers
-      if (sameNameAgents.length > 1) {
-        const sortedAgents = sameNameAgents.sort()
-        const index = sortedAgents.indexOf(agentKey)
+      if (sameNameStaff.length > 1) {
+        const sortedStaff = sameNameStaff.sort()
+        const index = sortedStaff.indexOf(staffKey)
         return `${baseName} ${index + 1}`
       }
     }
@@ -999,7 +1007,7 @@ function TicketsPageContent() {
   }
 
   const isSimplifiedView = () => {
-    return isSolvedView() || currentView === 'unassigned' || currentView === 'company-new' || currentView === 'personal-open' || currentView === 'personal-pending' || currentView === 'personal-on-hold'
+    return isSolvedView() || currentView === 'unassigned' || currentView === 'company-new' || currentView === 'personal-new' || currentView === 'personal-open' || currentView === 'personal-pending' || currentView === 'personal-on-hold'
   }
 
   const calculateTTR = (createdAt, resolvedAt) => {
@@ -1029,15 +1037,18 @@ function TicketsPageContent() {
       <div className="container mx-auto px-4 py-8">
         <div className="flex gap-6">
           {/* Sidebar */}
-          <div className="w-64 bg-white rounded-lg shadow p-4 h-fit">
+          <div className="w-64 rounded-lg shadow p-4 h-fit" style={{ backgroundColor: '#3d6964' }}>
             <div className="p-4">
               {/* Personal Work Section */}
               <div className="mb-6">
-                <div className="flex items-center mb-3">
-                  <div className="h-px bg-gray-600 flex-1"></div>
-                  <span className="px-3 text-muted-foreground text-xs font-medium uppercase tracking-wide">Your Personal Work</span>
-                  <div className="h-px bg-gray-600 flex-1"></div>
-                </div>
+                {/* Header - Staff Only */}
+                {isStaff && (
+                  <div className="flex items-center mb-3">
+                    <div className="h-px bg-gray-600 flex-1"></div>
+                    <span className="px-3 text-white/60 text-xs font-medium uppercase tracking-wide">Your Personal Work</span>
+                    <div className="h-px bg-gray-600 flex-1"></div>
+                  </div>
+                )}
 
                 <div className="space-y-1">
                   {getOrderedPersonalViews().map((view, index) => {
@@ -1057,8 +1068,8 @@ function TicketsPageContent() {
                         onClick={() => setCurrentView(view.id)}
                         className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded-md transition-colors cursor-move ${
                           isActive
-                            ? 'bg-primary text-primary-foreground'
-                            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                            ? 'bg-white/20 text-white'
+                            : 'text-white/70 hover:bg-white/10 hover:text-white'
                         } ${
                           isDragging ? 'opacity-50 scale-95' : ''
                         } ${
@@ -1077,7 +1088,7 @@ function TicketsPageContent() {
                           </div>
                           <span>{view.label}</span>
                         </div>
-                        <span className="text-xs bg-muted px-2 py-1 rounded-full">
+                        <span className="text-xs bg-white/20 text-white px-2 py-1 rounded-full">
                           {view.count}
                         </span>
                       </button>
@@ -1092,12 +1103,12 @@ function TicketsPageContent() {
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center flex-1">
                       <div className="h-px bg-gray-600 flex-1"></div>
-                      <span className="px-3 text-muted-foreground text-xs font-medium uppercase tracking-wide">Your Company</span>
+                      <span className="px-3 text-white/60 text-xs font-medium uppercase tracking-wide">Your Company</span>
                       <div className="h-px bg-gray-600 flex-1"></div>
                     </div>
                     <button
                       onClick={resetUserPreferences}
-                      className="ml-2 px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted rounded border border-border hover:border-input transition-colors"
+                      className="ml-2 px-2 py-1 text-xs text-white/60 hover:text-white hover:bg-white/10 rounded border border-white/20 hover:border-white/40 transition-colors"
                       title="Reset view order to default"
                     >
                       Reset
@@ -1122,8 +1133,8 @@ function TicketsPageContent() {
                           onClick={() => setCurrentView(view.id)}
                           className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded-md transition-colors cursor-move ${
                             isActive
-                              ? 'bg-primary text-primary-foreground'
-                              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                              ? 'bg-white/20 text-white'
+                              : 'text-white/70 hover:bg-white/10 hover:text-white'
                           } ${
                             isDragging ? 'opacity-50 scale-95' : ''
                           } ${
@@ -1142,7 +1153,7 @@ function TicketsPageContent() {
                             </div>
                             <span>{view.label}</span>
                           </div>
-                          <span className="text-xs bg-muted px-2 py-1 rounded-full">
+                          <span className="text-xs bg-white/20 text-white px-2 py-1 rounded-full">
                             {view.count}
                           </span>
                         </button>
@@ -1152,33 +1163,37 @@ function TicketsPageContent() {
                 </div>
               )}
 
-              {/* Ticket Statistics */}
-              <div className="mt-8">
-                <h3 className="text-foreground text-sm font-medium mb-4">Ticket statistics</h3>
-                <div className="text-xs text-muted-foreground mb-2">This week</div>
-                <div className="text-center">
-                  <div>
-                    <div className="text-3xl font-bold text-green-400">
-                      {stats.total > 0 ? Math.round((stats.solved / stats.total) * 100) : 0}%
-                    </div>
-                    <div className="text-xs text-muted-foreground">Effectiveness</div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {stats.solved} / {stats.total} tickets solved
+              {/* Ticket Statistics - Staff Only */}
+              {isStaff && (
+                <div className="mt-8">
+                  <h3 className="text-white text-sm font-medium mb-4">Ticket statistics</h3>
+                  <div className="text-xs text-white/70 mb-2">This week</div>
+                  <div className="text-center">
+                    <div>
+                      <div className="text-3xl font-bold text-green-400">
+                        {stats.total > 0 ? Math.round((stats.solved / stats.total) * 100) : 0}%
+                      </div>
+                      <div className="text-xs text-white/70">Effectiveness</div>
+                      <div className="text-xs text-white/70 mt-1">
+                        {stats.solved} / {stats.total} tickets solved
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
 
-              {/* Open Tickets */}
-              <div className="mt-8">
-                <h3 className="text-foreground text-sm font-medium mb-4">Open tickets</h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Your groups</span>
-                    <span className="text-primary">{stats.unassigned}</span>
+              {/* Open Tickets - Staff Only */}
+              {isStaff && (
+                <div className="mt-8">
+                  <h3 className="text-white text-sm font-medium mb-4">Open tickets</h3>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-white/60">Your groups</span>
+                      <span className="text-blue-400">{stats.unassigned}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
 
@@ -1191,22 +1206,24 @@ function TicketsPageContent() {
                   // Simplified filters for solved views and unassigned tickets - only search and save report
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
-                      <h2 className="text-lg font-medium">
-                        {(() => {
-                          // Calculate the actual displayed count after all filtering
-                          if (shouldShowHierarchicalView()) {
-                            const issolvedView = currentView === 'company-solved' || currentView === 'solved-history'
-                            const groupedTickets = groupTicketsByAgent(filteredTickets, issolvedView)
-                            return Object.values(groupedTickets).reduce((total, agentData) => total + agentData.tickets.length, 0)
-                          } else {
-                            return filteredTickets.length
-                          }
-                        })()} tickets
-                      </h2>
+                      {isStaff && (
+                        <h2 className="text-lg font-medium">
+                          {(() => {
+                            // Calculate the actual displayed count after all filtering
+                            if (shouldShowHierarchicalView()) {
+                              const issolvedView = currentView === 'company-solved' || currentView === 'solved-history'
+                              const groupedTickets = groupTicketsByStaff(filteredTickets, issolvedView)
+                              return Object.values(groupedTickets).reduce((total, staffData) => total + staffData.tickets.length, 0)
+                            } else {
+                              return filteredTickets.length
+                            }
+                          })()} tickets
+                        </h2>
+                      )}
 
 
-                      {/* Add Status filter for unassigned view only */}
-                      {currentView === 'unassigned' && (
+                      {/* Add Status filter for unassigned view only - Staff Only */}
+                      {isStaff && currentView === 'unassigned' && (
                         <div className="flex items-center space-x-2">
                           <span className="text-sm text-gray-500">Status</span>
                           <Select value={statusFilter} onValueChange={(value) => {
@@ -1250,7 +1267,9 @@ function TicketsPageContent() {
                   // Full filters for non-solved views
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
-                      <h2 className="text-lg font-medium">{filteredTickets.length} tickets</h2>
+                      {isStaff && (
+                        <h2 className="text-lg font-medium">{filteredTickets.length} tickets</h2>
+                      )}
 
                       {/* Search textbox for company views */}
                       {(currentView === 'company-open' || currentView === 'company-pending' || currentView === 'company-on-hold') && (
@@ -1266,7 +1285,7 @@ function TicketsPageContent() {
                         </div>
                       )}
 
-                      {currentView !== 'company-open' && currentView !== 'company-pending' && currentView !== 'company-on-hold' && (
+                      {isStaff && currentView !== 'company-open' && currentView !== 'company-pending' && currentView !== 'company-on-hold' && (
                         <div className="flex items-center space-x-2">
                           <span className="text-sm text-gray-500">Status</span>
                           <Select value={statusFilter} onValueChange={(value) => {
@@ -1312,38 +1331,42 @@ function TicketsPageContent() {
                           </>
                         )}
 
-                        <span className="text-sm text-gray-500">Sort by</span>
-                        <Select value={sortBy === 'requester' ? `requester_${sortOrder}` : sortBy} onValueChange={(value) => {
-                          if (value === 'requester_asc') {
-                            setSortBy('requester')
-                            setSortOrder('asc')
-                          } else if (value === 'requester_desc') {
-                            setSortBy('requester')
-                            setSortOrder('desc')
-                          } else {
-                            setSortBy(value)
-                            // Set appropriate default sortOrder for other fields
-                            if (value === 'created' || value === 'updated') {
-                              setSortOrder('desc')
-                            } else {
-                              setSortOrder('asc')
-                            }
-                          }
-                          // Trigger refetch when sort changes
-                          setTimeout(() => fetchTickets(), 100)
-                        }}>
-                          <SelectTrigger className="w-40">
-                            <SelectValue placeholder="Sort by..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="updated">Newest updated</SelectItem>
-                            <SelectItem value="created">Newest created</SelectItem>
-                            <SelectItem value="priority">Priority</SelectItem>
-                            <SelectItem value="status">Status</SelectItem>
-                            <SelectItem value="requester_asc">Requester A-Z</SelectItem>
-                            <SelectItem value="requester_desc">Requester Z-A</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        {isStaff && (
+                          <>
+                            <span className="text-sm text-gray-500">Sort by</span>
+                            <Select value={sortBy === 'requester' ? `requester_${sortOrder}` : sortBy} onValueChange={(value) => {
+                              if (value === 'requester_asc') {
+                                setSortBy('requester')
+                                setSortOrder('asc')
+                              } else if (value === 'requester_desc') {
+                                setSortBy('requester')
+                                setSortOrder('desc')
+                              } else {
+                                setSortBy(value)
+                                // Set appropriate default sortOrder for other fields
+                                if (value === 'created' || value === 'updated') {
+                                  setSortOrder('desc')
+                                } else {
+                                  setSortOrder('asc')
+                                }
+                              }
+                              // Trigger refetch when sort changes
+                              setTimeout(() => fetchTickets(), 100)
+                            }}>
+                              <SelectTrigger className="w-40">
+                                <SelectValue placeholder="Sort by..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="updated">Newest updated</SelectItem>
+                                <SelectItem value="created">Newest created</SelectItem>
+                                <SelectItem value="priority">Priority</SelectItem>
+                                <SelectItem value="status">Status</SelectItem>
+                                <SelectItem value="requester_asc">Requester A-Z</SelectItem>
+                                <SelectItem value="requester_desc">Requester Z-A</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </>
+                        )}
                       </div>
                       </div>
 
@@ -1366,18 +1389,20 @@ function TicketsPageContent() {
               {/* Table Header - only for non-solved views */}
               {!isSolvedView() && (
                 <div className="p-4 border-b">
-                  {currentView === 'unassigned' || currentView === 'company-new' || currentView === 'personal-open' || currentView === 'personal-pending' || currentView === 'personal-on-hold' ? (
+                  {currentView === 'unassigned' || currentView === 'company-new' || currentView === 'personal-new' || currentView === 'personal-open' || currentView === 'personal-pending' || currentView === 'personal-on-hold' ? (
                     // Unassigned, New, Personal Open, Personal Pending, and Personal On-Hold views - no Assignee column
-                    <div className="grid grid-cols-10 gap-4 text-sm font-medium text-gray-700">
+                    <div className={`grid gap-4 text-sm font-medium text-gray-700 ${isStaff ? 'grid-cols-10' : 'grid-cols-8'}`}>
                       <div className="col-span-1">Status</div>
-                      <div className="col-span-5">Subject</div>
-                      <div
-                        className="col-span-2 cursor-pointer hover:text-gray-900 flex items-center"
-                        onClick={() => handleColumnSort('requester')}
-                      >
-                        Requester
-                        {getSortIndicator('requester')}
-                      </div>
+                      <div className={isStaff ? "col-span-5" : "col-span-5"}>Subject</div>
+                      {isStaff && (
+                        <div
+                          className="col-span-2 cursor-pointer hover:text-gray-900 flex items-center"
+                          onClick={() => handleColumnSort('requester')}
+                        >
+                          Requester
+                          {getSortIndicator('requester')}
+                        </div>
+                      )}
                       <div
                         className="col-span-2 cursor-pointer hover:text-gray-900 flex items-center"
                         onClick={() => handleColumnSort('created')}
@@ -1388,16 +1413,18 @@ function TicketsPageContent() {
                     </div>
                   ) : (
                     // All other views - with Assignee column
-                    <div className="grid grid-cols-11 gap-4 text-sm font-medium text-gray-700">
+                    <div className={`grid gap-4 text-sm font-medium text-gray-700 ${isStaff ? 'grid-cols-11' : 'grid-cols-9'}`}>
                       <div className="col-span-1">Status</div>
                       <div className="col-span-4">Subject</div>
-                      <div
-                        className="col-span-2 cursor-pointer hover:text-gray-900 flex items-center"
-                        onClick={() => handleColumnSort('requester')}
-                      >
-                        Requester
-                        {getSortIndicator('requester')}
-                      </div>
+                      {isStaff && (
+                        <div
+                          className="col-span-2 cursor-pointer hover:text-gray-900 flex items-center"
+                          onClick={() => handleColumnSort('requester')}
+                        >
+                          Requester
+                          {getSortIndicator('requester')}
+                        </div>
+                      )}
                       <div
                         className="col-span-2 cursor-pointer hover:text-gray-900 flex items-center"
                         onClick={() => handleColumnSort('created')}
@@ -1468,37 +1495,37 @@ function TicketsPageContent() {
                   (() => {
                     // Exclude unassigned tickets for solved views (they shouldn't exist)
                     const issolvedView = currentView === 'company-solved' || currentView === 'solved-history'
-                    const groupedTickets = groupTicketsByAgent(filteredTickets, issolvedView)
-                    return Object.entries(groupedTickets).map(([agentId, agentData]) => (
-                    <div key={agentId} className="border-b border-gray-100 last:border-b-0">
-                      {/* Agent Header */}
+                    const groupedTickets = groupTicketsByStaff(filteredTickets, issolvedView)
+                    return Object.entries(groupedTickets).map(([staffId, staffData]) => (
+                    <div key={staffId} className="border-b border-gray-100 last:border-b-0">
+                      {/* Staff Header */}
                       <div
                         className="p-4 bg-gray-50 hover:bg-gray-100 cursor-pointer flex items-center justify-between"
-                        onClick={() => toggleAgentExpansion(agentId)}
+                        onClick={() => toggleStaffExpansion(staffId)}
                       >
                         <div className="flex items-center space-x-3">
-                          {expandedAgents.has(agentId) ? (
+                          {expandedStaff.has(staffId) ? (
                             <ChevronDown className="w-4 h-4 text-gray-500" />
                           ) : (
                             <ChevronRight className="w-4 h-4 text-gray-500" />
                           )}
                           <User className="w-5 h-5 text-gray-600" />
                           <span className="font-medium text-gray-900">
-                            {getAgentName(agentId, agentData.assignee, groupedTickets)}
+                            {getStaffName(staffId, staffData.assignee, groupedTickets)}
                           </span>
                           <Badge variant="outline" className="ml-2">
-                            {agentData.tickets.length} ticket{agentData.tickets.length !== 1 ? 's' : ''}
+                            {`${staffData.tickets.length} ticket${staffData.tickets.length !== 1 ? 's' : ''}`}
                           </Badge>
                         </div>
                       </div>
 
-                      {/* Agent's Tickets */}
-                      {expandedAgents.has(agentId) && (
+                      {/* Staff's Tickets */}
+                      {expandedStaff.has(staffId) && (
                         <div className="pl-8">
                           {isSolvedView() ? (
                             // Card layout for solved views
                             <div className="grid gap-4 py-4">
-                              {agentData.tickets.map((ticket) => (
+                              {staffData.tickets.map((ticket) => (
                                 <div
                                   key={ticket.id}
                                   className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer hover:border-gray-300"
@@ -1508,7 +1535,7 @@ function TicketsPageContent() {
                                       status: statusFilter,
                                       search: searchTerm,
                                       sort: sortBy,
-                                      expanded: JSON.stringify(Array.from(expandedAgents))
+                                      expanded: JSON.stringify(Array.from(expandedStaff))
                                     })
                                     router.push(`/tickets/${ticket.id}?return=${encodeURIComponent(returnParams.toString())}`)
                                   }}
@@ -1533,13 +1560,15 @@ function TicketsPageContent() {
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                                     {/* Left Column */}
                                     <div className="space-y-2">
-                                      <div className="flex items-center space-x-2">
-                                        <User className="w-4 h-4 text-gray-400" />
-                                        <span className="text-gray-600">Requester:</span>
-                                        <span className="text-gray-900">
-                                          {ticket.requester?.firstName} {ticket.requester?.lastName}
-                                        </span>
-                                      </div>
+                                      {isStaff && (
+                                        <div className="flex items-center space-x-2">
+                                          <User className="w-4 h-4 text-gray-400" />
+                                          <span className="text-gray-600">Requester:</span>
+                                          <span className="text-gray-900">
+                                            {ticket.requester?.firstName} {ticket.requester?.lastName}
+                                          </span>
+                                        </div>
+                                      )}
                                       <div className="flex items-center space-x-2">
                                         <Calendar className="w-4 h-4 text-gray-400" />
                                         <span className="text-gray-600">Requested:</span>
@@ -1575,7 +1604,7 @@ function TicketsPageContent() {
                             </div>
                           ) : (
                             // Column layout for non-solved views
-                            agentData.tickets.map((ticket) => (
+                            staffData.tickets.map((ticket) => (
                               <div key={ticket.id} className="p-4 hover:bg-gray-50 cursor-pointer border-l-2 border-gray-200"
                                    onClick={() => {
                                      const returnParams = new URLSearchParams({
@@ -1583,13 +1612,13 @@ function TicketsPageContent() {
                                        status: statusFilter,
                                        search: searchTerm,
                                        sort: sortBy,
-                                       expanded: JSON.stringify(Array.from(expandedAgents))
+                                       expanded: JSON.stringify(Array.from(expandedStaff))
                                      })
                                      router.push(`/tickets/${ticket.id}?return=${encodeURIComponent(returnParams.toString())}`)
                                    }}>
-                                {currentView === 'unassigned' || currentView === 'company-new' || currentView === 'personal-open' || currentView === 'personal-pending' || currentView === 'personal-on-hold' ? (
+                                {currentView === 'unassigned' || currentView === 'company-new' || currentView === 'personal-new' || currentView === 'personal-open' || currentView === 'personal-pending' || currentView === 'personal-on-hold' ? (
                                   // Unassigned, New, Personal Open, Personal Pending, and Personal On-Hold views - no Assignee column
-                                  <div className="grid grid-cols-10 gap-4 items-center">
+                                  <div className={`grid gap-4 items-center ${isStaff ? 'grid-cols-10' : 'grid-cols-8'}`}>
                                     {/* Status */}
                                     <div className="col-span-1">
                                       {getStatusBadge(ticket.status)}
@@ -1606,15 +1635,17 @@ function TicketsPageContent() {
                                       </div>
                                     </div>
 
-                                    {/* Requester */}
-                                    <div className="col-span-2">
-                                      <div className="flex items-center space-x-2">
-                                        <User className="w-4 h-4 text-gray-400" />
-                                        <span className="text-sm text-gray-900">
-                                          {ticket.requester?.firstName} {ticket.requester?.lastName}
-                                        </span>
+                                    {/* Requester - Staff Only */}
+                                    {isStaff && (
+                                      <div className="col-span-2">
+                                        <div className="flex items-center space-x-2">
+                                          <User className="w-4 h-4 text-gray-400" />
+                                          <span className="text-sm text-gray-900">
+                                            {ticket.requester?.firstName} {ticket.requester?.lastName}
+                                          </span>
+                                        </div>
                                       </div>
-                                    </div>
+                                    )}
 
                                     {/* Requested */}
                                     <div className="col-span-2">
@@ -1628,7 +1659,7 @@ function TicketsPageContent() {
                                   </div>
                                 ) : (
                                   // All other views - with Assignee column
-                                  <div className="grid grid-cols-11 gap-4 items-center">
+                                  <div className={`grid gap-4 items-center ${isStaff ? 'grid-cols-11' : 'grid-cols-9'}`}>
                                     {/* Status */}
                                     <div className="col-span-1">
                                       {getStatusBadge(ticket.status)}
@@ -1645,15 +1676,17 @@ function TicketsPageContent() {
                                       </div>
                                     </div>
 
-                                    {/* Requester */}
-                                    <div className="col-span-2">
-                                      <div className="flex items-center space-x-2">
-                                        <User className="w-4 h-4 text-gray-400" />
-                                        <span className="text-sm text-gray-900">
-                                          {ticket.requester?.firstName} {ticket.requester?.lastName}
-                                        </span>
+                                    {/* Requester - Staff Only */}
+                                    {isStaff && (
+                                      <div className="col-span-2">
+                                        <div className="flex items-center space-x-2">
+                                          <User className="w-4 h-4 text-gray-400" />
+                                          <span className="text-sm text-gray-900">
+                                            {ticket.requester?.firstName} {ticket.requester?.lastName}
+                                          </span>
+                                        </div>
                                       </div>
-                                    </div>
+                                    )}
 
                                     {/* Requested */}
                                     <div className="col-span-2">
@@ -1703,7 +1736,7 @@ function TicketsPageContent() {
                               status: statusFilter,
                               search: searchTerm,
                               sort: sortBy,
-                              expanded: JSON.stringify(Array.from(expandedAgents))
+                              expanded: JSON.stringify(Array.from(expandedStaff))
                             })
                             router.push(`/tickets/${ticket.id}?return=${encodeURIComponent(returnParams.toString())}`)
                           }}
@@ -1787,13 +1820,13 @@ function TicketsPageContent() {
                                status: statusFilter,
                                search: searchTerm,
                                sort: sortBy,
-                               expanded: JSON.stringify(Array.from(expandedAgents))
+                               expanded: JSON.stringify(Array.from(expandedStaff))
                              })
                              router.push(`/tickets/${ticket.id}?return=${encodeURIComponent(returnParams.toString())}`);
                            }}>
-                        {(currentView === 'unassigned' || currentView === 'company-new' || currentView === 'personal-open' || currentView === 'personal-pending' || currentView === 'personal-on-hold') ? (
+                        {(currentView === 'unassigned' || currentView === 'company-new' || currentView === 'personal-new' || currentView === 'personal-open' || currentView === 'personal-pending' || currentView === 'personal-on-hold') ? (
                           // Unassigned, New, Personal Open, Personal Pending, and Personal On-Hold views - no Assignee column
-                          <div className="grid grid-cols-10 gap-4 items-center">
+                          <div className={`grid gap-4 items-center ${isStaff ? 'grid-cols-10' : 'grid-cols-8'}`}>
                             {/* Status */}
                             <div className="col-span-1">
                               {getStatusBadge(ticket.status)}
@@ -1810,15 +1843,17 @@ function TicketsPageContent() {
                               </div>
                             </div>
 
-                            {/* Requester */}
-                            <div className="col-span-2">
-                              <div className="flex items-center space-x-2">
-                                <User className="w-4 h-4 text-gray-400" />
-                                <span className="text-sm text-gray-900">
-                                  {ticket.requester?.firstName} {ticket.requester?.lastName}
-                                </span>
+                            {/* Requester - Staff Only */}
+                            {isStaff && (
+                              <div className="col-span-2">
+                                <div className="flex items-center space-x-2">
+                                  <User className="w-4 h-4 text-gray-400" />
+                                  <span className="text-sm text-gray-900">
+                                    {ticket.requester?.firstName} {ticket.requester?.lastName}
+                                  </span>
+                                </div>
                               </div>
-                            </div>
+                            )}
 
                             {/* Requested */}
                             <div className="col-span-2">
@@ -1832,7 +1867,7 @@ function TicketsPageContent() {
                           </div>
                         ) : (
                           // All other views - with Assignee column
-                          <div className="grid grid-cols-11 gap-4 items-center">
+                          <div className={`grid gap-4 items-center ${isStaff ? 'grid-cols-11' : 'grid-cols-9'}`}>
                             {/* Status */}
                             <div className="col-span-1">
                               {getStatusBadge(ticket.status)}
@@ -1849,15 +1884,17 @@ function TicketsPageContent() {
                               </div>
                             </div>
 
-                            {/* Requester */}
-                            <div className="col-span-2">
-                              <div className="flex items-center space-x-2">
-                                <User className="w-4 h-4 text-gray-400" />
-                                <span className="text-sm text-gray-900">
-                                  {ticket.requester?.firstName} {ticket.requester?.lastName}
-                                </span>
+                            {/* Requester - Staff Only */}
+                            {isStaff && (
+                              <div className="col-span-2">
+                                <div className="flex items-center space-x-2">
+                                  <User className="w-4 h-4 text-gray-400" />
+                                  <span className="text-sm text-gray-900">
+                                    {ticket.requester?.firstName} {ticket.requester?.lastName}
+                                  </span>
+                                </div>
                               </div>
-                            </div>
+                            )}
 
                             {/* Requested */}
                             <div className="col-span-2">

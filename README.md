@@ -7,8 +7,8 @@
 ## Features
 
 - **AI-Powered Responses**: Automated ticket responses using OpenAI integration
-- **Hierarchical Ticket Views**: Organize tickets by agent with drag-and-drop functionality
-- **Role-Based Access Control**: Admin, Agent, and User roles with appropriate permissions
+- **Hierarchical Ticket Views**: Organize tickets by staff with drag-and-drop functionality
+- **Role-Based Access Control**: Admin, Staff, and User roles with appropriate permissions
 - **Azure AD Integration**: Single Sign-On support with Microsoft Azure AD
 - **Real-Time Statistics**: Live dashboard with effectiveness metrics
 - **Weekly Reporting**: Automated weekly statistics storage for historical reporting
@@ -71,7 +71,7 @@ The application will be available at `http://localhost:3000`
 After running the seed script, these test accounts are available:
 
 - **Admin**: admin@surterreproperties.com / admin123
-- **Agent**: agent@surterreproperties.com / admin123
+- **Staff**: staff@surterreproperties.com / admin123
 - **User**: user@surterreproperties.com / admin123
 
 ## Key Features

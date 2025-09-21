@@ -88,7 +88,13 @@
       "Bash(npx eslint:*)",
       "Bash(sed:*)",
       "Bash(timeout 10s npm run dev)",
-      "Bash(git init:*)"
+      "Bash(git init:*)",
+      "Read(//Users/owner/.ssh/**)",
+      "Bash(git remote add:*)",
+      "Bash(npx next lint:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npm run:*)",
+      "Bash(xargs:*)"
     ],
     "deny": [],
     "ask": []

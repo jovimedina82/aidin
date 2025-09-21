@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs'
 const prisma = new PrismaClient()
 
 // Test data arrays
-const agentNames = [
+const staffNames = [
   { firstName: 'Sarah', lastName: 'Johnson', email: 'sarah.johnson@surterreproperties.com' },
   { firstName: 'Mike', lastName: 'Chen', email: 'mike.chen@surterreproperties.com' },
   { firstName: 'Emily', lastName: 'Rodriguez', email: 'emily.rodriguez@surterreproperties.com' }
@@ -62,44 +62,44 @@ async function main() {
 
   try {
     // Get existing roles
-    const agentRole = await prisma.role.findFirst({ where: { name: 'Agent' } })
+    const staffRole = await prisma.role.findFirst({ where: { name: 'Staff' } })
     const requesterRole = await prisma.role.findFirst({ where: { name: 'Requester' } })
 
-    if (!agentRole || !requesterRole) {
-      throw new Error('Required roles (Agent, Requester) not found in database')
+    if (!staffRole || !requesterRole) {
+      throw new Error('Required roles (Staff, Requester) not found in database')
     }
 
-    // Create agents
-    console.log('👥 Creating 3 agents...')
-    const agents = []
-    for (const agent of agentNames) {
+    // Create staff members
+    console.log('👥 Creating 3 staff members...')
+    const staff = []
+    for (const staffMember of staffNames) {
       // Check if user already exists
-      let existingAgent = await prisma.user.findUnique({
-        where: { email: agent.email },
+      let existingStaff = await prisma.user.findUnique({
+        where: { email: staffMember.email },
         include: { roles: true }
       })
 
-      if (existingAgent) {
-        agents.push(existingAgent)
-        console.log(`♻️  Using existing agent: ${agent.firstName} ${agent.lastName}`)
+      if (existingStaff) {
+        staff.push(existingStaff)
+        console.log(`♻️  Using existing staff: ${staffMember.firstName} ${staffMember.lastName}`)
       } else {
         const hashedPassword = await bcrypt.hash('password123', 10)
-        const createdAgent = await prisma.user.create({
+        const createdStaff = await prisma.user.create({
           data: {
-            email: agent.email,
+            email: staffMember.email,
             password: hashedPassword,
-            firstName: agent.firstName,
-            lastName: agent.lastName,
+            firstName: staffMember.firstName,
+            lastName: staffMember.lastName,
             isActive: true,
             roles: {
               create: {
-                roleId: agentRole.id
+                roleId: staffRole.id
               }
             }
           }
         })
-        agents.push(createdAgent)
-        console.log(`✅ Created agent: ${agent.firstName} ${agent.lastName}`)
+        staff.push(createdStaff)
+        console.log(`✅ Created staff: ${staffMember.firstName} ${staffMember.lastName}`)
       }
     }
 
@@ -159,7 +159,7 @@ async function main() {
     for (let i = 1; i <= 30; i++) {
       const template = getRandomItem(ticketTemplates)
       const requester = getRandomItem(requesters)
-      const assignee = Math.random() > 0.3 ? getRandomItem(agents) : null // 70% chance of being assigned
+      const assignee = Math.random() > 0.3 ? getRandomItem(staff) : null // 70% chance of being assigned
       const status = getRandomItem(statuses)
       const priority = getRandomItem(priorities)
       const createdAt = getRandomDate()
@@ -188,12 +188,12 @@ async function main() {
     console.log('🎉 Test data generation completed successfully!')
     console.log(`
 📊 Summary:
-- Created 3 agents
+- Created 3 staff members
 - Created 5 requesters
 - Created 30 tickets
 - All users have password: password123
 
-🔐 Agent logins:
+🔐 Staff logins:
 - sarah.johnson@surterreproperties.com
 - mike.chen@surterreproperties.com
 - emily.rodriguez@surterreproperties.com

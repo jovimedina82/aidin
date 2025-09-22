@@ -22,12 +22,19 @@ model User {
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
   azureId         String?         @unique
+  userPrincipalName String?       @unique
+  jobTitle        String?
+  officeLocation  String?
+  mobilePhone     String?
+  avatar          String?
+  lastSyncAt      DateTime?
   comments        TicketComment[]
   assignedTickets Ticket[]        @relation("TicketAssignee")
   createdTickets  Ticket[]        @relation("TicketRequester")
   roles           UserRole[]
   preferences     UserPreference?
   departments     UserDepartment[]
+  auditLogs       AuditLog[]
 
   // Hierarchical relationships
   manager         User?           @relation("UserManager", fields: [managerId], references: [id])
@@ -231,4 +238,18 @@ model AIDecision {
   ticket            Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
   @@map("ai_decisions")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String
+  action     String
+  entityType String
+  entityId   String?
+  oldValues  String?  // JSON string
+  newValues  String?  // JSON string
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("audit_logs")
 }

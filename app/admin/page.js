@@ -122,7 +122,11 @@ export default function AdminPage() {
       if (response.ok) {
         const data = await response.json()
         setAzureSyncStatus(data)
-        setAzureConnectionStatus('configured')
+        if (data.configured) {
+          setAzureConnectionStatus('configured')
+        } else {
+          setAzureConnectionStatus('not_configured')
+        }
       }
     } catch (error) {
       console.error('Failed to fetch Azure sync status:', error)
@@ -159,7 +163,7 @@ export default function AdminPage() {
   const triggerManualSync = async () => {
     setAzureSyncLoading(true)
     try {
-      const response = await makeAuthenticatedRequest('/api/azure-sync/manual', {
+      const response = await makeAuthenticatedRequest('/api/azure-sync/sync', {
         method: 'POST'
       })
 
@@ -791,7 +795,7 @@ export default function AdminPage() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <Card>
                       <CardContent className="pt-6">
-                        <div className="text-2xl font-bold">{azureSyncStatus?.azureUsersCount || 0}</div>
+                        <div className="text-2xl font-bold">{azureSyncStatus?.userCount || 0}</div>
                         <p className="text-sm text-muted-foreground">Azure AD Users</p>
                       </CardContent>
                     </Card>

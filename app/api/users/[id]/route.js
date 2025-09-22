@@ -45,7 +45,8 @@ export async function PUT(request, { params }) {
     }
 
     const data = await request.json()
-    const { firstName, lastName, email, phone, userType, isActive, departmentIds } = data
+    const { firstName, lastName, email, phone, userType, isActive, departmentIds, departmentId } = data
+    console.log('DEBUG: Received departmentId:', departmentId, 'Type:', typeof departmentId)
 
     // Check if target user exists
     const existingUser = await prisma.user.findUnique({
@@ -81,7 +82,24 @@ export async function PUT(request, { params }) {
         await prisma.userDepartment.create({
           data: {
             userId: params.id,
-            departmentId: departmentId
+            departmentId: departmentId.toString()
+          }
+        })
+      }
+    } else if (departmentId !== undefined) {
+      // Handle single department assignment (from frontend dropdown)
+      // Delete existing department assignments
+      await prisma.userDepartment.deleteMany({
+        where: { userId: params.id }
+      })
+
+      // Create new department assignment if not null
+      if (departmentId !== null) {
+        console.log('DEBUG: Creating userDepartment with departmentId:', departmentId.toString())
+        await prisma.userDepartment.create({
+          data: {
+            userId: params.id,
+            departmentId: departmentId.toString()
           }
         })
       }

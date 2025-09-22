@@ -68,7 +68,7 @@ export const POST = withErrorHandler(async (request) => {
           prisma.userDepartment.create({
             data: {
               userId: user.id,
-              departmentId: departmentId
+              departmentId: departmentId.toString()
             }
           })
         )
@@ -78,7 +78,7 @@ export const POST = withErrorHandler(async (request) => {
       await prisma.userDepartment.create({
         data: {
           userId: user.id,
-          departmentId: data.departmentId
+          departmentId: data.departmentId.toString()
         }
       })
     }

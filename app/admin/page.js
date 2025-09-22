@@ -43,8 +43,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Settings, Users, Plus, Edit, Trash2, Shield, UserX, UserCheck } from 'lucide-react'
+import { Settings, Users, Plus, Edit, Trash2, Shield, UserX, UserCheck, Building2, Brain } from 'lucide-react'
 import { toast } from 'sonner'
+import DepartmentManagement from '../../components/DepartmentManagement'
+import AIAdministration from '../../components/AIAdministration'
 
 export default function AdminPage() {
   const { user, makeAuthenticatedRequest } = useAuth()
@@ -61,13 +63,17 @@ export default function AdminPage() {
     email: '',
     password: '',
     phone: '',
-    roles: ['Requester']
+    roles: ['Requester'],
+    departmentIds: []
   })
 
   // Azure AD Sync state
   const [azureSyncStatus, setAzureSyncStatus] = useState(null)
   const [azureSyncLoading, setAzureSyncLoading] = useState(false)
   const [azureConnectionStatus, setAzureConnectionStatus] = useState('unknown')
+
+  // Departments state
+  const [departments, setDepartments] = useState([])
 
   // Check admin access
   const isAdmin = user?.roles?.includes('Admin')
@@ -77,6 +83,7 @@ export default function AdminPage() {
       return
     }
     fetchUsers()
+    fetchDepartments()
   }, [isAdmin])
 
   const fetchUsers = async () => {
@@ -93,6 +100,18 @@ export default function AdminPage() {
       console.error('Failed to fetch users:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchDepartments = async () => {
+    try {
+      const response = await makeAuthenticatedRequest('/api/admin/departments')
+      if (response.ok) {
+        const data = await response.json()
+        setDepartments(data.departments || [])
+      }
+    } catch (error) {
+      console.error('Failed to fetch departments:', error)
     }
   }
 
@@ -354,7 +373,8 @@ export default function AdminPage() {
           email: newUser.email,
           password: newUser.password,
           phone: newUser.phone || null,
-          roles: newUser.roles
+          roles: newUser.roles,
+          departmentIds: newUser.departmentIds
         })
       })
 
@@ -372,7 +392,8 @@ export default function AdminPage() {
           email: '',
           password: '',
           phone: '',
-          roles: ['Requester']
+          roles: ['Requester'],
+          departmentIds: []
         })
         setIsAddUserDialogOpen(false)
 
@@ -446,8 +467,10 @@ export default function AdminPage() {
         </div>
 
         <Tabs defaultValue="users" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="users">User Management</TabsTrigger>
+            <TabsTrigger value="departments">Departments</TabsTrigger>
+            <TabsTrigger value="ai-admin">AI Administration</TabsTrigger>
             <TabsTrigger value="azure-sync">Azure AD Sync</TabsTrigger>
             <TabsTrigger value="settings">System Settings</TabsTrigger>
             <TabsTrigger value="integrations">Integrations</TabsTrigger>
@@ -531,6 +554,7 @@ export default function AdminPage() {
                         </TableHead>
                         <TableHead>Name</TableHead>
                         <TableHead>Email</TableHead>
+                        <TableHead>Department</TableHead>
                         <TableHead>Roles</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Actions</TableHead>
@@ -549,6 +573,55 @@ export default function AdminPage() {
                             {user.firstName} {user.lastName}
                           </TableCell>
                           <TableCell>{user.email}</TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <div className="flex flex-wrap gap-1 min-h-[20px]">
+                                {user.departments?.length > 0 ? (
+                                  user.departments.map((userDept) => (
+                                    <Badge key={userDept.department.id} variant="secondary" className="text-xs">
+                                      {userDept.department.name}
+                                      <button
+                                        onClick={() => {
+                                          const currentDeptIds = user.departments.map(d => d.department.id)
+                                          const newDeptIds = currentDeptIds.filter(id => id !== userDept.department.id)
+                                          handleEditUser(user.id, { departmentIds: newDeptIds })
+                                        }}
+                                        className="ml-1 text-red-500 hover:text-red-700"
+                                      >
+                                        ×
+                                      </button>
+                                    </Badge>
+                                  ))
+                                ) : (
+                                  <span className="text-gray-400 text-xs">No departments</span>
+                                )}
+                              </div>
+                              <Select
+                                value=""
+                                onValueChange={(departmentId) => {
+                                  if (departmentId && departmentId !== "0") {
+                                    const currentDeptIds = user.departments?.map(d => d.department.id) || []
+                                    if (!currentDeptIds.includes(departmentId)) {
+                                      handleEditUser(user.id, { departmentIds: [...currentDeptIds, departmentId] })
+                                    }
+                                  }
+                                }}
+                              >
+                                <SelectTrigger className="w-36 h-6 text-xs">
+                                  <SelectValue placeholder="+ Add dept" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {departments.filter(dept =>
+                                    !user.departments?.some(userDept => userDept.department.id === dept.id)
+                                  ).map((dept) => (
+                                    <SelectItem key={dept.id} value={dept.id.toString()}>
+                                      {dept.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </TableCell>
                           <TableCell>
                             <div className="flex gap-1">
                               {user.roles?.map((roleAssignment) => (
@@ -637,6 +710,40 @@ export default function AdminPage() {
                     </TableBody>
                   </Table>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="departments" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5" />
+                  Department Management
+                </CardTitle>
+                <CardDescription>
+                  Manage departments, their settings, and organizational structure
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <DepartmentManagement makeAuthenticatedRequest={makeAuthenticatedRequest} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="ai-admin" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Brain className="h-5 w-5" />
+                  AI Administration
+                </CardTitle>
+                <CardDescription>
+                  Manage AI system settings, keywords, and knowledge base
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <AIAdministration makeAuthenticatedRequest={makeAuthenticatedRequest} />
               </CardContent>
             </Card>
           </TabsContent>
@@ -875,6 +982,59 @@ export default function AdminPage() {
                   value={newUser.phone}
                   onChange={(e) => setNewUser({...newUser, phone: e.target.value})}
                 />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Departments (Optional)</label>
+                <div className="space-y-2">
+                  <div className="flex flex-wrap gap-1 min-h-[20px] p-2 border rounded">
+                    {newUser.departmentIds?.length > 0 ? (
+                      newUser.departmentIds.map((deptId) => {
+                        const dept = departments.find(d => d.id === deptId)
+                        return dept ? (
+                          <Badge key={deptId} variant="secondary" className="text-xs">
+                            {dept.name}
+                            <button
+                              onClick={() => {
+                                const newDeptIds = newUser.departmentIds.filter(id => id !== deptId)
+                                setNewUser({...newUser, departmentIds: newDeptIds})
+                              }}
+                              className="ml-1 text-red-500 hover:text-red-700"
+                            >
+                              ×
+                            </button>
+                          </Badge>
+                        ) : null
+                      })
+                    ) : (
+                      <span className="text-gray-400 text-sm">No departments selected</span>
+                    )}
+                  </div>
+                  <Select
+                    value=""
+                    onValueChange={(departmentId) => {
+                      if (departmentId) {
+                        const currentIds = newUser.departmentIds || []
+                        if (!currentIds.includes(departmentId)) {
+                          setNewUser({...newUser, departmentIds: [...currentIds, departmentId]})
+                        }
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="+ Add department" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {departments.filter(dept =>
+                        !newUser.departmentIds?.includes(dept.id)
+                      ).map((dept) => (
+                        <SelectItem key={dept.id} value={dept.id.toString()}>
+                          {dept.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div>

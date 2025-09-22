@@ -259,7 +259,7 @@ export interface DashboardLayoutProps {
 }
 
 // Auth types
-export interface AuthUser extends User {
+export interface AuthUser extends Omit<User, 'roles'> {
   roles: string[]
 }
 

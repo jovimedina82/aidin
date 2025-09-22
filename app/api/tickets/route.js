@@ -169,9 +169,41 @@ export async function POST(request) {
       }
     }
 
-    // Generate ticket number
-    const ticketCount = await prisma.ticket.count()
-    const ticketNumber = `TICK-${(ticketCount + 1001).toString().padStart(4, '0')}`
+    // Generate department-based ticket number
+    const generateTicketNumber = async (departmentId) => {
+      if (!departmentId) {
+        // Fallback for tickets without department
+        const ticketCount = await prisma.ticket.count()
+        return `GN${(ticketCount + 1).toString().padStart(6, '0')}`
+      }
+
+      // Get department name
+      const department = await prisma.department.findUnique({
+        where: { id: departmentId },
+        select: { name: true }
+      })
+
+      if (!department) {
+        // Fallback if department not found
+        const ticketCount = await prisma.ticket.count()
+        return `GN${(ticketCount + 1).toString().padStart(6, '0')}`
+      }
+
+      // Extract first two letters of department name
+      const departmentPrefix = department.name
+        .replace(/\s+/g, '') // Remove spaces
+        .substring(0, 2)
+        .toUpperCase()
+
+      // Count tickets for this department to get next number
+      const departmentTicketCount = await prisma.ticket.count({
+        where: { departmentId }
+      })
+
+      return `${departmentPrefix}${(departmentTicketCount + 1).toString().padStart(6, '0')}`
+    }
+
+    const ticketNumber = await generateTicketNumber(departmentId)
 
     // NEW tickets should always be unassigned
     const finalStatus = data.status || 'NEW'
@@ -247,7 +279,9 @@ export async function POST(request) {
             }
           })
 
-          console.log(`AI response added to ticket ${ticket.ticketNumber}`)
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`AI response added to ticket ${ticket.ticketNumber}`)
+          }
         }
       } catch (error) {
         console.error('Failed to generate AI response:', error)

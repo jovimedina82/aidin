@@ -5,12 +5,9 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(request) {
   try {
-    console.log('🔍 Auth/me: Starting auth check...')
     const user = await getCurrentUser(request)
-    console.log('🔍 Auth/me: User found:', user ? `${user.email} (${user.id})` : 'null')
 
     if (!user) {
-      console.log('❌ Auth/me: No user found')
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
 
@@ -26,10 +23,11 @@ export async function GET(request) {
       }
     }
 
-    console.log('✅ Auth/me: Returning user data:', userResponse.user.email)
     return NextResponse.json(userResponse)
   } catch (error) {
-    console.error('❌ Auth/me: Error occurred:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Auth/me error:', error)
+    }
     return NextResponse.json({ error: 'Authentication failed' }, { status: 500 })
   }
 }

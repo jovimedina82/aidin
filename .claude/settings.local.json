@@ -95,7 +95,8 @@
       "Bash(npm run lint:*)",
       "Bash(npm run:*)",
       "Bash(xargs:*)",
-      "Read(//Users/owner/Downloads/**)"
+      "Read(//Users/owner/Downloads/**)",
+      "Bash(printf \"\\n\")"
     ],
     "deny": [],
     "ask": []

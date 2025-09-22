@@ -2,10 +2,12 @@ import { NextResponse } from 'next/server'
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth"
 import { buildTicketAccessWhere } from "@/lib/access-control"
-
+import { PerformanceMonitor } from '../../../lib/performance.js'
 
 export async function GET(request) {
   try {
+    PerformanceMonitor.start('stats-fetch')
+
     // Get authenticated user
     const user = await getCurrentUser(request)
     if (!user) {
@@ -19,246 +21,165 @@ export async function GET(request) {
     const oneMonthAgo = new Date()
     oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1)
 
-    // Get total tickets (with access control)
-    const total = await prisma.ticket.count({
-      where: accessWhere
-    })
+    // Use Promise.all for batch operations to improve performance
+    const [
+      total,
+      unassigned,
+      unsolved,
+      pending,
+      solved,
+      solvedHistory,
+      open,
+      onHold,
+      newTickets,
+      closed,
+      unassignedNew,
+      assigned,
+      companyOpen,
+      companyPending,
+      companyOnHold,
+      companySolved,
+      companySolvedHistory,
+      personalNew,
+      personalOpen,
+      personalPending,
+      personalOnHold,
+      personalSolved,
+      personalSolvedHistory
+    ] = await Promise.all([
+      // Total tickets
+      prisma.ticket.count({ where: accessWhere }),
 
-    // Get unassigned tickets (no assignee) - count all statuses except SOLVED and CLOSED
-    const unassigned = await prisma.ticket.count({
-      where: {
-        ...accessWhere,
-        assigneeId: null,
-        status: {
-          not: {
-            in: ['SOLVED', 'CLOSED']
-          }
+      // Unassigned tickets (no assignee) - count all statuses except SOLVED and CLOSED
+      prisma.ticket.count({
+        where: {
+          ...accessWhere,
+          assigneeId: null,
+          status: { notIn: ['SOLVED', 'CLOSED'] }
         }
-      }
-    })
+      }),
 
-    // Get unsolved tickets (NEW, OPEN, PENDING)
-    const unsolved = await prisma.ticket.count({
-      where: {
-        ...accessWhere,
-        status: {
-          in: ['NEW', 'OPEN', 'PENDING']
+      // Unsolved tickets (NEW, OPEN, PENDING, ON_HOLD)
+      prisma.ticket.count({
+        where: {
+          ...accessWhere,
+          status: { in: ['NEW', 'OPEN', 'PENDING', 'ON_HOLD'] }
         }
-      }
-    })
+      }),
 
-    // Get tickets by specific status
-    const pending = await prisma.ticket.count({
-      where: {
-        ...accessWhere,
-        status: 'PENDING'
-      }
-    })
-
-    // Get recently solved tickets (within last month)
-    const solved = await prisma.ticket.count({
-      where: {
-        ...accessWhere,
-        status: 'SOLVED',
-        updatedAt: {
-          gte: oneMonthAgo
+      // Status-specific counts
+      prisma.ticket.count({ where: { ...accessWhere, status: 'PENDING' } }),
+      prisma.ticket.count({
+        where: {
+          ...accessWhere,
+          status: 'SOLVED',
+          updatedAt: { gte: oneMonthAgo }
         }
-      }
-    })
-
-    // Get solved history tickets (older than 1 month)
-    const solvedHistory = await prisma.ticket.count({
-      where: {
-        ...accessWhere,
-        status: 'SOLVED',
-        updatedAt: {
-          lt: oneMonthAgo
+      }),
+      prisma.ticket.count({
+        where: {
+          ...accessWhere,
+          status: 'SOLVED',
+          updatedAt: { lt: oneMonthAgo }
         }
-      }
-    })
+      }),
+      prisma.ticket.count({ where: { ...accessWhere, status: 'OPEN' } }),
+      prisma.ticket.count({ where: { ...accessWhere, status: 'ON_HOLD' } }),
+      prisma.ticket.count({ where: { ...accessWhere, status: 'NEW' } }),
+      prisma.ticket.count({ where: { ...accessWhere, status: 'CLOSED' } }),
 
-    const open = await prisma.ticket.count({
-      where: {
-        ...accessWhere,
-        status: 'OPEN'
-      }
-    })
+      // Unassigned new tickets
+      prisma.ticket.count({
+        where: { ...accessWhere, status: 'NEW', assigneeId: null }
+      }),
 
-    const onHold = await prisma.ticket.count({
-      where: {
-        ...accessWhere,
-        status: 'ON_HOLD'
-      }
-    })
-
-    const newTickets = await prisma.ticket.count({
-      where: {
-        ...accessWhere,
-        status: 'NEW'
-      }
-    })
-
-    // Company view counts (with assignee requirement for grouped views)
-    const companyOpen = await prisma.ticket.count({
-      where: {
-        ...accessWhere,
-        status: 'OPEN',
-        assigneeId: { not: null }
-      }
-    })
-
-    const companyPending = await prisma.ticket.count({
-      where: {
-        ...accessWhere,
-        status: 'PENDING',
-        assigneeId: { not: null }
-      }
-    })
-
-    const companyOnHold = await prisma.ticket.count({
-      where: {
-        ...accessWhere,
-        status: 'ON_HOLD',
-        assigneeId: { not: null }
-      }
-    })
-
-    const companySolved = await prisma.ticket.count({
-      where: {
-        ...accessWhere,
-        status: 'SOLVED',
-        assigneeId: { not: null },
-        updatedAt: {
-          gte: oneMonthAgo
+      // Tickets assigned to current user
+      prisma.ticket.count({
+        where: {
+          ...accessWhere,
+          assigneeId: user.id,
+          status: { in: ['NEW', 'OPEN', 'PENDING'] }
         }
-      }
-    })
+      }),
 
-    const companySolvedHistory = await prisma.ticket.count({
-      where: {
-        ...accessWhere,
-        status: 'SOLVED',
-        assigneeId: { not: null },
-        updatedAt: {
-          lt: oneMonthAgo
+      // Company view counts (with assignee requirement)
+      prisma.ticket.count({
+        where: { ...accessWhere, status: 'OPEN', assigneeId: { not: null } }
+      }),
+      prisma.ticket.count({
+        where: { ...accessWhere, status: 'PENDING', assigneeId: { not: null } }
+      }),
+      prisma.ticket.count({
+        where: { ...accessWhere, status: 'ON_HOLD', assigneeId: { not: null } }
+      }),
+      prisma.ticket.count({
+        where: {
+          ...accessWhere,
+          status: 'SOLVED',
+          assigneeId: { not: null },
+          updatedAt: { gte: oneMonthAgo }
         }
-      }
-    })
-
-    // Unassigned New tickets (all new tickets without assignee)
-    const unassignedNew = await prisma.ticket.count({
-      where: {
-        ...accessWhere,
-        status: 'NEW',
-        assigneeId: null
-      }
-    })
-
-    const closed = await prisma.ticket.count({
-      where: {
-        ...accessWhere,
-        status: 'CLOSED'
-      }
-    })
-
-    // Get tickets assigned to current user (your work)
-    const assigned = await prisma.ticket.count({
-      where: {
-        ...accessWhere,
-        assigneeId: user.id,
-        status: {
-          in: ['NEW', 'OPEN', 'PENDING']
+      }),
+      prisma.ticket.count({
+        where: {
+          ...accessWhere,
+          status: 'SOLVED',
+          assigneeId: { not: null },
+          updatedAt: { lt: oneMonthAgo }
         }
-      }
-    })
+      }),
 
-    // Get personal stats for current user (tickets they created OR are assigned to)
-    const personalNew = await prisma.ticket.count({
-      where: {
-        ...accessWhere,
-        OR: [
-          { requesterId: user.id },
-          { assigneeId: user.id }
-        ],
-        status: 'NEW'
-      }
-    })
-
-    const personalOpen = await prisma.ticket.count({
-      where: {
-        ...accessWhere,
-        OR: [
-          { requesterId: user.id },
-          { assigneeId: user.id }
-        ],
-        status: 'OPEN'
-      }
-    })
-
-    const personalPending = await prisma.ticket.count({
-      where: {
-        ...accessWhere,
-        OR: [
-          { requesterId: user.id },
-          { assigneeId: user.id }
-        ],
-        status: 'PENDING'
-      }
-    })
-
-    const personalOnHold = await prisma.ticket.count({
-      where: {
-        ...accessWhere,
-        OR: [
-          { requesterId: user.id },
-          { assigneeId: user.id }
-        ],
-        status: 'ON_HOLD'
-      }
-    })
-
-    const personalSolved = await prisma.ticket.count({
-      where: {
-        ...accessWhere,
-        OR: [
-          { requesterId: user.id },
-          { assigneeId: user.id }
-        ],
-        status: 'SOLVED',
-        updatedAt: {
-          gte: oneMonthAgo
+      // Personal stats (tickets user created OR is assigned to)
+      prisma.ticket.count({
+        where: {
+          ...accessWhere,
+          OR: [{ requesterId: user.id }, { assigneeId: user.id }],
+          status: 'NEW'
         }
-      }
-    })
-
-    const personalSolvedHistory = await prisma.ticket.count({
-      where: {
-        ...accessWhere,
-        OR: [
-          { requesterId: user.id },
-          { assigneeId: user.id }
-        ],
-        status: 'SOLVED',
-        updatedAt: {
-          lt: oneMonthAgo
+      }),
+      prisma.ticket.count({
+        where: {
+          ...accessWhere,
+          OR: [{ requesterId: user.id }, { assigneeId: user.id }],
+          status: 'OPEN'
         }
-      }
-    })
-
-    // Update unsolved to include NEW and ON_HOLD status
-    const unsolvedUpdated = await prisma.ticket.count({
-      where: {
-        ...accessWhere,
-        status: {
-          in: ['NEW', 'OPEN', 'PENDING', 'ON_HOLD']
+      }),
+      prisma.ticket.count({
+        where: {
+          ...accessWhere,
+          OR: [{ requesterId: user.id }, { assigneeId: user.id }],
+          status: 'PENDING'
         }
-      }
-    })
+      }),
+      prisma.ticket.count({
+        where: {
+          ...accessWhere,
+          OR: [{ requesterId: user.id }, { assigneeId: user.id }],
+          status: 'ON_HOLD'
+        }
+      }),
+      prisma.ticket.count({
+        where: {
+          ...accessWhere,
+          OR: [{ requesterId: user.id }, { assigneeId: user.id }],
+          status: 'SOLVED',
+          updatedAt: { gte: oneMonthAgo }
+        }
+      }),
+      prisma.ticket.count({
+        where: {
+          ...accessWhere,
+          OR: [{ requesterId: user.id }, { assigneeId: user.id }],
+          status: 'SOLVED',
+          updatedAt: { lt: oneMonthAgo }
+        }
+      })
+    ])
 
     const stats = {
       total,
       assigned,
-      unsolved: unsolvedUpdated,
+      unsolved,
       unassigned,
       pending,
       solved,
@@ -285,9 +206,12 @@ export async function GET(request) {
       }
     }
 
+    PerformanceMonitor.end('stats-fetch')
     return NextResponse.json(stats)
   } catch (error) {
-    console.error('Error fetching stats:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Error fetching stats:', error)
+    }
     return NextResponse.json(
       { error: 'Failed to fetch stats' },
       { status: 500 }

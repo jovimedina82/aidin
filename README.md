@@ -1,8 +1,82 @@
-# Aidin - AI-Powered Helpdesk
+# AIDIN Helpdesk System
 
-![Aidin Logo](public/images/aidin-logo.png)
+A comprehensive, AI-powered helpdesk system built with Next.js, Prisma, and modern web technologies.
 
-**Aidin Helpdesk** is an intelligent IT support ticket management system with AI-powered automation, designed to streamline helpdesk operations and enhance user experience.
+## Features
+
+- 🎫 **Ticket Management**: Complete ticket lifecycle management with status tracking
+- 👥 **User Management**: Role-based access control with admin and staff roles
+- 🤖 **AI Integration**: Automated ticket categorization and response generation
+- 📊 **Analytics & Reporting**: Comprehensive dashboards and report generation
+- 🔐 **Authentication**: Secure JWT-based auth with optional Azure SSO
+- 📱 **Responsive Design**: Modern, mobile-friendly interface
+- 🏢 **Organization Chart**: Visual representation of company hierarchy
+- 📧 **Email Integration**: Automated notifications and updates
+
+## Tech Stack
+
+- **Frontend**: Next.js 14, React 18, TailwindCSS
+- **Backend**: Next.js API Routes, Prisma ORM
+- **Database**: SQLite (dev), PostgreSQL (production ready)
+- **Authentication**: JWT, Azure AD (optional)
+- **AI**: OpenAI API integration
+- **UI Components**: Radix UI, Lucide Icons
+
+## Quick Start
+
+### Prerequisites
+
+- Node.js 18+
+- npm or yarn
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd helpdesk-project
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Set up environment variables**
+   ```bash
+   cp .env.example .env.local
+   ```
+   Edit `.env.local` with your configuration values.
+
+4. **Set up the database**
+   ```bash
+   npm run db:push
+   npm run db:seed
+   ```
+
+5. **Start the development server**
+   ```bash
+   npm run dev
+   ```
+
+6. **Open your browser**
+   Navigate to [http://localhost:3000](http://localhost:3000)
+
+### Default Login Credentials
+
+- **Admin**: admin@surterreproperties.com / password
+- **Staff**: amendez@surterreproperties.com / password
+- **Client**: client@surterreproperties.com / password
+
+## Scripts
+
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run start` - Start production server
+- `npm run db:seed` - Seed database with test data
+- `npm run db:studio` - Open Prisma Studio
+- `npm run db:reset` - Reset database and reseed
+- `npm run clean` - Clean build artifacts
 
 ## Features
 

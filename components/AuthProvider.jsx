@@ -57,15 +57,20 @@ export function AuthProvider({ children }) {
         }
       } catch (fetchError) {
         clearTimeout(timeoutId)
-        if (fetchError.name === 'AbortError') {
-          console.error('Auth check timed out')
-        } else {
-          console.error('Auth check error:', fetchError)
+        // Silently handle auth check errors in production
+        if (process.env.NODE_ENV === 'development') {
+          if (fetchError.name === 'AbortError') {
+            console.error('Auth check timed out')
+          } else {
+            console.error('Auth check error:', fetchError)
+          }
         }
         // Don't remove token on network errors
       }
     } catch (error) {
-      console.error('Auth check error:', error)
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Auth check error:', error)
+      }
       // Network error - don't remove token, user might be offline
     } finally {
       setLoading(false)
@@ -131,7 +136,9 @@ export function AuthProvider({ children }) {
         credentials: 'include'
       })
     } catch (error) {
-      console.error('Logout API call failed:', error)
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Logout API call failed:', error)
+      }
     }
     
     removeAuthToken()

@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
+import { QueryOptimizations } from '../../../lib/performance.js'
 import {
   ApiError,
   ApiSuccess,
@@ -14,18 +15,7 @@ export const GET = withErrorHandler(async (request) => {
   requireRoles(user, ['Admin', 'Manager', 'Staff'])
 
   const users = await prisma.user.findMany({
-    include: {
-      roles: {
-        include: {
-          role: true
-        }
-      },
-      departments: {
-        include: {
-          department: true
-        }
-      }
-    },
+    select: QueryOptimizations.userWithRelations,
     orderBy: {
       createdAt: 'desc'
     }

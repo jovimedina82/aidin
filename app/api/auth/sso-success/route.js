@@ -82,7 +82,9 @@ export async function GET(request) {
             
             localStorage.setItem('user', JSON.stringify(userData));
             
-            console.log('SSO Login successful for:', payload.email);
+            if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+              console.log('SSO Login successful for:', payload.email);
+            }
             
             // Redirect to dashboard after a short delay
             setTimeout(() => {

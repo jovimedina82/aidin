@@ -1,6 +1,7 @@
 'use client'
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useMemo, Suspense } from 'react'
 import { useAuth } from '../../components/AuthProvider'
+import { getAuthToken } from '../../lib/auth-client'
 import DashboardLayout from '../../components/DashboardLayout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -47,10 +48,11 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
 function TicketsPageContent() {
-  const { makeAuthenticatedRequest, user } = useAuth()
+  const { makeAuthenticatedRequest, user, loading: authLoading } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [tickets, setTickets] = useState([])
+  const [allTickets, setAllTickets] = useState([])
   const [stats, setStats] = useState({
     unsolved: 0,
     unassigned: 0,
@@ -58,9 +60,9 @@ function TicketsPageContent() {
     solved: 0,
     total: 0
   })
-  const [loading, setLoading] = useState(true)
+  const [ticketsLoading, setTicketsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [currentView, setCurrentView] = useState('all')
+  const [currentView, setCurrentView] = useState('personal-new')
   const [statusFilter, setStatusFilter] = useState('all')
   const [sortBy, setSortBy] = useState('created')
   const [sortOrder, setSortOrder] = useState('desc')
@@ -113,12 +115,11 @@ function TicketsPageContent() {
     return null
   }
 
-  // Sidebar views configuration organized by sections
+  // Sidebar views configuration organized by sections (counts will be calculated dynamically)
   const personalViews = [
     {
       id: 'personal-new',
       label: 'New',
-      count: 0,
       icon: AlertTriangle,
       filter: { status: 'NEW', personalOnly: true },
       section: 'personal'
@@ -126,7 +127,6 @@ function TicketsPageContent() {
     {
       id: 'personal-open',
       label: 'Open',
-      count: 0,
       icon: AlertCircle,
       filter: { status: 'OPEN', personalOnly: true },
       section: 'personal'
@@ -134,7 +134,6 @@ function TicketsPageContent() {
     {
       id: 'personal-pending',
       label: 'Pending',
-      count: 0,
       icon: Clock,
       filter: { status: 'PENDING', personalOnly: true },
       section: 'personal'
@@ -142,7 +141,6 @@ function TicketsPageContent() {
     {
       id: 'personal-on-hold',
       label: 'On-hold',
-      count: 0,
       icon: Pause,
       filter: { status: 'ON_HOLD', personalOnly: true },
       section: 'personal'
@@ -150,7 +148,6 @@ function TicketsPageContent() {
     {
       id: 'personal-solved',
       label: 'Recently Solved',
-      count: 0,
       icon: CheckCircle,
       filter: { status: 'SOLVED', recentOnly: true, personalOnly: true },
       section: 'personal'
@@ -158,7 +155,6 @@ function TicketsPageContent() {
     {
       id: 'personal-solved-history',
       label: 'Historic Solved',
-      count: 0,
       icon: Archive,
       filter: { status: 'SOLVED', historyOnly: true, personalOnly: true },
       section: 'personal'
@@ -169,7 +165,6 @@ function TicketsPageContent() {
     {
       id: 'unassigned',
       label: 'Unassigned',
-      count: 0,
       icon: UserX,
       filter: { assigneeId: null, excludeStatuses: ['SOLVED', 'CLOSED'] },
       section: 'company'
@@ -177,7 +172,6 @@ function TicketsPageContent() {
     {
       id: 'company-new',
       label: 'New',
-      count: 0,
       icon: AlertTriangle,
       filter: { status: 'NEW', assigneeId: null },
       section: 'company'
@@ -185,7 +179,6 @@ function TicketsPageContent() {
     {
       id: 'company-open',
       label: 'Open',
-      count: 0,
       icon: AlertCircle,
       filter: { status: 'OPEN', requiresAssignee: true },
       section: 'company'
@@ -193,7 +186,6 @@ function TicketsPageContent() {
     {
       id: 'company-pending',
       label: 'Pending',
-      count: 1,
       icon: Clock,
       filter: { status: 'PENDING', requiresAssignee: true },
       section: 'company'
@@ -201,7 +193,6 @@ function TicketsPageContent() {
     {
       id: 'company-on-hold',
       label: 'On-Hold',
-      count: 0,
       icon: Pause,
       filter: { status: 'ON_HOLD', requiresAssignee: true },
       section: 'company'
@@ -209,7 +200,6 @@ function TicketsPageContent() {
     {
       id: 'company-solved',
       label: 'Recently Solved',
-      count: 0,
       icon: CheckCircle,
       filter: { status: 'SOLVED', recentOnly: true, requiresAssignee: true },
       section: 'company'
@@ -217,7 +207,6 @@ function TicketsPageContent() {
     {
       id: 'all-unsolved',
       label: 'All Unsolved',
-      count: 2,
       icon: AlertTriangle,
       filter: { status: ['NEW', 'OPEN', 'PENDING', 'ON_HOLD'] },
       section: 'company'
@@ -225,26 +214,221 @@ function TicketsPageContent() {
     {
       id: 'solved-history',
       label: 'Historic Solved',
-      count: 0,
       icon: Archive,
       filter: { status: 'SOLVED', historyOnly: true, requiresAssignee: true },
       section: 'company'
     }
   ]
 
-  const views = [...personalViews, ...companyViews]
-
-  useEffect(() => {
-    fetchStats()
-    fetchTickets()
-    if (isAdmin) {
-      fetchStaff()
+  // Function to calculate dynamic counts based on actual ticket data
+  const calculateDynamicCounts = (ticketData) => {
+    if (!ticketData || ticketData.length === 0) {
+      return {}
     }
-  }, [currentView])
+
+    const oneMonthAgo = new Date()
+    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1)
+
+    // Get user role information
+    const userRoles = user?.roles || []
+    const roleNames = userRoles.map(role =>
+      typeof role === 'string' ? role : (role.role?.name || role.name)
+    )
+    const isAdmin = roleNames.includes('Admin')
+    const isManager = roleNames.includes('Manager')
+    const isStaff = roleNames.includes('Staff')
+
+    const counts = {
+      // Personal views (tickets assigned to or created by current user)
+      'personal-new': ticketData.filter(t =>
+        t.status === 'NEW' && (t.assigneeId === user?.id || t.requesterId === user?.id)
+      ).length,
+      'personal-open': ticketData.filter(t =>
+        t.status === 'OPEN' && (t.assigneeId === user?.id || t.requesterId === user?.id)
+      ).length,
+      'personal-pending': ticketData.filter(t =>
+        t.status === 'PENDING' && (t.assigneeId === user?.id || t.requesterId === user?.id)
+      ).length,
+      'personal-on-hold': ticketData.filter(t =>
+        t.status === 'ON_HOLD' && (t.assigneeId === user?.id || t.requesterId === user?.id)
+      ).length,
+      'personal-solved': ticketData.filter(t =>
+        t.status === 'SOLVED' && (t.assigneeId === user?.id || t.requesterId === user?.id) &&
+        new Date(t.updatedAt) >= oneMonthAgo
+      ).length,
+      'personal-solved-history': ticketData.filter(t =>
+        t.status === 'SOLVED' && (t.assigneeId === user?.id || t.requesterId === user?.id) &&
+        new Date(t.updatedAt) < oneMonthAgo
+      ).length,
+
+      // Company views - different logic based on user role
+      'unassigned': ticketData.filter(t =>
+        !t.assigneeId && !['SOLVED', 'CLOSED'].includes(t.status)
+      ).length,
+      'company-new': (() => {
+        if (isAdmin) {
+          // Admin: All new tickets
+          return ticketData.filter(t => t.status === 'NEW').length
+        } else {
+          // Staff/Manager: New unassigned tickets in their department
+          return ticketData.filter(t => t.status === 'NEW' && !t.assigneeId).length
+        }
+      })(),
+      'company-open': (() => {
+        if (isAdmin) {
+          // Admin: All open tickets
+          return ticketData.filter(t => t.status === 'OPEN').length
+        } else {
+          // Staff/Manager: Open tickets assigned to their department
+          return ticketData.filter(t => t.status === 'OPEN' && t.assigneeId).length
+        }
+      })(),
+      'company-pending': (() => {
+        if (isAdmin) {
+          // Admin: All pending tickets
+          return ticketData.filter(t => t.status === 'PENDING').length
+        } else {
+          // Staff/Manager: Pending tickets assigned to their department
+          return ticketData.filter(t => t.status === 'PENDING' && t.assigneeId).length
+        }
+      })(),
+      'company-on-hold': (() => {
+        if (isAdmin) {
+          // Admin: All on-hold tickets
+          return ticketData.filter(t => t.status === 'ON_HOLD').length
+        } else {
+          // Staff/Manager: On-hold tickets assigned to their department
+          return ticketData.filter(t => t.status === 'ON_HOLD' && t.assigneeId).length
+        }
+      })(),
+      'company-solved': (() => {
+        if (isAdmin) {
+          // Admin: All recently solved tickets
+          return ticketData.filter(t =>
+            t.status === 'SOLVED' && new Date(t.updatedAt) >= oneMonthAgo
+          ).length
+        } else {
+          // Staff/Manager: Recently solved tickets assigned to their department
+          return ticketData.filter(t =>
+            t.status === 'SOLVED' && t.assigneeId && new Date(t.updatedAt) >= oneMonthAgo
+          ).length
+        }
+      })(),
+      'solved-history': (() => {
+        if (isAdmin) {
+          // Admin: All historically solved tickets
+          return ticketData.filter(t =>
+            t.status === 'SOLVED' && new Date(t.updatedAt) < oneMonthAgo
+          ).length
+        } else {
+          // Staff/Manager: Historically solved tickets assigned to their department
+          return ticketData.filter(t =>
+            t.status === 'SOLVED' && t.assigneeId && new Date(t.updatedAt) < oneMonthAgo
+          ).length
+        }
+      })(),
+      'all-unsolved': (() => {
+        if (isAdmin) {
+          // Admin: All unsolved tickets from everybody
+          return ticketData.filter(t =>
+            ['NEW', 'OPEN', 'PENDING', 'ON_HOLD'].includes(t.status)
+          ).length
+        } else {
+          // Staff/Manager: Unsolved tickets in their scope
+          return ticketData.filter(t =>
+            ['NEW', 'OPEN', 'PENDING', 'ON_HOLD'].includes(t.status)
+          ).length
+        }
+      })()
+    }
+
+    return counts
+  }
+
+  // Create views with dynamic counts
+  const views = useMemo(() => {
+    // Only calculate counts if user is authenticated, auth is complete, and we have tickets data
+    if (!user || authLoading || !allTickets || allTickets.length === 0) {
+      return [...personalViews, ...companyViews].map(view => ({
+        ...view,
+        count: 0
+      }))
+    }
+
+    // Calculate counts using all tickets for sidebar display
+    const counts = calculateDynamicCounts(allTickets)
+
+    return [...personalViews, ...companyViews].map(view => ({
+      ...view,
+      count: counts[view.id] || 0
+    }))
+  }, [allTickets, user?.id, authLoading])
+
+  const fetchAllTickets = async () => {
+    try {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🎫 Starting fetchAllTickets...')
+      }
+
+      const response = await makeAuthenticatedRequest(`/api/tickets?sortBy=createdAt&sortOrder=desc&limit=1000`)
+
+      if (response.ok) {
+        const data = await response.json()
+        const tickets = data.tickets || []
+        setAllTickets(tickets)
+        if (process.env.NODE_ENV === 'development') {
+          console.log('✅ Fetched all tickets for sidebar counts:', tickets.length, 'tickets')
+          if (tickets.length > 0) {
+            console.log('📊 Sample ticket status breakdown:', {
+              NEW: tickets.filter(t => t.status === 'NEW').length,
+              OPEN: tickets.filter(t => t.status === 'OPEN').length,
+              PENDING: tickets.filter(t => t.status === 'PENDING').length,
+              SOLVED: tickets.filter(t => t.status === 'SOLVED').length
+            })
+          }
+        }
+        return tickets
+      } else {
+        console.error('❌ Failed to fetch all tickets:', response.status, response.statusText)
+        const errorText = await response.text()
+        console.error('Error details:', errorText)
+        setAllTickets([])
+        return []
+      }
+    } catch (error) {
+      console.error('❌ Failed to fetch all tickets for counts:', error)
+      setAllTickets([]) // Ensure it's always an array
+      return []
+    }
+  }
 
   useEffect(() => {
-    fetchTickets()
-  }, [sortBy, sortOrder])
+    // Only fetch data if user is authenticated and auth is complete
+    if (user && !authLoading) {
+      // Fetch all tickets first for sidebar counts, then other data
+      fetchAllTickets().then(() => {
+        fetchTickets()
+        fetchStats()
+        if (isAdmin) {
+          fetchStaff()
+        }
+      })
+    }
+  }, [currentView, user, authLoading])
+
+  // Separate useEffect to ensure allTickets is fetched when user becomes available
+  useEffect(() => {
+    if (user && !authLoading && (!allTickets || allTickets.length === 0)) {
+      fetchAllTickets()
+    }
+  }, [user, authLoading])
+
+  useEffect(() => {
+    // Only fetch tickets if user is authenticated and auth is complete
+    if (user && !authLoading) {
+      fetchTickets()
+    }
+  }, [sortBy, sortOrder, user, authLoading])
 
   useEffect(() => {
     // Set initial state from URL params (for back navigation)
@@ -278,9 +462,11 @@ function TicketsPageContent() {
   }, [searchParams])
 
   useEffect(() => {
-    // Load user preferences from database
-    loadUserPreferences()
-  }, [])
+    // Load user preferences from database only if user is authenticated
+    if (user && !authLoading) {
+      loadUserPreferences()
+    }
+  }, [user, authLoading])
 
   const loadUserPreferences = async () => {
     try {
@@ -378,7 +564,7 @@ function TicketsPageContent() {
 
   const fetchTickets = async () => {
     try {
-      setLoading(true)
+      setTicketsLoading(true)
 
       const params = new URLSearchParams()
 
@@ -426,17 +612,10 @@ function TicketsPageContent() {
         params.append('sortOrder', sortOrder)
       }
 
-      console.log('Fetching tickets with params:', params.toString())
-      console.log('Current view:', currentView)
-
       const response = await makeAuthenticatedRequest(`/api/tickets?${params.toString()}`)
-
-      console.log('Response status:', response.status)
 
       if (response.ok) {
         const data = await response.json()
-        console.log('Tickets received:', data.tickets?.length || 0, 'tickets')
-        console.log('First 3 tickets:', data.tickets?.slice(0, 3).map(t => ({ id: t.id, ticketNumber: t.ticketNumber, title: t.title, status: t.status })))
         setTickets(data.tickets || [])
       } else {
         console.error('Failed to fetch tickets - Response not ok:', response.status)
@@ -446,7 +625,7 @@ function TicketsPageContent() {
     } catch (error) {
       console.error('Failed to fetch tickets:', error)
     } finally {
-      setLoading(false)
+      setTicketsLoading(false)
     }
   }
 
@@ -526,17 +705,19 @@ function TicketsPageContent() {
 
   // Get personal views in the user's preferred order
   const getOrderedPersonalViews = () => {
-    if (personalViewOrder.length === 0) return personalViews
+    const personalViewsWithCounts = views.filter(v => v.section === 'personal')
+
+    if (personalViewOrder.length === 0) return personalViewsWithCounts
 
     const orderedViews = []
     // Add views in saved order
     personalViewOrder.forEach(id => {
-      const view = personalViews.find(v => v.id === id)
+      const view = personalViewsWithCounts.find(v => v.id === id)
       if (view) orderedViews.push(view)
     })
 
     // Add any new views that weren't in the saved order
-    personalViews.forEach(view => {
+    personalViewsWithCounts.forEach(view => {
       if (!personalViewOrder.includes(view.id)) {
         orderedViews.push(view)
       }
@@ -548,17 +729,20 @@ function TicketsPageContent() {
   // Get company views in the user's preferred order (Staff only)
   const getOrderedCompanyViews = () => {
     if (!isStaff) return []
-    if (companyViewOrder.length === 0) return companyViews
+
+    const companyViewsWithCounts = views.filter(v => v.section === 'company')
+
+    if (companyViewOrder.length === 0) return companyViewsWithCounts
 
     const orderedViews = []
     // Add views in saved order
     companyViewOrder.forEach(id => {
-      const view = companyViews.find(v => v.id === id)
+      const view = companyViewsWithCounts.find(v => v.id === id)
       if (view) orderedViews.push(view)
     })
 
     // Add any new views that weren't in the saved order
-    companyViews.forEach(view => {
+    companyViewsWithCounts.forEach(view => {
       if (!companyViewOrder.includes(view.id)) {
         orderedViews.push(view)
       }
@@ -775,24 +959,6 @@ function TicketsPageContent() {
     return matchesSearch && matchesStatus && matchesView
   })
 
-  // Debug logging for count mismatch investigation
-  useEffect(() => {
-    if (isSolvedView()) {
-      console.log('=== SOLVED VIEW DEBUG INFO ===')
-      console.log('Current View:', currentView)
-      console.log('Total tickets from API:', tickets.length)
-      console.log('Search term:', searchTerm)
-      console.log('Status filter:', statusFilter)
-      console.log('Filtered tickets count:', filteredTickets.length)
-      console.log('First 3 filtered tickets:', filteredTickets.slice(0, 3).map(t => ({
-        id: t.id,
-        ticketNumber: t.ticketNumber,
-        title: t.title,
-        status: t.status,
-        assignee: t.assignee ? `${t.assignee.firstName} ${t.assignee.lastName}` : 'Unassigned'
-      })))
-    }
-  }, [filteredTickets, currentView, searchTerm, statusFilter])
 
   const generatePDFReport = async () => {
     const pdf = new jsPDF()
@@ -1479,7 +1645,7 @@ function TicketsPageContent() {
               )}
 
               <div className="divide-y">
-                {loading ? (
+                {ticketsLoading ? (
                   [...Array(5)].map((_, i) => (
                     <div key={i} className="p-4 animate-pulse">
                       <div className="grid grid-cols-11 gap-4">

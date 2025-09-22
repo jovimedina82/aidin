@@ -1,4 +1,5 @@
 'use client'
+import { memo, useMemo, useCallback } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -30,18 +31,39 @@ const statusBackgroundColors = {
   CLOSED: 'bg-gray-50/50'
 }
 
-export default function TicketCard({ ticket, onClick }) {
-  const requesterInitials = ticket.requester?.firstName && ticket.requester?.lastName 
-    ? `${ticket.requester.firstName[0]}${ticket.requester.lastName[0]}` 
-    : '??'
-  const assigneeInitials = ticket.assignee?.firstName && ticket.assignee?.lastName 
-    ? `${ticket.assignee.firstName[0]}${ticket.assignee.lastName[0]}` 
-    : null
+function TicketCard({ ticket, onClick }) {
+  // Memoize computed values to prevent recalculation on every render
+  const requesterInitials = useMemo(() => {
+    return ticket.requester?.firstName && ticket.requester?.lastName
+      ? `${ticket.requester.firstName[0]}${ticket.requester.lastName[0]}`
+      : '??'
+  }, [ticket.requester?.firstName, ticket.requester?.lastName])
+
+  const assigneeInitials = useMemo(() => {
+    return ticket.assignee?.firstName && ticket.assignee?.lastName
+      ? `${ticket.assignee.firstName[0]}${ticket.assignee.lastName[0]}`
+      : null
+  }, [ticket.assignee?.firstName, ticket.assignee?.lastName])
+
+  const requesterFullName = useMemo(() => {
+    return ticket.requester?.firstName && ticket.requester?.lastName
+      ? `${ticket.requester.firstName} ${ticket.requester.lastName}`
+      : 'Unknown User'
+  }, [ticket.requester?.firstName, ticket.requester?.lastName])
+
+  const formattedTime = useMemo(() => {
+    return formatDistanceToNow(new Date(ticket.createdAt), { addSuffix: true })
+  }, [ticket.createdAt])
+
+  // Memoize the click handler to prevent unnecessary re-renders
+  const handleClick = useCallback(() => {
+    onClick(ticket)
+  }, [onClick, ticket])
 
   return (
     <Card
       className={`cursor-pointer hover:shadow-md transition-shadow duration-200 ${statusBackgroundColors[ticket.status]}`}
-      onClick={() => onClick(ticket)}
+      onClick={handleClick}
     >
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
@@ -68,12 +90,12 @@ export default function TicketCard({ ticket, onClick }) {
           </div>
         </div>
       </CardHeader>
-      
+
       <CardContent className="pt-0">
         <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
           {ticket.description}
         </p>
-        
+
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-1">
@@ -81,14 +103,9 @@ export default function TicketCard({ ticket, onClick }) {
               <Avatar className="h-5 w-5">
                 <AvatarFallback className="text-xs">{requesterInitials}</AvatarFallback>
               </Avatar>
-              <span>
-                {ticket.requester?.firstName && ticket.requester?.lastName 
-                  ? `${ticket.requester.firstName} ${ticket.requester.lastName}`
-                  : 'Unknown User'
-                }
-              </span>
+              <span>{requesterFullName}</span>
             </div>
-            
+
             {ticket.assignee && (
               <div className="flex items-center space-x-1">
                 <span>→</span>
@@ -99,7 +116,7 @@ export default function TicketCard({ ticket, onClick }) {
               </div>
             )}
           </div>
-          
+
           <div className="flex items-center space-x-3">
             {ticket._count?.comments > 0 && (
               <div className="flex items-center space-x-1">
@@ -107,10 +124,10 @@ export default function TicketCard({ ticket, onClick }) {
                 <span>{ticket._count.comments}</span>
               </div>
             )}
-            
+
             <div className="flex items-center space-x-1">
               <Clock size={12} />
-              <span>{formatDistanceToNow(new Date(ticket.createdAt), { addSuffix: true })}</span>
+              <span>{formattedTime}</span>
             </div>
           </div>
         </div>
@@ -118,3 +135,16 @@ export default function TicketCard({ ticket, onClick }) {
     </Card>
   )
 }
+
+// Export memoized component with custom comparison function
+export default memo(TicketCard, (prevProps, nextProps) => {
+  // Only re-render if ticket data has actually changed
+  return (
+    prevProps.ticket.id === nextProps.ticket.id &&
+    prevProps.ticket.status === nextProps.ticket.status &&
+    prevProps.ticket.priority === nextProps.ticket.priority &&
+    prevProps.ticket.title === nextProps.ticket.title &&
+    prevProps.ticket.updatedAt === nextProps.ticket.updatedAt &&
+    prevProps.ticket._count?.comments === nextProps.ticket._count?.comments
+  )
+})

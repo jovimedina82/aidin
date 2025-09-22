@@ -5,11 +5,16 @@
     "type": "module",
     "scripts": {
         "dev": "NODE_OPTIONS='--max-old-space-size=512' next dev --hostname 0.0.0.0 --port 3000",
-        "dev:no-reload": "next dev --hostname 0.0.0.0 --port 3000",
-        "dev:webpack": "next dev --hostname 0.0.0.0 --port 3000",
         "build": "next build",
-        "start": "next start -p 3011",
-        "seed": "node prisma/seed.js"
+        "start": "next start",
+        "lint": "next lint",
+        "type-check": "tsc --noEmit",
+        "db:generate": "prisma generate",
+        "db:push": "prisma db push",
+        "db:seed": "node prisma/seed.js",
+        "db:studio": "prisma studio --port 5555",
+        "db:reset": "prisma migrate reset --force && npm run db:seed",
+        "clean": "rm -rf .next && rm -rf node_modules/.cache"
     },
     "dependencies": {
         "@azure/msal-node": "^3.7.3",
@@ -52,10 +57,15 @@
         "xlsx": "^0.18.5"
     },
     "devDependencies": {
+        "@types/node": "24.5.2",
+        "@types/react": "19.1.13",
         "autoprefixer": "^10.4.19",
+        "eslint": "^9.36.0",
+        "eslint-config-next": "^15.5.3",
         "globals": "^16.2.0",
         "postcss": "^8",
-        "tailwindcss": "^3.4.1"
+        "tailwindcss": "^3.4.1",
+        "typescript": "^5.9.2"
     },
     "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }

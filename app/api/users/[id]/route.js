@@ -1,41 +1,29 @@
 import { NextResponse } from 'next/server'
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth"
+import { QueryOptimizations } from '../../../../lib/performance.js'
+import {
+  ApiError,
+  ApiSuccess,
+  withErrorHandler,
+  requireRoles
+} from '../../../../lib/api-utils.js'
 
+export const GET = withErrorHandler(async (request, { params }) => {
+  const user = await getCurrentUser(request)
+  requireRoles(user, ['Admin', 'Manager', 'Staff'])
 
-export async function GET(request, { params }) {
-  try {
-    const user = await getCurrentUser(request)
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+  const targetUser = await prisma.user.findUnique({
+    where: { id: params.id },
+    select: QueryOptimizations.userWithRelations
+  })
 
-    const targetUser = await prisma.user.findUnique({
-      where: { id: params.id },
-      include: {
-        roles: {
-          include: {
-            role: true
-          }
-        },
-        departments: {
-          include: {
-            department: true
-          }
-        }
-      }
-    })
-
-    if (!targetUser) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
-    }
-
-    return NextResponse.json(targetUser)
-  } catch (error) {
-    console.error('Error fetching user:', error)
-    return NextResponse.json({ error: 'Failed to fetch user' }, { status: 500 })
+  if (!targetUser) {
+    return ApiError.notFound('User not found')
   }
-}
+
+  return ApiSuccess.ok(targetUser)
+})
 
 export async function PUT(request, { params }) {
   try {

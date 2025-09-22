@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useAuth } from './AuthProvider'
 import ProtectedRoute from './ProtectedRoute'
 import Navbar from './Navbar'
@@ -84,28 +84,34 @@ export default function SidebarLayout({ children }) {
   const pathname = usePathname()
   const [expandedItems, setExpandedItems] = useState({})
 
-  const isStaff = user?.roles?.some(role => ['Admin', 'Manager', 'Staff'].includes(role))
-  const isAdmin = user?.roles?.some(role => ['Admin'].includes(role))
+  // Memoize role checks to prevent unnecessary recalculation
+  const { isStaff, isAdmin } = useMemo(() => ({
+    isStaff: user?.roles?.some(role => ['Admin', 'Manager', 'Staff'].includes(role)),
+    isAdmin: user?.roles?.some(role => ['Admin'].includes(role))
+  }), [user?.roles])
 
-  const toggleExpanded = (itemName) => {
+  const toggleExpanded = useCallback((itemName) => {
     setExpandedItems(prev => ({
       ...prev,
       [itemName]: !prev[itemName]
     }))
-  }
+  }, [])
 
-  const isCurrentPage = (href) => {
+  const isCurrentPage = useCallback((href) => {
     if (href === '/dashboard') return pathname === '/dashboard' || pathname === '/'
     return pathname.startsWith(href)
-  }
+  }, [pathname])
 
-  const filteredNavigation = navigation.filter(item => {
-    // Hide Admin section for non-admin users
-    if (item.name === 'Admin' && !isAdmin) return false
-    // Hide certain sections for non-staff users
-    if (['Organizations', 'Reports'].includes(item.name) && !isStaff) return false
-    return true
-  })
+  // Memoize filtered navigation to prevent recalculation
+  const filteredNavigation = useMemo(() => {
+    return navigation.filter(item => {
+      // Hide Admin section for non-admin users
+      if (item.name === 'Admin' && !isAdmin) return false
+      // Hide certain sections for non-staff users
+      if (['Organizations', 'Reports'].includes(item.name) && !isStaff) return false
+      return true
+    })
+  }, [isAdmin, isStaff])
 
   return (
     <ProtectedRoute>
@@ -143,11 +149,6 @@ export default function SidebarLayout({ children }) {
                             <div className="flex items-center">
                               <item.icon className="mr-3 h-5 w-5" />
                               <span>{item.name}</span>
-                              {item.name === 'Tickets' && (
-                                <span className="ml-2 bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5 rounded-full">
-                                  12
-                                </span>
-                              )}
                             </div>
                             {hasChildren && (
                               <ChevronRight

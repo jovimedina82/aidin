@@ -68,7 +68,7 @@ export interface DepartmentKeyword {
   department: Department
 }
 
-export type TicketStatus = 'NEW' | 'OPEN' | 'PENDING' | 'ON_HOLD' | 'SOLVED' | 'CLOSED'
+export type TicketStatus = 'NEW' | 'OPEN' | 'PENDING' | 'ON_HOLD' | 'SOLVED'
 export type TicketPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT'
 
 export interface Ticket {

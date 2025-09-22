@@ -32,7 +32,6 @@ export async function GET(request) {
       open,
       onHold,
       newTickets,
-      closed,
       unassignedNew,
       assigned,
       companyOpen,
@@ -50,12 +49,12 @@ export async function GET(request) {
       // Total tickets
       prisma.ticket.count({ where: accessWhere }),
 
-      // Unassigned tickets (no assignee) - count all statuses except SOLVED and CLOSED
+      // Unassigned tickets (no assignee) - count all statuses except SOLVED
       prisma.ticket.count({
         where: {
           ...accessWhere,
           assigneeId: null,
-          status: { notIn: ['SOLVED', 'CLOSED'] }
+          status: { notIn: ['SOLVED'] }
         }
       }),
 
@@ -86,7 +85,6 @@ export async function GET(request) {
       prisma.ticket.count({ where: { ...accessWhere, status: 'OPEN' } }),
       prisma.ticket.count({ where: { ...accessWhere, status: 'ON_HOLD' } }),
       prisma.ticket.count({ where: { ...accessWhere, status: 'NEW' } }),
-      prisma.ticket.count({ where: { ...accessWhere, status: 'CLOSED' } }),
 
       // Unassigned new tickets
       prisma.ticket.count({
@@ -187,7 +185,6 @@ export async function GET(request) {
       open,
       onHold,
       newTickets,
-      closed,
       unassignedNew,
       personal: {
         newTickets: personalNew,

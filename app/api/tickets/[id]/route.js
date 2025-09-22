@@ -225,6 +225,60 @@ export async function PUT(request, { params }) {
   }
 }
 
+export async function DELETE(request, { params }) {
+  try {
+    // Get current user for authorization
+    const currentUser = await getCurrentUser(request)
+    if (!currentUser) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Get user roles to check if admin
+    const userRoles = currentUser?.roles || []
+    const roleNames = userRoles.map(role =>
+      typeof role === 'string' ? role : (role.role?.name || role.name)
+    )
+    const isAdmin = roleNames.includes('Admin')
+
+    // Only admins can delete tickets
+    if (!isAdmin) {
+      return NextResponse.json({
+        error: 'Only administrators can delete tickets'
+      }, { status: 403 })
+    }
+
+    // Check if ticket exists
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: params.id }
+    })
+
+    if (!ticket) {
+      return NextResponse.json({ error: 'Ticket not found' }, { status: 404 })
+    }
+
+    // Delete related comments first (due to foreign key constraints)
+    await prisma.ticketComment.deleteMany({
+      where: { ticketId: params.id }
+    })
+
+    // Delete the ticket
+    await prisma.ticket.delete({
+      where: { id: params.id }
+    })
+
+    return NextResponse.json({
+      success: true,
+      message: 'Ticket deleted successfully'
+    })
+  } catch (error) {
+    console.error('Error deleting ticket:', error)
+    return NextResponse.json(
+      { error: 'Failed to delete ticket' },
+      { status: 500 }
+    )
+  }
+}
+
 export async function PATCH(request, { params }) {
   try {
     // Get current user for automatic assignment
@@ -284,9 +338,6 @@ export async function PATCH(request, { params }) {
       updateData.resolvedAt = new Date()
     }
 
-    if (data.status === 'CLOSED' && !updateData.closedAt) {
-      updateData.closedAt = new Date()
-    }
 
     const ticket = await prisma.ticket.update({
       where: {

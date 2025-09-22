@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from './AuthProvider'
 import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -112,6 +112,9 @@ export default function Navbar() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                   <Avatar className="h-8 w-8">
+                    {user?.avatar && (
+                      <AvatarImage src={user.avatar} alt={`${user.firstName} ${user.lastName}`} />
+                    )}
                     <AvatarFallback className="text-xs">{initials}</AvatarFallback>
                   </Avatar>
                 </Button>

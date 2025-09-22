@@ -784,7 +784,6 @@ export default function ReportsPage() {
                     <SelectItem value="PENDING">Pending</SelectItem>
                     <SelectItem value="ON_HOLD">On Hold</SelectItem>
                     <SelectItem value="SOLVED">Solved</SelectItem>
-                    <SelectItem value="CLOSED">Closed</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

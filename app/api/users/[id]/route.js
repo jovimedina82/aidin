@@ -137,10 +137,13 @@ export async function PUT(request, { params }) {
 
 export async function DELETE(request, { params }) {
   try {
+    console.log('DEBUG: Delete user request for ID:', params.id)
     const user = await getCurrentUser(request)
     if (!user) {
+      console.log('DEBUG: No authenticated user found')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    console.log('DEBUG: Authenticated user:', user.email, 'ID:', user.id)
 
     // Check if user has permission to delete users
     const userRoles = user?.roles || []
@@ -158,6 +161,7 @@ export async function DELETE(request, { params }) {
     const { newManagerId } = body
 
     // Check if user exists and get their direct reports
+    console.log('DEBUG: Looking for user with ID:', params.id)
     const targetUser = await prisma.user.findUnique({
       where: { id: params.id },
       include: {
@@ -167,16 +171,20 @@ export async function DELETE(request, { params }) {
     })
 
     if (!targetUser) {
+      console.log('DEBUG: Target user not found')
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
+    console.log('DEBUG: Target user found:', targetUser.email, 'Direct reports:', targetUser.directReports.length)
 
     // Prevent self-deletion
     if (params.id === user.id) {
+      console.log('DEBUG: Self-deletion attempt prevented')
       return NextResponse.json({ error: 'Cannot delete your own account' }, { status: 400 })
     }
 
     // If user has direct reports, require manager reassignment
     if (targetUser.directReports.length > 0 && !newManagerId) {
+      console.log('DEBUG: Manager reassignment required for user with direct reports')
       return NextResponse.json({
         error: 'Manager reassignment required',
         requiresManagerReassignment: true,
@@ -185,6 +193,7 @@ export async function DELETE(request, { params }) {
     }
 
     // Delete user with proper cleanup of related records
+    console.log('DEBUG: Starting user deletion transaction')
     await prisma.$transaction(async (prisma) => {
       // 1. Delete user roles
       await prisma.userRole.deleteMany({
@@ -215,9 +224,13 @@ export async function DELETE(request, { params }) {
       // SOLVED tickets keep their assigneeId for historical attribution
       // (they remain assigned to the deleted user for audit trail)
 
-      // 4. PRESERVE ticket comments for historical purposes
-      // Comments remain in database but user reference becomes null or we keep it for history
-      // We'll just leave them as-is since the user deletion will be noted in the system
+      // 4. Handle ticket comments (RESTRICT constraint)
+      // Since userId is NOT NULL in schema, we need to delete comments to allow user deletion
+      // Note: This removes comment history - consider making userId nullable for better audit trail
+      console.log('DEBUG: Deleting ticket comments to resolve constraint')
+      await prisma.ticketComment.deleteMany({
+        where: { userId: params.id }
+      })
 
       // 5. Handle manager hierarchy reassignment
       if (targetUser.directReports.length > 0) {
@@ -243,17 +256,22 @@ export async function DELETE(request, { params }) {
       }
 
       // 6. Finally, delete the user
+      console.log('DEBUG: Deleting user from database')
       await prisma.user.delete({
         where: { id: params.id }
       })
+      console.log('DEBUG: User deletion transaction completed successfully')
     })
 
+    console.log('DEBUG: User deletion completed successfully')
     return NextResponse.json({
       message: 'User deleted successfully',
       reassignedReports: targetUser.directReports.length
     })
   } catch (error) {
-    console.error('Error deleting user:', error)
+    console.error('DEBUG: Error deleting user:', error)
+    console.error('DEBUG: Error details:', error.message)
+    console.error('DEBUG: Error stack:', error.stack)
 
     // Check if user not found
     if (error.code === 'P2025') {

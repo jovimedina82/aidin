@@ -43,8 +43,15 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Settings, Users, Plus, Edit, Trash2, Shield, UserX, UserCheck, Building2, Brain } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Settings, Users, Plus, Edit, Trash2, Shield, UserX, UserCheck, Building2, Brain, Ticket, Search, Calendar, User, MoreVertical } from 'lucide-react'
 import { toast } from 'sonner'
+import { formatDistanceToNow } from 'date-fns'
 import DepartmentManagement from '../../components/DepartmentManagement'
 import AIAdministration from '../../components/AIAdministration'
 
@@ -75,6 +82,13 @@ export default function AdminPage() {
   // Departments state
   const [departments, setDepartments] = useState([])
 
+  // Tickets state
+  const [tickets, setTickets] = useState([])
+  const [ticketsLoading, setTicketsLoading] = useState(false)
+  const [ticketSearchTerm, setTicketSearchTerm] = useState('')
+  const [ticketToDelete, setTicketToDelete] = useState(null)
+  const [selectedTickets, setSelectedTickets] = useState([])
+
   // Check admin access
   const isAdmin = user?.roles?.includes('Admin')
 
@@ -84,6 +98,7 @@ export default function AdminPage() {
     }
     fetchUsers()
     fetchDepartments()
+    fetchTickets()
   }, [isAdmin])
 
   const fetchUsers = async () => {
@@ -112,6 +127,29 @@ export default function AdminPage() {
       }
     } catch (error) {
       console.error('Failed to fetch departments:', error)
+    }
+  }
+
+  const fetchTickets = async () => {
+    try {
+      setTicketsLoading(true)
+      const oneMonthAgo = new Date()
+      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1)
+
+      const response = await makeAuthenticatedRequest(`/api/tickets?sortBy=createdAt&sortOrder=desc&limit=1000`)
+      if (response.ok) {
+        const data = await response.json()
+        // Filter for tickets from the last month
+        const allTickets = data.tickets || []
+        const lastMonthTickets = allTickets.filter(ticket =>
+          new Date(ticket.createdAt) >= oneMonthAgo
+        )
+        setTickets(lastMonthTickets)
+      }
+    } catch (error) {
+      console.error('Failed to fetch tickets:', error)
+    } finally {
+      setTicketsLoading(false)
     }
   }
 
@@ -438,6 +476,147 @@ export default function AdminPage() {
     user.email?.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
+  const filteredTickets = tickets.filter(ticket =>
+    ticket.title?.toLowerCase().includes(ticketSearchTerm.toLowerCase()) ||
+    ticket.ticketNumber?.toLowerCase().includes(ticketSearchTerm.toLowerCase()) ||
+    ticket.description?.toLowerCase().includes(ticketSearchTerm.toLowerCase()) ||
+    (ticket.requester?.firstName + ' ' + ticket.requester?.lastName)?.toLowerCase().includes(ticketSearchTerm.toLowerCase()) ||
+    (ticket.assignee?.firstName + ' ' + ticket.assignee?.lastName)?.toLowerCase().includes(ticketSearchTerm.toLowerCase())
+  )
+
+  const handleDeleteTicket = async (ticketId) => {
+    try {
+      console.log('Attempting to delete ticket:', ticketId)
+      const response = await makeAuthenticatedRequest(`/api/tickets/${ticketId}`, {
+        method: 'DELETE'
+      })
+
+      console.log('Delete response:', response.status, response.statusText)
+
+      if (response.ok) {
+        setTickets(tickets.filter(t => t.id !== ticketId))
+        toast.success('Ticket deleted successfully')
+        console.log('Ticket deleted successfully')
+      } else {
+        const error = await response.json()
+        console.log('Delete error:', error)
+        toast.error(error.error || `Failed to delete ticket (${response.status})`)
+      }
+    } catch (error) {
+      console.error('Delete ticket error:', error)
+      toast.error(`Failed to delete ticket: ${error.message}`)
+    }
+    setTicketToDelete(null)
+  }
+
+  const handleSelectTicket = (ticketId, checked) => {
+    if (checked) {
+      setSelectedTickets([...selectedTickets, ticketId])
+    } else {
+      setSelectedTickets(selectedTickets.filter(id => id !== ticketId))
+    }
+  }
+
+  const handleSelectAllTickets = (checked) => {
+    if (checked) {
+      const allTicketIds = filteredTickets.map(t => t.id)
+      setSelectedTickets(allTicketIds)
+    } else {
+      setSelectedTickets([])
+    }
+  }
+
+  const handleBulkDeleteTickets = async () => {
+    if (selectedTickets.length === 0) {
+      toast.error('No tickets selected')
+      return
+    }
+
+    try {
+      console.log('Attempting to delete selected tickets:', selectedTickets)
+
+      const results = []
+      const deletedTickets = []
+      const failedTickets = []
+
+      // Process deletions sequentially to avoid database conflicts
+      for (const ticketId of selectedTickets) {
+        try {
+          console.log(`Deleting ticket: ${ticketId}`)
+          const response = await makeAuthenticatedRequest(`/api/tickets/${ticketId}`, {
+            method: 'DELETE'
+          })
+
+          console.log(`Delete response for ${ticketId}:`, response.status, response.statusText)
+
+          if (response.ok) {
+            deletedTickets.push(ticketId)
+            console.log(`Successfully deleted ticket: ${ticketId}`)
+          } else {
+            const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+            failedTickets.push({ ticketId, error: errorData.error || `HTTP ${response.status}` })
+            console.error(`Failed to delete ticket ${ticketId}:`, errorData)
+          }
+
+          // Add small delay between deletions to prevent overwhelming the server
+          await new Promise(resolve => setTimeout(resolve, 100))
+
+        } catch (error) {
+          failedTickets.push({ ticketId, error: error.message })
+          console.error(`Exception deleting ticket ${ticketId}:`, error)
+        }
+      }
+
+      console.log(`Bulk delete completed. Success: ${deletedTickets.length}, Failed: ${failedTickets.length}`)
+
+      // Update UI state
+      if (deletedTickets.length > 0) {
+        // Remove deleted tickets from the UI
+        setTickets(tickets.filter(t => !deletedTickets.includes(t.id)))
+
+        // Refresh the full ticket list to ensure consistency
+        setTimeout(() => {
+          fetchTickets()
+        }, 500)
+      }
+
+      // Clear selection
+      setSelectedTickets([])
+
+      // Show appropriate feedback
+      if (failedTickets.length === 0) {
+        toast.success(`${deletedTickets.length} tickets deleted successfully`)
+      } else if (deletedTickets.length === 0) {
+        toast.error(`Failed to delete all ${failedTickets.length} selected tickets`)
+        console.error('All deletions failed:', failedTickets)
+      } else {
+        toast.error(`${deletedTickets.length} tickets deleted, ${failedTickets.length} failed`)
+        console.error('Some deletions failed:', failedTickets)
+      }
+
+    } catch (error) {
+      console.error('Bulk delete error:', error)
+      toast.error(`Failed to delete selected tickets: ${error.message}`)
+      setSelectedTickets([])
+    }
+  }
+
+  const getStatusBadge = (status) => {
+    const statusConfig = {
+      NEW: { label: 'New', className: 'bg-red-100 text-red-800 border-red-200' },
+      OPEN: { label: 'Open', className: 'bg-blue-100 text-blue-800 border-blue-200' },
+      PENDING: { label: 'Pending', className: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
+      ON_HOLD: { label: 'On Hold', className: 'bg-orange-100 text-orange-800 border-orange-200' },
+      SOLVED: { label: 'Solved', className: 'bg-green-100 text-green-800 border-green-200' }
+    }
+    const config = statusConfig[status] || statusConfig.NEW
+    return (
+      <Badge variant="outline" className={config.className}>
+        {config.label}
+      </Badge>
+    )
+  }
+
   if (!isAdmin) {
     return (
       <SidebarLayout>
@@ -471,8 +650,9 @@ export default function AdminPage() {
         </div>
 
         <Tabs defaultValue="users" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="users">User Management</TabsTrigger>
+            <TabsTrigger value="tickets">All Tickets</TabsTrigger>
             <TabsTrigger value="departments">Departments</TabsTrigger>
             <TabsTrigger value="ai-admin">AI Administration</TabsTrigger>
             <TabsTrigger value="azure-sync">Azure AD Sync</TabsTrigger>
@@ -713,6 +893,174 @@ export default function AdminPage() {
                       ))}
                     </TableBody>
                   </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="tickets" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Ticket className="h-5 w-5" />
+                      All Tickets
+                    </CardTitle>
+                    <CardDescription>
+                      All tickets from the last month with all statuses
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="flex items-center space-x-2">
+                    <Search className="w-4 h-4 text-gray-400" />
+                    <Input
+                      placeholder="Search tickets..."
+                      value={ticketSearchTerm}
+                      onChange={(e) => setTicketSearchTerm(e.target.value)}
+                      className="max-w-sm"
+                    />
+                  </div>
+                  <span className="text-sm text-muted-foreground">
+                    {filteredTickets.length} tickets
+                  </span>
+                  {selectedTickets.length > 0 && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive">
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete Selected ({selectedTickets.length})
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Tickets</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete {selectedTickets.length} selected tickets? This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleBulkDeleteTickets} className="bg-red-600 hover:bg-red-700">
+                            Delete Tickets
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
+                </div>
+
+                {/* Select All Checkbox for tickets */}
+                {filteredTickets.length > 0 && (
+                  <div className="flex items-center space-x-2 mb-4 p-2 bg-gray-50 rounded">
+                    <Checkbox
+                      checked={selectedTickets.length === filteredTickets.length && filteredTickets.length > 0}
+                      onCheckedChange={handleSelectAllTickets}
+                    />
+                    <span className="text-sm text-gray-600">
+                      Select all ({filteredTickets.length} tickets)
+                    </span>
+                  </div>
+                )}
+
+                {ticketsLoading ? (
+                  <div className="space-y-4">
+                    {[...Array(5)].map((_, i) => (
+                      <div key={i} className="animate-pulse">
+                        <div className="h-16 bg-muted rounded"></div>
+                      </div>
+                    ))}
+                  </div>
+                ) : filteredTickets.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    No tickets found from the last month
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {filteredTickets.map((ticket) => (
+                      <div key={ticket.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start gap-3 flex-1">
+                            <Checkbox
+                              checked={selectedTickets.includes(ticket.id)}
+                              onCheckedChange={(checked) => handleSelectTicket(ticket.id, checked)}
+                              className="mt-1"
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3 mb-2">
+                                {getStatusBadge(ticket.status)}
+                                <span className="text-sm font-mono text-gray-500">#{ticket.ticketNumber}</span>
+                              </div>
+
+                              <h4 className="font-medium text-gray-900 mb-2">
+                                {ticket.title}
+                              </h4>
+
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                                <div className="flex items-center space-x-2">
+                                  <User className="w-4 h-4 text-gray-400" />
+                                  <span className="text-gray-600">Requester:</span>
+                                  <span className="text-gray-900">
+                                    {ticket.requester?.firstName} {ticket.requester?.lastName}
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center space-x-2">
+                                  <User className="w-4 h-4 text-gray-400" />
+                                  <span className="text-gray-600">Assignee:</span>
+                                  <span className="text-gray-900">
+                                    {ticket.assignee ? `${ticket.assignee.firstName} ${ticket.assignee.lastName}` : 'Unassigned'}
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center space-x-2">
+                                  <Calendar className="w-4 h-4 text-gray-400" />
+                                  <span className="text-gray-600">Created:</span>
+                                  <span className="text-gray-900">
+                                    {formatDistanceToNow(new Date(ticket.createdAt), { addSuffix: true })}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {ticket.category && (
+                                <div className="mt-2">
+                                  <Badge variant="secondary" className="text-xs">
+                                    {ticket.category}
+                                  </Badge>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="ml-4">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="sm">
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => window.open(`/tickets/${ticket.id}`, '_blank')}>
+                                    <Edit className="mr-2 h-4 w-4" />
+                                    View Ticket
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => setTicketToDelete(ticket)}
+                                    className="text-red-600 focus:text-red-600"
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Delete Ticket
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -1161,6 +1509,27 @@ export default function AdminPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Delete Ticket Confirmation Dialog */}
+        <AlertDialog open={!!ticketToDelete} onOpenChange={() => setTicketToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Ticket</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete ticket #{ticketToDelete?.ticketNumber} "{ticketToDelete?.title}"? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => handleDeleteTicket(ticketToDelete?.id)}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                Delete Ticket
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </SidebarLayout>
   )

@@ -166,7 +166,7 @@ function TicketsPageContent() {
       id: 'unassigned',
       label: 'Unassigned',
       icon: UserX,
-      filter: { assigneeId: null, excludeStatuses: ['SOLVED', 'CLOSED'] },
+      filter: { assigneeId: null, excludeStatuses: ['SOLVED'] },
       section: 'company'
     },
     {
@@ -263,7 +263,7 @@ function TicketsPageContent() {
 
       // Company views - different logic based on user role
       'unassigned': ticketData.filter(t =>
-        !t.assigneeId && !['SOLVED', 'CLOSED'].includes(t.status)
+        !t.assigneeId && !['SOLVED'].includes(t.status)
       ).length,
       'company-new': (() => {
         if (isAdmin) {
@@ -1160,8 +1160,7 @@ function TicketsPageContent() {
       OPEN: { label: 'Open', className: 'bg-blue-100 text-blue-800 border-blue-200' },
       PENDING: { label: 'Pending', className: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
       ON_HOLD: { label: 'On Hold', className: 'bg-orange-100 text-orange-800 border-orange-200' },
-      SOLVED: { label: 'Solved', className: 'bg-green-100 text-green-800 border-green-200' },
-      CLOSED: { label: 'Closed', className: 'bg-gray-100 text-gray-800 border-gray-200' }
+      SOLVED: { label: 'Solved', className: 'bg-green-100 text-green-800 border-green-200' }
     }
 
     const config = statusConfig[status] || statusConfig.NEW
@@ -1178,8 +1177,7 @@ function TicketsPageContent() {
       OPEN: 'bg-blue-50/50',
       PENDING: 'bg-yellow-50/50',
       ON_HOLD: 'bg-orange-50/50',
-      SOLVED: 'bg-green-50/50',
-      CLOSED: 'bg-gray-50/50'
+      SOLVED: 'bg-green-50/50'
     }
     return statusBackgroundColors[status] || statusBackgroundColors.NEW
   }

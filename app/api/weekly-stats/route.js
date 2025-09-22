@@ -64,7 +64,6 @@ export async function POST(request) {
       pendingTickets,
       onHoldTickets,
       solvedTickets,
-      closedTickets,
       unassignedTickets
     ] = await Promise.all([
       // Total tickets created in this week
@@ -126,16 +125,6 @@ export async function POST(request) {
           status: 'SOLVED'
         }
       }),
-      // Closed tickets
-      prisma.ticket.count({
-        where: {
-          closedAt: {
-            gte: monday,
-            lte: sunday
-          },
-          status: 'CLOSED'
-        }
-      }),
       // Unassigned tickets created in this week
       prisma.ticket.count({
         where: {
@@ -168,8 +157,7 @@ export async function POST(request) {
         pendingTickets,
         onHoldTickets,
         solvedTickets,
-        closedTickets,
-        unassignedTickets,
+          unassignedTickets,
         effectiveness
       },
       create: {
@@ -183,8 +171,7 @@ export async function POST(request) {
         pendingTickets,
         onHoldTickets,
         solvedTickets,
-        closedTickets,
-        unassignedTickets,
+          unassignedTickets,
         effectiveness
       }
     })

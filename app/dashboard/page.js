@@ -36,10 +36,10 @@ export default function DashboardPage() {
     try {
       setLoading(true)
       
-      // Fetch stats and recent tickets in parallel
+      // Fetch stats and recent tickets in parallel (exclude solved tickets from dashboard)
       const [statsResponse, ticketsResponse] = await Promise.all([
         makeAuthenticatedRequest('/api/stats'),
-        makeAuthenticatedRequest('/api/tickets?limit=8')
+        makeAuthenticatedRequest('/api/tickets?limit=8&excludeStatus=SOLVED')
       ])
 
       if (statsResponse.ok) {
@@ -198,7 +198,7 @@ export default function DashboardPage() {
                   </Button>
                 </CardTitle>
                 <CardDescription>
-                  Your most recent support tickets
+                  Recent active support tickets (excluding solved)
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -310,7 +310,7 @@ export default function DashboardPage() {
                 <CardHeader>
                   <CardTitle>More Recent Tickets</CardTitle>
                   <CardDescription>
-                    Additional recent support tickets
+                    Additional recent active tickets (excluding solved)
                   </CardDescription>
                 </CardHeader>
                 <CardContent>

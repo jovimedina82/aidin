@@ -19,7 +19,10 @@ export async function GET(request) {
         firstName: user.firstName,
         lastName: user.lastName,
         roles: user.roles.map(r => r.role.name),
-        isActive: user.isActive
+        isActive: user.isActive,
+        avatar: user.avatar,
+        azureId: user.azureId,
+        createdAt: user.createdAt
       }
     }
 

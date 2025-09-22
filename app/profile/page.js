@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { User, Mail, Shield, Building, Calendar, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDistanceToNow } from 'date-fns'
@@ -60,6 +60,7 @@ export default function ProfilePage() {
   }
 
   const initials = user ? `${user.firstName[0]}${user.lastName[0]}` : 'U'
+  const isSSOUser = user?.azureId ? true : false
 
   return (
     <ProtectedRoute>
@@ -76,9 +77,9 @@ export default function ProfilePage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
               {/* Profile Info */}
-              <div className="lg:col-span-2 space-y-6">
+              <div className="lg:col-span-3 space-y-6">
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -86,7 +87,10 @@ export default function ProfilePage() {
                       Personal Information
                     </CardTitle>
                     <CardDescription>
-                      Update your personal details and contact information
+                      {isSSOUser
+                        ? "Your personal information is managed through Azure AD"
+                        : "Update your personal details and contact information"
+                      }
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -98,6 +102,8 @@ export default function ProfilePage() {
                             id="firstName"
                             value={formData.firstName}
                             onChange={(e) => handleChange('firstName', e.target.value)}
+                            disabled={isSSOUser}
+                            className={isSSOUser ? "opacity-50 cursor-not-allowed" : ""}
                           />
                         </div>
                         <div className="space-y-2">
@@ -106,6 +112,8 @@ export default function ProfilePage() {
                             id="lastName"
                             value={formData.lastName}
                             onChange={(e) => handleChange('lastName', e.target.value)}
+                            disabled={isSSOUser}
+                            className={isSSOUser ? "opacity-50 cursor-not-allowed" : ""}
                           />
                         </div>
                       </div>
@@ -117,10 +125,16 @@ export default function ProfilePage() {
                           type="email"
                           value={formData.email}
                           onChange={(e) => handleChange('email', e.target.value)}
+                          disabled={isSSOUser}
+                          className={isSSOUser ? "opacity-50 cursor-not-allowed" : ""}
                         />
                       </div>
 
-                      <Button type="submit" disabled={loading}>
+                      <Button
+                        type="submit"
+                        disabled={loading || isSSOUser}
+                        className={isSSOUser ? "opacity-50 cursor-not-allowed" : ""}
+                      >
                         <Save className="mr-2 h-4 w-4" />
                         {loading ? 'Saving...' : 'Save Changes'}
                       </Button>
@@ -136,7 +150,10 @@ export default function ProfilePage() {
                       Account Security
                     </CardTitle>
                     <CardDescription>
-                      Manage your password and security settings
+                      {isSSOUser
+                        ? "Your account is managed through Azure AD Single Sign-On"
+                        : "Manage your password and security settings"
+                      }
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -145,10 +162,18 @@ export default function ProfilePage() {
                         <div>
                           <h4 className="font-medium">Password</h4>
                           <p className="text-sm text-muted-foreground">
-                            Last updated: Never
+                            {isSSOUser
+                              ? "Managed by Azure AD"
+                              : "Last updated: Never"
+                            }
                           </p>
                         </div>
-                        <Button variant="outline" size="sm">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={isSSOUser}
+                          className={isSSOUser ? "opacity-50 cursor-not-allowed" : ""}
+                        >
                           Change Password
                         </Button>
                       </div>
@@ -157,10 +182,18 @@ export default function ProfilePage() {
                         <div>
                           <h4 className="font-medium">Two-Factor Authentication</h4>
                           <p className="text-sm text-muted-foreground">
-                            Add an extra layer of security to your account
+                            {isSSOUser
+                              ? "Managed by Azure AD security policies"
+                              : "Add an extra layer of security to your account"
+                            }
                           </p>
                         </div>
-                        <Button variant="outline" size="sm">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={isSSOUser}
+                          className={isSSOUser ? "opacity-50 cursor-not-allowed" : ""}
+                        >
                           Enable 2FA
                         </Button>
                       </div>
@@ -170,7 +203,7 @@ export default function ProfilePage() {
               </div>
 
               {/* Sidebar */}
-              <div className="space-y-6">
+              <div className="lg:col-span-2 space-y-6">
                 {/* Profile Summary */}
                 <Card>
                   <CardHeader>
@@ -178,12 +211,21 @@ export default function ProfilePage() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="flex items-center space-x-4">
-                      <Avatar className="h-16 w-16">
+                      <Avatar className="h-16 w-16 flex-shrink-0">
+                        {user?.avatar && (
+                          <AvatarImage src={user.avatar} alt={`${user.firstName} ${user.lastName}`} />
+                        )}
                         <AvatarFallback className="text-lg">{initials}</AvatarFallback>
                       </Avatar>
-                      <div>
+                      <div className="flex-1 min-w-0">
                         <h3 className="font-semibold">{user?.firstName} {user?.lastName}</h3>
-                        <p className="text-sm text-muted-foreground">{user?.email}</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Mail size={16} className="text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground break-all">{user?.email}</span>
                       </div>
                     </div>
                     

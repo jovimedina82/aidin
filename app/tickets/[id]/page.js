@@ -204,8 +204,7 @@ export default function TicketDetailPage({ params }) {
       OPEN: <AlertCircle className="w-4 h-4 text-red-500" />,
       PENDING: <Clock className="w-4 h-4 text-blue-500" />,
       ON_HOLD: <Pause className="w-4 h-4 text-orange-500" />,
-      SOLVED: <CheckCircle className="w-4 h-4 text-green-500" />,
-      CLOSED: <XCircle className="w-4 h-4 text-gray-500" />
+      SOLVED: <CheckCircle className="w-4 h-4 text-green-500" />
     }
     return icons[status] || icons.NEW
   }
@@ -216,8 +215,7 @@ export default function TicketDetailPage({ params }) {
       OPEN: { label: 'Open', className: 'bg-red-100 text-red-800 border-red-200' },
       PENDING: { label: 'Pending', className: 'bg-blue-100 text-blue-800 border-blue-200' },
       ON_HOLD: { label: 'On Hold', className: 'bg-orange-100 text-orange-800 border-orange-200' },
-      SOLVED: { label: 'Solved', className: 'bg-green-100 text-green-800 border-green-200' },
-      CLOSED: { label: 'Closed', className: 'bg-gray-100 text-gray-800 border-gray-200' }
+      SOLVED: { label: 'Solved', className: 'bg-green-100 text-green-800 border-green-200' }
     }
     
     const config = statusConfig[status] || statusConfig.NEW
@@ -371,8 +369,7 @@ export default function TicketDetailPage({ params }) {
       OPEN: 'bg-blue-100 text-blue-800',
       PENDING: 'bg-yellow-100 text-yellow-800',
       ON_HOLD: 'bg-orange-100 text-orange-800',
-      SOLVED: 'bg-green-100 text-green-800',
-      CLOSED: 'bg-gray-100 text-gray-800'
+      SOLVED: 'bg-green-100 text-green-800'
     }
     return colors[status] || 'bg-gray-100 text-gray-800'
   }
@@ -665,7 +662,6 @@ export default function TicketDetailPage({ params }) {
                           <SelectItem value="PENDING">Pending</SelectItem>
                           <SelectItem value="ON_HOLD">On Hold</SelectItem>
                           <SelectItem value="SOLVED">Solved</SelectItem>
-                          <SelectItem value="CLOSED">Closed</SelectItem>
                         </SelectContent>
                       </Select>
                     ) : (

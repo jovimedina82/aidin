@@ -68,13 +68,7 @@ export async function GET(request) {
 
       // Status-specific counts
       prisma.ticket.count({ where: { ...accessWhere, status: 'PENDING' } }),
-      prisma.ticket.count({
-        where: {
-          ...accessWhere,
-          status: 'SOLVED',
-          updatedAt: { gte: oneMonthAgo }
-        }
-      }),
+      prisma.ticket.count({ where: { ...accessWhere, status: 'SOLVED' } }),
       prisma.ticket.count({
         where: {
           ...accessWhere,

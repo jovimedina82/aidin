@@ -1,0 +1,128 @@
+{
+  "name": "Simple Helpdesk Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "new-ticket",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-new-ticket",
+      "name": "Webhook - New Ticket",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "new-ticket"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "priority-check",
+              "leftValue": "={{ $json.data.priority }}",
+              "rightValue": "HIGH",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "check-priority",
+      "name": "Check if High Priority",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Simple logging and response for high priority tickets\nconst ticketData = $input.first().json.data;\n\nconsole.log('🔥 HIGH PRIORITY TICKET DETECTED!');\nconsole.log('Ticket Number:', ticketData.ticketNumber);\nconsole.log('Title:', ticketData.title);\nconsole.log('Priority:', ticketData.priority);\nconsole.log('Category:', ticketData.category);\n\nreturn [{\n  json: {\n    alert: 'HIGH_PRIORITY_DETECTED',\n    ticketNumber: ticketData.ticketNumber,\n    title: ticketData.title,\n    message: `🔥 Urgent attention needed for ticket ${ticketData.ticketNumber}`,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "high-priority-alert",
+      "name": "High Priority Alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log all ticket creations\nconst ticketData = $input.first().json.data;\n\nconsole.log('📝 NEW TICKET CREATED');\nconsole.log('Ticket Number:', ticketData.ticketNumber);\nconsole.log('Title:', ticketData.title);\nconsole.log('Priority:', ticketData.priority);\nconsole.log('Category:', ticketData.category);\nconsole.log('Department ID:', ticketData.departmentId);\nconsole.log('Status:', ticketData.status);\n\nreturn [{\n  json: {\n    processed: true,\n    ticketNumber: ticketData.ticketNumber,\n    title: ticketData.title,\n    priority: ticketData.priority,\n    category: ticketData.category,\n    message: `Ticket ${ticketData.ticketNumber} processed successfully`,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "log-ticket",
+      "name": "Log Ticket Creation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"message\": \"Ticket received and processed by N8N\",\n  \"ticketNumber\": \"{{ $('Webhook - New Ticket').first().json.data.ticketNumber }}\",\n  \"priority\": \"{{ $('Webhook - New Ticket').first().json.data.priority }}\",\n  \"actions\": [\n    {{ $('High Priority Alert').first().json ? '\"High priority alert logged\"' : '\"Normal priority processed\"' }},\n    \"Ticket logged successfully\"\n  ],\n  \"timestamp\": \"{{ new Date().toISOString() }}\"\n}",
+        "options": {}
+      },
+      "id": "webhook-response",
+      "name": "Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [900, 300]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook - New Ticket": {
+      "main": [[{
+        "node": "Check if High Priority",
+        "type": "main",
+        "index": 0
+      }]]
+    },
+    "Check if High Priority": {
+      "main": [
+        [{
+          "node": "High Priority Alert",
+          "type": "main",
+          "index": 0
+        }],
+        [{
+          "node": "Log Ticket Creation",
+          "type": "main",
+          "index": 0
+        }]
+      ]
+    },
+    "High Priority Alert": {
+      "main": [[{
+        "node": "Webhook Response",
+        "type": "main",
+        "index": 0
+      }]]
+    },
+    "Log Ticket Creation": {
+      "main": [[{
+        "node": "Webhook Response",
+        "type": "main",
+        "index": 0
+      }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "simple-helpdesk-v1.0",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "id": "simple-helpdesk-automation",
+  "tags": []
+}

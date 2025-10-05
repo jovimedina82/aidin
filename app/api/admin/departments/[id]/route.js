@@ -34,8 +34,7 @@ export const PUT = withErrorHandler(async (request, { params }) => {
   const duplicateDepartment = await prisma.department.findFirst({
     where: {
       name: {
-        equals: name.trim(),
-        mode: 'insensitive'
+        equals: name.trim()
       },
       id: {
         not: id

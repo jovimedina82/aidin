@@ -67,25 +67,26 @@ model UserRole {
 }
 
 model Ticket {
-  id              String          @id @default(uuid())
-  ticketNumber    String          @unique
-  title           String
-  description     String
-  status          TicketStatus    @default(NEW)
-  priority        TicketPriority  @default(NORMAL)
-  category        String?
-  requesterId     String?
-  assigneeId      String?
-  departmentId    String?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  resolvedAt      DateTime?
-  closedAt        DateTime?
-  comments        TicketComment[]
-  assignee        User?           @relation("TicketAssignee", fields: [assigneeId], references: [id])
-  requester       User?           @relation("TicketRequester", fields: [requesterId], references: [id])
-  aiDecision      AIDecision?
-  kbUsage         TicketKBUsage[]
+  id                    String          @id @default(uuid())
+  ticketNumber          String          @unique
+  title                 String
+  description           String
+  status                TicketStatus    @default(NEW)
+  priority              TicketPriority  @default(NORMAL)
+  category              String?
+  requesterId           String?
+  assigneeId            String?
+  departmentId          String?
+  emailConversationId   String?         // Microsoft Graph conversationId for email threading
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  resolvedAt            DateTime?
+  closedAt              DateTime?
+  comments              TicketComment[]
+  assignee              User?           @relation("TicketAssignee", fields: [assigneeId], references: [id])
+  requester             User?           @relation("TicketRequester", fields: [requesterId], references: [id])
+  aiDecision            AIDecision?
+  kbUsage               TicketKBUsage[]
 
   @@map("tickets")
 }
@@ -201,6 +202,7 @@ model KnowledgeBase {
   departmentId String?
   isActive     Boolean   @default(true)
   embedding    String?   // JSON array of embeddings
+  images       String?   // JSON array of image data
   usageCount   Int       @default(0)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt

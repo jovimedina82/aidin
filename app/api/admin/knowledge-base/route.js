@@ -48,6 +48,7 @@ export async function GET(request) {
     const articlesWithStats = articles.map(article => ({
       ...article,
       tags: article.tags ? JSON.parse(article.tags) : [],
+      images: article.images ? JSON.parse(article.images) : [],
       hasEmbedding: !!article.embedding,
       totalUsage: article.ticketResponses.length,
       responseUsage: article.ticketResponses.filter(tr => tr.usedInResponse).length
@@ -80,7 +81,7 @@ export async function POST(request) {
     }
 
     const data = await request.json()
-    const { title, content, tags, departmentId } = data
+    const { title, content, tags, departmentId, images } = data
 
     // Validate required fields
     if (!title || !content) {
@@ -98,7 +99,8 @@ export async function POST(request) {
         content,
         tags: tags ? JSON.stringify(tags) : null,
         departmentId: departmentId || null,
-        embedding: embedding ? JSON.stringify(embedding) : null
+        embedding: embedding ? JSON.stringify(embedding) : null,
+        images: images ? JSON.stringify(images) : null
       },
       include: {
         department: {
@@ -113,6 +115,7 @@ export async function POST(request) {
     return NextResponse.json({
       ...newArticle,
       tags: newArticle.tags ? JSON.parse(newArticle.tags) : [],
+      images: newArticle.images ? JSON.parse(newArticle.images) : [],
       hasEmbedding: !!newArticle.embedding
     }, { status: 201 })
 

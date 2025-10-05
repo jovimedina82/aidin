@@ -468,6 +468,18 @@ function TicketsPageContent() {
     }
   }, [user, authLoading])
 
+  // Auto-refresh tickets every 30 seconds without showing loading state
+  useEffect(() => {
+    if (!user || authLoading) return
+
+    const interval = setInterval(() => {
+      fetchTickets(false) // false = no loading spinner
+      fetchAllTickets() // Also refresh stats in background
+    }, 30000)
+
+    return () => clearInterval(interval)
+  }, [user, authLoading, currentView, sortBy, sortOrder])
+
   const loadUserPreferences = async () => {
     try {
       const response = await makeAuthenticatedRequest('/api/user-preferences')
@@ -562,9 +574,11 @@ function TicketsPageContent() {
     }
   }
 
-  const fetchTickets = async () => {
+  const fetchTickets = async (showLoadingState = true) => {
     try {
-      setTicketsLoading(true)
+      if (showLoadingState) {
+        setTicketsLoading(true)
+      }
 
       const params = new URLSearchParams()
 
@@ -625,7 +639,9 @@ function TicketsPageContent() {
     } catch (error) {
       console.error('Failed to fetch tickets:', error)
     } finally {
-      setTicketsLoading(false)
+      if (showLoadingState) {
+        setTicketsLoading(false)
+      }
     }
   }
 

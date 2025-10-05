@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../../../components/AuthProvider'
 import ProtectedRoute from '../../../components/ProtectedRoute'
 import Navbar from '../../../components/Navbar'
+import VirtualAssistant from '../../../components/VirtualAssistant'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -26,9 +27,9 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { 
   ArrowLeft, 
-  Clock, 
-  User, 
-  MessageCircle, 
+  Clock,
+  User,
+  MessageCircle,
   Send,
   Settings,
   AlertCircle,
@@ -50,6 +51,8 @@ export default function TicketDetailPage({ params }) {
   const [isInternal, setIsInternal] = useState(false)
   const [submittingComment, setSubmittingComment] = useState(false)
   const [users, setUsers] = useState([])
+  const [showAssistant, setShowAssistant] = useState(false)
+  const [assistantMinimized, setAssistantMinimized] = useState(false)
 
   const isStaff = user?.roles?.some(role => ['Admin', 'Manager', 'Staff'].includes(role))
   const isAdmin = user?.roles?.some(role => ['Admin', 'Manager'].includes(role))
@@ -779,6 +782,29 @@ export default function TicketDetailPage({ params }) {
             </div>
           </div>
         </main>
+
+        {/* Virtual Assistant - Available for All Users */}
+        {showAssistant && (
+          <VirtualAssistant
+            ticket={ticket}
+            isMinimized={assistantMinimized}
+            onToggleMinimize={() => setAssistantMinimized(!assistantMinimized)}
+            onClose={() => setShowAssistant(false)}
+          />
+        )}
+
+        {/* Virtual Assistant Trigger Button - Available for All Users */}
+        {!showAssistant && ticket && (
+          <div className="fixed bottom-4 right-4 z-50">
+            <Button
+              onClick={() => setShowAssistant(true)}
+              className="h-12 w-12 rounded-full shadow-lg bg-blue-600 hover:bg-blue-700"
+              title={`Get help with ticket #${ticket.ticketNumber}`}
+            >
+              <MessageCircle className="h-6 w-6 text-white" />
+            </Button>
+          </div>
+        )}
       </div>
     </ProtectedRoute>
   )

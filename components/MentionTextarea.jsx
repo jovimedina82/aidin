@@ -2,7 +2,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from './AuthProvider'
-import UserProfileModal from './UserProfileModal'
 
 export default function MentionTextarea({
   value,
@@ -21,8 +20,6 @@ export default function MentionTextarea({
   const [users, setUsers] = useState([])
   const [filteredUsers, setFilteredUsers] = useState([])
   const [selectedIndex, setSelectedIndex] = useState(0)
-  const [showProfileModal, setShowProfileModal] = useState(false)
-  const [selectedUserId, setSelectedUserId] = useState(null)
   const textareaRef = useRef(null)
   const mentionDropdownRef = useRef(null)
 
@@ -263,12 +260,6 @@ export default function MentionTextarea({
           ))}
         </div>
       )}
-
-      <UserProfileModal
-        isOpen={showProfileModal}
-        onClose={() => setShowProfileModal(false)}
-        userId={selectedUserId}
-      />
     </div>
   )
 }

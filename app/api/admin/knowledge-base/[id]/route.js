@@ -23,7 +23,7 @@ export async function PUT(request, { params }) {
     }
 
     const data = await request.json()
-    const { title, content, tags, departmentId } = data
+    const { title, content, tags, departmentId, images } = data
 
     // Validate required fields
     if (!title || !content) {
@@ -42,7 +42,8 @@ export async function PUT(request, { params }) {
         content,
         tags: tags ? JSON.stringify(tags) : null,
         departmentId: departmentId || null,
-        embedding: embedding ? JSON.stringify(embedding) : null
+        embedding: embedding ? JSON.stringify(embedding) : null,
+        images: images ? JSON.stringify(images) : null
       },
       include: {
         department: {
@@ -64,6 +65,7 @@ export async function PUT(request, { params }) {
     return NextResponse.json({
       ...updatedArticle,
       tags: updatedArticle.tags ? JSON.parse(updatedArticle.tags) : [],
+      images: updatedArticle.images ? JSON.parse(updatedArticle.images) : [],
       hasEmbedding: !!updatedArticle.embedding,
       totalUsage: updatedArticle.ticketResponses.length,
       responseUsage: updatedArticle.ticketResponses.filter(tr => tr.usedInResponse).length

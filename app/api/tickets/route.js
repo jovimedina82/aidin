@@ -117,9 +117,12 @@ export const GET = withErrorHandler(async (request) => {
 
 export async function POST(request) {
   try {
-    // Authentication check
+    // Authentication check (allow n8n/system with basic auth OR logged-in user)
+    const authHeader = request.headers.get('authorization')
+    const isSystemRequest = authHeader?.includes('Basic')
+
     const user = await getCurrentUser(request)
-    if (!user) {
+    if (!user && !isSystemRequest) {
       return NextResponse.json(
         { error: 'Unauthorized access. Please log in.' },
         { status: 401 }
@@ -128,8 +131,83 @@ export async function POST(request) {
 
     const data = await request.json()
 
-    // Set requesterId to current user if not provided
-    const requesterId = data.requesterId || user.id
+    // Check if this is a reply to an existing email thread
+    if (data.emailConversationId) {
+      const existingTicket = await prisma.ticket.findFirst({
+        where: {
+          emailConversationId: data.emailConversationId
+        }
+      })
+
+      if (existingTicket) {
+        // This is a reply - add as comment instead of creating new ticket
+        const requester = await prisma.user.findFirst({
+          where: {
+            email: data.requesterEmail?.toLowerCase()
+          }
+        })
+
+        if (requester) {
+          await prisma.ticketComment.create({
+            data: {
+              ticketId: existingTicket.id,
+              userId: requester.id,
+              content: data.description || data.title,
+              isPublic: true
+            }
+          })
+
+          return NextResponse.json({
+            success: true,
+            message: 'Reply added to existing ticket',
+            ticketId: existingTicket.id,
+            ticketNumber: existingTicket.ticketNumber,
+            action: 'comment_added'
+          })
+        }
+      }
+    }
+
+    // Handle email-based ticket creation (from n8n)
+    let requesterId = data.requesterId || user?.id
+
+    if (data.requesterEmail && !requesterId) {
+      // Find user by email (case-insensitive)
+      const requester = await prisma.user.findFirst({
+        where: {
+          email: data.requesterEmail.toLowerCase()
+        }
+      })
+
+      if (requester) {
+        requesterId = requester.id
+      } else {
+        // Create new user from email if not exists
+        const emailParts = data.requesterEmail.split('@')
+        const firstName = emailParts[0].split('.')[0] || 'Unknown'
+        const lastName = emailParts[0].split('.')[1] || 'User'
+
+        const newUser = await prisma.user.create({
+          data: {
+            email: data.requesterEmail,
+            firstName: firstName.charAt(0).toUpperCase() + firstName.slice(1),
+            lastName: lastName ? lastName.charAt(0).toUpperCase() + lastName.slice(1) : '',
+            password: Math.random().toString(36).slice(-12), // Random temp password
+            userType: 'REQUESTER',
+            isActive: true
+          }
+        })
+
+        requesterId = newUser.id
+      }
+    }
+
+    if (!requesterId) {
+      return NextResponse.json(
+        { error: 'Could not determine ticket requester' },
+        { status: 400 }
+      )
+    }
 
     // Enhanced AI processing with routing and categorization
     let category = data.category
@@ -219,7 +297,8 @@ export async function POST(request) {
         category,
         requesterId: requesterId,
         assigneeId: finalAssigneeId,
-        departmentId
+        departmentId,
+        emailConversationId: data.emailConversationId || null
       },
       include: {
         requester: {
@@ -255,6 +334,45 @@ export async function POST(request) {
       }
     }
 
+    // Trigger N8N webhook for new ticket (don't wait for it)
+    setImmediate(async () => {
+      try {
+        // Send webhook to N8N if running
+        await fetch('http://localhost:5678/webhook/new-ticket', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            event: 'ticket.created',
+            timestamp: new Date().toISOString(),
+            data: {
+              id: ticket.id,
+              ticketNumber: ticket.ticketNumber,
+              title: ticket.title,
+              description: ticket.description,
+              status: ticket.status,
+              priority: ticket.priority,
+              category: ticket.category,
+              requesterId: ticket.requesterId,
+              assigneeId: ticket.assigneeId,
+              departmentId: ticket.departmentId,
+              createdAt: ticket.createdAt
+            }
+          })
+        })
+
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`N8N webhook triggered for ticket ${ticket.ticketNumber}`)
+        }
+      } catch (error) {
+        // Don't fail ticket creation if webhook fails
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('N8N webhook failed (this is normal if N8N is not running):', error.message)
+        }
+      }
+    })
+
     // Generate AI response in background (don't wait for it)
     setImmediate(async () => {
       try {
@@ -282,6 +400,26 @@ export async function POST(request) {
           if (process.env.NODE_ENV === 'development') {
             console.log(`AI response added to ticket ${ticket.ticketNumber}`)
           }
+
+          // If ticket was created from email, send AI response via email
+          if (ticket.emailConversationId) {
+            try {
+              await fetch('http://localhost:5678/webhook/send-ai-response', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  ticketId: ticket.id,
+                  ticketNumber: ticket.ticketNumber,
+                  aiResponse: aiResponse
+                })
+              })
+              console.log(`Triggered email send for AI response on ticket ${ticket.ticketNumber}`)
+            } catch (webhookError) {
+              console.warn('Failed to trigger AI email webhook:', webhookError.message)
+            }
+          }
         }
       } catch (error) {
         console.error('Failed to generate AI response:', error)
@@ -292,7 +430,7 @@ export async function POST(request) {
   } catch (error) {
     console.error('Error creating ticket:', error)
     return NextResponse.json(
-      { error: 'Failed to create ticket' },
+      { error: 'Failed to create ticket', details: error.message },
       { status: 500 }
     )
   }

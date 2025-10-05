@@ -98,7 +98,16 @@
       "Read(//Users/owner/Downloads/**)",
       "Bash(printf \"\\n\")",
       "Bash(gh repo view:*)",
-      "Read(//dev/**)"
+      "Read(//dev/**)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker-compose:*)",
+      "Bash(open:*)",
+      "Bash(docker:*)",
+      "Bash(http://host.docker.internal:3000/api/tickets)",
+      "Bash(column:*)",
+      "Bash(cut:*)",
+      "Bash(npm ls:*)",
+      "Bash(git rm:*)"
     ],
     "deny": [],
     "ask": []

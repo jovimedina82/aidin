@@ -1,65 +1,37 @@
 'use client'
 import { useState } from 'react'
-import { useAuth } from '../../components/AuthProvider'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Separator } from '@/components/ui/separator'
-import { Loader2, Building2 } from 'lucide-react'
-import Link from 'next/link'
+import { Loader2, Building2, Shield } from 'lucide-react'
 import Image from 'next/image'
 
 export default function LoginPage() {
-  const { login } = useAuth()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [formData, setFormData] = useState({
-    email: '',
-    password: ''
-  })
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
-
-    const result = await login(formData.email, formData.password)
-    
-    if (result.success) {
-      router.push('/dashboard')
-    } else {
-      setError(result.error)
-    }
-    
-    setLoading(false)
-  }
-
-  const handleChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
-  }
 
   const handleAzureSignIn = async () => {
     setLoading(true)
     setError('')
-    
+
     try {
-      // Build Azure AD authorization URL directly
+      // Build Azure AD authorization URL
       const authUrl = new URL(`https://login.microsoftonline.com/${process.env.NEXT_PUBLIC_AZURE_AD_TENANT_ID || 'a4000698-9e71-4f9a-8f4e-b64d8f8cbca7'}/oauth2/v2.0/authorize`)
-      
+
       authUrl.searchParams.set('client_id', process.env.NEXT_PUBLIC_AZURE_AD_CLIENT_ID || '5e06ba03-616f-43e2-b4e2-a97b22669e3a')
       authUrl.searchParams.set('response_type', 'code')
       authUrl.searchParams.set('redirect_uri', `${window.location.origin}/api/auth/azure-callback`)
       authUrl.searchParams.set('scope', 'openid profile email User.Read')
       authUrl.searchParams.set('state', 'azure-sso')
-      
+      authUrl.searchParams.set('prompt', 'select_account')
+
       // Redirect to Azure AD
       window.location.href = authUrl.toString()
     } catch (error) {
-      setError('Failed to sign in with Azure AD. Please try again.')
+      console.error('Azure sign-in error:', error)
+      setError('Failed to initiate sign-in. Please try again.')
       setLoading(false)
     }
   }
@@ -99,88 +71,65 @@ export default function LoginPage() {
               />
             </div>
           </div>
-          <div className="text-black font-bold text-lg mb-2">HELPDESK</div>
+          <div className="text-black font-bold text-lg mb-2">AIDIN HELPDESK</div>
           <CardTitle className="text-2xl">Welcome Back</CardTitle>
           <CardDescription>
-            Sign in to your Aidin account
+            Sign in with your Surterre Properties account
           </CardDescription>
         </CardHeader>
         <CardContent>
           {error && (
-            <Alert variant="destructive" className="mb-4">
+            <Alert variant="destructive" className="mb-6">
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
 
-          {/* Azure AD SSO Button */}
-          <div className="space-y-4">
+          {/* SSO Sign In Button */}
+          <div className="space-y-6">
             <Button
               type="button"
-              variant="outline"
-              className="w-full"
+              className="w-full h-12 text-base"
               onClick={handleAzureSignIn}
               disabled={loading}
+              style={{ backgroundColor: '#3d6964' }}
             >
-              <Building2 className="mr-2 h-4 w-4" />
               {loading ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                   Signing in...
                 </>
               ) : (
-                'Sign in with Surterre Properties email'
+                <>
+                  <Building2 className="mr-2 h-5 w-5" />
+                  Sign in with Surterre Email
+                </>
               )}
             </Button>
 
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <Separator className="w-full" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">
-                  Or continue with email
-                </span>
+            {/* Information Box */}
+            <div className="bg-muted p-4 rounded-lg">
+              <div className="flex items-start gap-3">
+                <Shield className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                <div className="text-sm">
+                  <p className="font-medium mb-1">Secure Single Sign-On</p>
+                  <p className="text-muted-foreground">
+                    Use your Surterre Properties Microsoft account to access the helpdesk.
+                    This ensures secure authentication through your organization's Active Directory.
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Regular Login Form */}
-          <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="Enter your email"
-                value={formData.email}
-                onChange={(e) => handleChange('email', e.target.value)}
-                required
-              />
+            {/* Help Text */}
+            <div className="text-center text-sm text-muted-foreground">
+              <p>Having trouble signing in?</p>
+              <p className="mt-1">
+                Contact IT support at{' '}
+                <a href="mailto:helpdesk@surterreproperties.com" className="text-primary hover:underline">
+                  helpdesk@surterreproperties.com
+                </a>
+              </p>
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Enter your password"
-                value={formData.password}
-                onChange={(e) => handleChange('password', e.target.value)}
-                required
-              />
-            </div>
-            
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Sign In
-            </Button>
-          </form>
-          
-          <div className="mt-6 text-center text-sm">
-            <span className="text-muted-foreground">Don't have an account? </span>
-            <Link href="/register" className="text-primary hover:underline">
-              Sign up
-            </Link>
           </div>
         </CardContent>
       </Card>

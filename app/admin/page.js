@@ -160,7 +160,9 @@ export default function AdminPage() {
       if (response.ok) {
         const data = await response.json()
         setAzureSyncStatus(data)
-        if (data.configured) {
+        if (data.configured && data.enabled && data.syncStatus === 'ready') {
+          setAzureConnectionStatus('connected')
+        } else if (data.configured) {
           setAzureConnectionStatus('configured')
         } else {
           setAzureConnectionStatus('not_configured')

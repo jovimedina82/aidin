@@ -45,8 +45,7 @@ export const POST = withErrorHandler(async (request) => {
   const existingDepartment = await prisma.department.findFirst({
     where: {
       name: {
-        equals: name.trim(),
-        mode: 'insensitive'
+        equals: name.trim()
       }
     }
   })

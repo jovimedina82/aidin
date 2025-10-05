@@ -1,13 +1,14 @@
 'use client'
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useAuth } from '../../components/AuthProvider'
 import DashboardLayout from '../../components/DashboardLayout'
 import CreateTicketDialog from '../../components/CreateTicketDialog'
 import TicketCard from '../../components/TicketCard'
+import VirtualAssistant from '../../components/VirtualAssistant'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Ticket, Clock, CheckCircle, AlertCircle, Users, TrendingUp, Pause } from 'lucide-react'
+import { Ticket, Clock, CheckCircle, AlertCircle, Users, TrendingUp, Pause, MessageCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 export default function DashboardPage() {
@@ -25,17 +26,30 @@ export default function DashboardPage() {
   })
   const [recentTickets, setRecentTickets] = useState([])
   const [loading, setLoading] = useState(true)
+  const [showAssistant, setShowAssistant] = useState(false)
+  const [assistantMinimized, setAssistantMinimized] = useState(false)
 
   // Azure AD token handling is now done in AuthProvider
 
   useEffect(() => {
-    fetchDashboardData()
+    // Initial fetch with loading state
+    fetchDashboardData(true)
+
+    // Set up polling interval (every 30 seconds) - refresh in background without loading state
+    const interval = setInterval(() => {
+      fetchDashboardData(false) // false = no loading spinner
+    }, 30000)
+
+    // Cleanup on unmount
+    return () => clearInterval(interval)
   }, [])
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = async (showLoadingState = true) => {
     try {
-      setLoading(true)
-      
+      if (showLoadingState) {
+        setLoading(true)
+      }
+
       // Fetch stats and recent tickets in parallel (exclude solved tickets from dashboard)
       const [statsResponse, ticketsResponse] = await Promise.all([
         makeAuthenticatedRequest('/api/stats'),
@@ -66,7 +80,9 @@ export default function DashboardPage() {
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error)
     } finally {
-      setLoading(false)
+      if (showLoadingState) {
+        setLoading(false)
+      }
     }
   }
 
@@ -79,6 +95,26 @@ export default function DashboardPage() {
   }
 
   const isStaff = user?.roles?.some(role => ['Admin', 'Manager', 'Staff'].includes(role))
+
+  // Debug logging for SSO users
+  React.useEffect(() => {
+    if (user) {
+      console.log('Dashboard user data:', user)
+      console.log('User roles:', user.roles)
+      console.log('Is staff?', isStaff)
+    }
+  }, [user, isStaff])
+
+  // Debug logging for Virtual Assistant
+  React.useEffect(() => {
+    console.log('Virtual Assistant state:', {
+      showAssistant,
+      assistantMinimized,
+      user: !!user,
+      roles: user?.roles,
+      shouldShowButton: !showAssistant
+    })
+  }, [showAssistant, assistantMinimized, user])
 
   return (
     <DashboardLayout>
@@ -343,6 +379,32 @@ export default function DashboardPage() {
             </div>
           </div>
       </div>
+
+      {/* Virtual Assistant - Available for All Users */}
+      {showAssistant && (
+        <VirtualAssistant
+          isMinimized={assistantMinimized}
+          onToggleMinimize={() => setAssistantMinimized(!assistantMinimized)}
+          onClose={() => setShowAssistant(false)}
+        />
+      )}
+
+      {/* Virtual Assistant Trigger Button - Available for All Users */}
+      {!showAssistant && (
+        <div className="fixed bottom-4 right-4 z-50">
+          <Button
+            onClick={() => {
+              console.log('Assistant button clicked!')
+              setShowAssistant(true)
+            }}
+            className="h-14 w-14 rounded-full shadow-lg bg-blue-600 hover:bg-blue-700"
+            title="Open AidIN Virtual Assistant"
+          >
+            <MessageCircle className="h-6 w-6 text-white" />
+          </Button>
+        </div>
+      )}
+
     </DashboardLayout>
   )
 }

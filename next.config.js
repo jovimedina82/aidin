@@ -27,11 +27,20 @@ const nextConfig = {
       {
         source: "/(.*)",
         headers: [
-          { key: "X-Frame-Options", value: "ALLOWALL" },
-          { key: "Content-Security-Policy", value: "frame-ancestors *;" },
-          { key: "Access-Control-Allow-Origin", value: process.env.CORS_ORIGINS || "*" },
-          { key: "Access-Control-Allow-Methods", value: "GET, POST, PUT, DELETE, OPTIONS" },
-          { key: "Access-Control-Allow-Headers", value: "*" },
+          // Prevent clickjacking attacks
+          { key: "X-Frame-Options", value: "DENY" },
+          // Content Security Policy - restrict frame ancestors to self only
+          { key: "Content-Security-Policy", value: "frame-ancestors 'self';" },
+          // CORS - Only allow specific origins (never use '*' in production)
+          { key: "Access-Control-Allow-Origin", value: process.env.CORS_ORIGINS || "https://yourdomain.com" },
+          { key: "Access-Control-Allow-Methods", value: "GET, POST, PUT, PATCH, DELETE, OPTIONS" },
+          // Only allow specific headers (never use '*')
+          { key: "Access-Control-Allow-Headers", value: "Content-Type, Authorization, X-Requested-With" },
+          { key: "Access-Control-Allow-Credentials", value: "true" },
+          // Additional security headers
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-XSS-Protection", value: "1; mode=block" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
         ],
       },
     ];

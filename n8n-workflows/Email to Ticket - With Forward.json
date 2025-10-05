@@ -1,0 +1,598 @@
+{
+  "name": "Email to Ticket - With Forward",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "7fa6d0fe-5a85-4626-904f-c6e6e9ff9811",
+      "name": "Every 1 Minute",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -2624,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://login.microsoftonline.com/a4000698-9e71-4f9a-8f4e-b64d8f8cbca7/oauth2/v2.0/token",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "client_id",
+              "value": "5e06ba03-616f-43e2-b4e2-a97b22669e3a"
+            },
+            {
+              "name": "client_secret",
+              "value": "YOUR_AZURE_CLIENT_SECRET"
+            },
+            {
+              "name": "scope",
+              "value": "https://graph.microsoft.com/.default"
+            },
+            {
+              "name": "grant_type",
+              "value": "client_credentials"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b7f7b422-015c-4a09-9ec4-1a799aa91b83",
+      "name": "Get Access Token",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -2416,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://graph.microsoft.com/v1.0/users/helpdesk@surterreproperties.com/mailFolders/inbox/messages?$filter=isRead eq false&$top=10&$orderby=receivedDateTime desc&$select=id,subject,from,bodyPreview,receivedDateTime,isRead",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Get Access Token').item.json.access_token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "637fc8fc-f386-4ad7-ab90-f8e5799b831c",
+      "name": "Get Unread Messages",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -2192,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract the messages array from Graph API response\nif ($input.item.json.value && Array.isArray($input.item.json.value)) {\n  return $input.item.json.value.map(msg => ({ json: msg }));\n}\nreturn [];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1984,
+        208
+      ],
+      "id": "67412c2e-e45a-463c-aed6-fd4585f17113",
+      "name": "Extract Messages"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1776,
+        208
+      ],
+      "id": "a849893f-4848-4635-b43d-2f69583405cd",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build OpenAI request payload while preserving original email data\nconst email = $input.item.json;\n\nconst payload = {\n  model: \"gpt-3.5-turbo\",\n  messages: [\n    {\n      role: \"system\",\n      content: \"You are a classifier for IT helpdesk emails. Classify emails as:\\n- 'support': ANY technical issue, problem, question, or request for IT help (printers, login issues, Wi-Fi, software, hardware, password resets, access requests, VPN, PDF problems, timesheets, commissions, etc.)\\n- 'vendor': Marketing emails, invoices, promotional content, newsletters, social media\\n- 'unclear': Only use this if the email is completely ambiguous\\n\\nBe VERY aggressive in classifying as 'support' - if there's ANY mention of a work-related problem, technical issue, or help request, classify it as 'support'.\\n\\nReturn ONLY valid JSON: {\\\"class\\\":\\\"support|vendor|unclear\\\",\\\"confidence\\\":0.0-1.0,\\\"reason\\\":\\\"brief text\\\",\\\"priority\\\":\\\"low|normal|high\\\"}\"\n    },\n    {\n      role: \"user\",\n      content: `From: ${email.from.emailAddress.address}\\nSubject: ${email.subject}\\nBody: ${email.bodyPreview}`\n    }\n  ],\n  temperature: 0.1,\n  response_format: { type: \"json_object\" },\n  // Preserve original email data for later nodes\n  _originalEmail: email\n};\n\nreturn { json: payload };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1600,
+        208
+      ],
+      "id": "f49c8aaf-f33e-4bcc-84d9-ea59f39a8133",
+      "name": "Build AI Request"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({model: $json.model, messages: $json.messages, temperature: $json.temperature, response_format: $json.response_format}) }}",
+        "options": {}
+      },
+      "id": "6ca065dc-f674-4720-9d8f-f301e67b188f",
+      "name": "AI Classify Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -1424,
+        208
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "SY2z0TOeXGCH3FaB",
+          "name": "OpenAI Header Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse AI response and merge with original email data\nconst aiResponse = $input.item.json;\nconst originalEmail = $('Build AI Request').item.json._originalEmail;\nconst classification = JSON.parse(aiResponse.choices[0].message.content);\n\nreturn {\n  json: {\n    ...classification,\n    email: originalEmail\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1216,
+        208
+      ],
+      "id": "bcbc046a-1b58-415d-8e69-fcf0a366eba1",
+      "name": "Parse AI Response"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.class }}",
+              "value2": "support"
+            }
+          ]
+        }
+      },
+      "id": "5e44ea41-598b-43e7-9b31-bc8e040154ae",
+      "name": "Is Support Request?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -1008,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build ticket creation payload and preserve email ID + access token (paired-item safe)\n\n// Current item's data\nconst c = $json;                         // same as $input.item.json\nconst email = c.email || {};\n\n// Read token without relying on paired items\nconst accessToken = $('Get Access Token').first().json?.access_token;\n\n// Guard rails\nif (!email?.id) throw new Error('Build Ticket Payload: missing email.id on current item.');\nif (!accessToken) throw new Error('Build Ticket Payload: access token not found from \"Get Access Token\".');\n\n// Normalize priority\nconst priorityRaw =\n  c.priority ??\n  c.classification?.priority ??\n  'NORMAL';\n\nconst priority = String(priorityRaw).toUpperCase();\n\n// Keep description short/safe (many ticket APIs limit length)\nconst description = (email.bodyPreview ?? '').toString().slice(0, 5000);\n\nconst ticketPayload = {\n  title: (email.subject ?? '').toString().slice(0, 255),\n  description,\n  requesterEmail: email.from?.emailAddress?.address ?? '',\n  priority,\n  source: 'email',\n\n  // Preserve for next node(s)\n  _emailId: email.id,\n  _accessToken: accessToken\n};\n\n// Keep paired lineage to the current item (optional but harmless)\nreturn {\n  json: ticketPayload,\n  pairedItem: { item: 0 }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -832,
+        144
+      ],
+      "id": "04a13a15-17c6-4669-8c49-aba53851db9d",
+      "name": "Build Ticket Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3000/api/tickets",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Basic YWRtaW46YWRtaW4xMjM="
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({title: $json.title, description: $json.description, requesterEmail: $json.requesterEmail, priority: $json.priority, source: $json.source}) }}",
+        "options": {}
+      },
+      "id": "c20ad11d-26a5-4b42-b48e-88b7ecb2d13d",
+      "name": "Create Ticket",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -656,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get email ID and access token from Build Ticket Payload node\nconst emailId = $('Build Ticket Payload').item.json._emailId;\nconst accessToken = $('Build Ticket Payload').item.json._accessToken;\n\nreturn {\n  json: {\n    emailId: emailId,\n    accessToken: accessToken\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -480,
+        144
+      ],
+      "id": "3675fb91-8f68-45a0-81a4-f6974cd975f3",
+      "name": "Prepare Mark Read"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://graph.microsoft.com/v1.0/users/helpdesk@surterreproperties.com/messages/{{ $json.emailId }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.accessToken }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"isRead\": true\n}",
+        "options": {}
+      },
+      "id": "c30fafaf-9a2d-40a1-a6b4-9b0441a3f665",
+      "name": "Mark Email as Read",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -304,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare email forwarding for non-support emails (paired-item safe)\n\n// Current item's data\nconst classification = $json;                // same as $input.item.json\nconst email = classification.email;\n\n// Read token without relying on paired items\nconst accessToken = $('Get Access Token').first().json?.access_token;\n\n// Guard rails (helpful errors in executions list)\nif (!email?.id) throw new Error('Prepare Forward Email: missing email.id on current item.');\nif (!accessToken) throw new Error('Prepare Forward Email: access token not found from \"Get Access Token\".');\n\nreturn {\n  json: {\n    emailId: email.id,\n    accessToken,\n    subject: email.subject ?? '',\n    from: email.from?.emailAddress?.address ?? '',\n    // use whichever your classifier outputs; fallback to 'unknown'\n    classification: classification.class ?? classification.classification ?? 'unknown',\n    reason: classification.reason ?? null\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -832,
+        272
+      ],
+      "id": "7475192d-3117-4f5d-bdc6-e0102f48aa7d",
+      "name": "Prepare Forward Email"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.microsoft.com/v1.0/users/helpdesk@surterreproperties.com/messages/{{ $json.emailId }}/forward",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.accessToken }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"toRecipients\": [\n    {\n      \"emailAddress\": {\n        \"address\": \"help@surterreproperties.com\"\n      }\n    }\n  ],\n  \"comment\": \"Forwarded from helpdesk - Classified as: {{ $json.classification }} - Reason: {{ $json.reason }}\"\n}",
+        "options": {}
+      },
+      "id": "45646fc8-e2cb-4ca4-b18f-9a3999292de7",
+      "name": "Forward to Help Desk",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -656,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get email ID and access token for marking as read\nconst emailId = $('Prepare Forward Email').item.json.emailId;\nconst accessToken = $('Prepare Forward Email').item.json.accessToken;\n\nreturn {\n  json: {\n    emailId: emailId,\n    accessToken: accessToken\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -480,
+        272
+      ],
+      "id": "b2b1e669-36ff-4c95-81ad-2670e748edc8",
+      "name": "Prepare Mark Read (Non-Support)"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://graph.microsoft.com/v1.0/users/helpdesk@surterreproperties.com/messages/{{ $json.emailId }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.accessToken }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"isRead\": true\n}",
+        "options": {}
+      },
+      "id": "3a5101f4-2bf4-4c84-ae43-fb20a8e89407",
+      "name": "Mark as Read (Non-Support)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -304,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -1776,
+        400
+      ],
+      "id": "dce8925f-dabf-4608-a4cb-f62eaef6ac66",
+      "name": "Wait 2 seconds",
+      "webhookId": "replace-with-wait-id"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Every 1 Minute": {
+      "main": [
+        [
+          {
+            "node": "Get Access Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Access Token": {
+      "main": [
+        [
+          {
+            "node": "Get Unread Messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Unread Messages": {
+      "main": [
+        [
+          {
+            "node": "Extract Messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Messages": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Build AI Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait 2 seconds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build AI Request": {
+      "main": [
+        [
+          {
+            "node": "AI Classify Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Classify Email": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "Is Support Request?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Support Request?": {
+      "main": [
+        [
+          {
+            "node": "Build Ticket Payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Forward Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Ticket Payload": {
+      "main": [
+        [
+          {
+            "node": "Create Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Ticket": {
+      "main": [
+        [
+          {
+            "node": "Prepare Mark Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Mark Read": {
+      "main": [
+        [
+          {
+            "node": "Mark Email as Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Email as Read": {
+      "main": [
+        [
+          {
+            "node": "Wait 2 seconds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Forward Email": {
+      "main": [
+        [
+          {
+            "node": "Forward to Help Desk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Forward to Help Desk": {
+      "main": [
+        [
+          {
+            "node": "Prepare Mark Read (Non-Support)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Mark Read (Non-Support)": {
+      "main": [
+        [
+          {
+            "node": "Mark as Read (Non-Support)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark as Read (Non-Support)": {
+      "main": [
+        [
+          {
+            "node": "Wait 2 seconds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 2 seconds": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "f4099bfa-82a7-4df7-a514-8fb1466a8828",
+  "meta": {
+    "instanceId": "074a2d330ff09557fb32077cd457e14980c783ef242cb9762c911f7f317695c0"
+  },
+  "id": "Qy2QbV1ADvFodFEP",
+  "tags": []
+}

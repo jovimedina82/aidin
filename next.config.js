@@ -6,6 +6,8 @@ const nextConfig = {
   experimental: {
     // Remove if not using Server Components
     serverComponentsExternalPackages: ['mongodb'],
+    // Enable instrumentation for server initialization
+    instrumentationHook: true,
   },
   webpack(config, { dev }) {
     if (dev) {
@@ -32,7 +34,7 @@ const nextConfig = {
           // Content Security Policy - restrict frame ancestors to self only
           { key: "Content-Security-Policy", value: "frame-ancestors 'self';" },
           // CORS - Only allow specific origins (never use '*' in production)
-          { key: "Access-Control-Allow-Origin", value: process.env.CORS_ORIGINS || "https://yourdomain.com" },
+          { key: "Access-Control-Allow-Origin", value: "https://helpdesk.surterreproperties.com" },
           { key: "Access-Control-Allow-Methods", value: "GET, POST, PUT, PATCH, DELETE, OPTIONS" },
           // Only allow specific headers (never use '*')
           { key: "Access-Control-Allow-Headers", value: "Content-Type, Authorization, X-Requested-With" },

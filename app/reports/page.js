@@ -295,7 +295,24 @@ export default function ReportsPage() {
   }
 
   // Color schemes for charts
-  const COLORS = ['#3b82f6', '#ef4444', '#f59e0b', '#10b981', '#8b5cf6', '#f97316']
+  const COLORS = [
+    '#3b82f6', // blue
+    '#ef4444', // red
+    '#f59e0b', // amber
+    '#10b981', // green
+    '#8b5cf6', // purple
+    '#f97316', // orange
+    '#06b6d4', // cyan
+    '#ec4899', // pink
+    '#84cc16', // lime
+    '#f43f5e', // rose
+    '#14b8a6', // teal
+    '#6366f1', // indigo
+    '#a855f7', // violet
+    '#eab308', // yellow
+    '#22c55e', // emerald
+    '#64748b'  // slate
+  ]
   const priorityColors = {
     'URGENT': '#ef4444',
     'HIGH': '#f59e0b',
@@ -572,9 +589,6 @@ export default function ReportsPage() {
                   </div>
                 ) : analytics?.categoryBreakdown && analytics.categoryBreakdown.length > 0 ? (
                   <div>
-                    <div className="mb-4 text-sm text-gray-600">
-                      Categories: {analytics.categoryBreakdown.map(c => `${c.category}(${c.count})`).join(', ')}
-                    </div>
                     <ResponsiveContainer width="100%" height={300}>
                       <PieChart>
                         <Pie
@@ -582,10 +596,11 @@ export default function ReportsPage() {
                           cx="50%"
                           cy="50%"
                           labelLine={false}
-                          label={({ category, percent }) => `${category} ${(percent * 100).toFixed(0)}%`}
+                          label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
                           outerRadius={100}
                           fill="#8884d8"
                           dataKey="count"
+                          nameKey="category"
                         >
                           {analytics.categoryBreakdown.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />

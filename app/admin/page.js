@@ -848,6 +848,7 @@ export default function AdminPage() {
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="Admin">Admin</SelectItem>
+                                  <SelectItem value="Manager">Manager</SelectItem>
                                   <SelectItem value="Staff">Staff</SelectItem>
                                   <SelectItem value="Requester">Requester</SelectItem>
                                 </SelectContent>

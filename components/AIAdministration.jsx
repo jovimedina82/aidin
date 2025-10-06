@@ -22,6 +22,13 @@ export default function AIAdministration({ makeAuthenticatedRequest }) {
   const [loading, setLoading] = useState(true)
   const [departments, setDepartments] = useState([])
 
+  // Category analytics state
+  const [categoryAnalytics, setCategoryAnalytics] = useState({
+    categories: [],
+    totalCategories: 0,
+    totalTickets: 0
+  })
+
   // New keyword dialog state
   const [showNewKeywordDialog, setShowNewKeywordDialog] = useState(false)
   const [newKeyword, setNewKeyword] = useState({
@@ -58,6 +65,13 @@ export default function AIAdministration({ makeAuthenticatedRequest }) {
     isActive: true
   })
 
+  // Keyword suggestions state
+  const [showSuggestionsDialog, setShowSuggestionsDialog] = useState(false)
+  const [selectedDepartmentForSuggestions, setSelectedDepartmentForSuggestions] = useState(null)
+  const [keywordSuggestions, setKeywordSuggestions] = useState([])
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false)
+  const [selectedSuggestions, setSelectedSuggestions] = useState([])
+
   useEffect(() => {
     fetchAIData()
   }, [])
@@ -87,6 +101,17 @@ export default function AIAdministration({ makeAuthenticatedRequest }) {
       if (kbResponse.ok) {
         const kbData = await kbResponse.json()
         setKnowledgeBase(kbData.articles || [])
+      }
+
+      // Fetch category analytics
+      const categoryResponse = await makeAuthenticatedRequest('/api/categories/analytics')
+      if (categoryResponse.ok) {
+        const categoryData = await categoryResponse.json()
+        setCategoryAnalytics({
+          categories: categoryData.categories || [],
+          totalCategories: categoryData.totalCategories || 0,
+          totalTickets: categoryData.totalTickets || 0
+        })
       }
 
     } catch (error) {
@@ -254,6 +279,86 @@ export default function AIAdministration({ makeAuthenticatedRequest }) {
     }
   }
 
+  const generateKeywordSuggestions = async (departmentId) => {
+    try {
+      setLoadingSuggestions(true)
+      setSelectedDepartmentForSuggestions(departmentId)
+      setShowSuggestionsDialog(true)
+
+      const response = await makeAuthenticatedRequest('/api/keywords/suggestions', {
+        method: 'POST',
+        body: JSON.stringify({ departmentId })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setKeywordSuggestions(data.suggestions || [])
+        setSelectedSuggestions([])
+      } else {
+        const error = await response.json()
+        toast.error(error.error || 'Failed to generate keyword suggestions')
+        setShowSuggestionsDialog(false)
+      }
+    } catch (error) {
+      console.error('Error generating keyword suggestions:', error)
+      toast.error('Failed to generate keyword suggestions')
+      setShowSuggestionsDialog(false)
+    } finally {
+      setLoadingSuggestions(false)
+    }
+  }
+
+  const applyKeywordSuggestions = async () => {
+    try {
+      let successCount = 0
+      let errorCount = 0
+
+      for (const suggestion of selectedSuggestions) {
+        const response = await makeAuthenticatedRequest('/api/admin/keywords', {
+          method: 'POST',
+          body: JSON.stringify({
+            departmentId: selectedDepartmentForSuggestions,
+            keyword: suggestion.keyword,
+            weight: suggestion.weight
+          })
+        })
+
+        if (response.ok) {
+          successCount++
+        } else {
+          errorCount++
+        }
+      }
+
+      if (successCount > 0) {
+        toast.success(`Added ${successCount} new keywords`)
+        fetchAIData()
+      }
+
+      if (errorCount > 0) {
+        toast.error(`Failed to add ${errorCount} keywords`)
+      }
+
+      setShowSuggestionsDialog(false)
+      setKeywordSuggestions([])
+      setSelectedSuggestions([])
+    } catch (error) {
+      console.error('Error applying keyword suggestions:', error)
+      toast.error('Failed to apply keyword suggestions')
+    }
+  }
+
+  const toggleSuggestion = (suggestion) => {
+    setSelectedSuggestions(prev => {
+      const isSelected = prev.some(s => s.keyword === suggestion.keyword)
+      if (isSelected) {
+        return prev.filter(s => s.keyword !== suggestion.keyword)
+      } else {
+        return [...prev, suggestion]
+      }
+    })
+  }
+
   const getConfidenceColor = (confidence) => {
     if (confidence >= 0.8) return 'text-green-600'
     if (confidence >= 0.6) return 'text-yellow-600'
@@ -323,6 +428,19 @@ export default function AIAdministration({ makeAuthenticatedRequest }) {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Categories</CardTitle>
+            <Database className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{categoryAnalytics.totalCategories}</div>
+            <p className="text-xs text-muted-foreground">
+              {categoryAnalytics.totalTickets} tickets categorized
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">KB Articles</CardTitle>
             <Database className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -339,6 +457,7 @@ export default function AIAdministration({ makeAuthenticatedRequest }) {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="decisions">AI Decisions</TabsTrigger>
+          <TabsTrigger value="categories">Categories</TabsTrigger>
           <TabsTrigger value="keywords">Keywords</TabsTrigger>
           <TabsTrigger value="knowledge-base">Knowledge Base</TabsTrigger>
         </TabsList>
@@ -473,6 +592,49 @@ export default function AIAdministration({ makeAuthenticatedRequest }) {
           </Card>
         </TabsContent>
 
+        <TabsContent value="categories" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>AI-Generated Categories</CardTitle>
+              <p className="text-sm text-gray-500">
+                Categories dynamically created by AI based on ticket content
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {categoryAnalytics.categories.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    No categories found. Categories are created automatically when tickets are submitted.
+                  </div>
+                ) : (
+                  categoryAnalytics.categories.map((category, index) => (
+                    <div key={index} className="border rounded-lg p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-lg">{category.category}</h4>
+                          <div className="flex items-center gap-2 mt-2">
+                            <Badge variant="secondary">{category.count} tickets</Badge>
+                            {category.departments.map((dept, deptIndex) => (
+                              <Badge key={deptIndex} variant="outline">{dept}</Badge>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 p-3 bg-gray-50 rounded">
+                        <label className="font-medium text-gray-700 text-sm">Associated Tickets:</label>
+                        <p className="text-sm mt-1 font-mono text-gray-800">
+                          {category.ticketList}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="keywords" className="space-y-4">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-semibold">Department Keywords</h2>
@@ -577,15 +739,104 @@ export default function AIAdministration({ makeAuthenticatedRequest }) {
             </DialogContent>
           </Dialog>
 
+          {/* Keyword Suggestions Dialog */}
+          <Dialog open={showSuggestionsDialog} onOpenChange={setShowSuggestionsDialog}>
+            <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>AI Keyword Suggestions</DialogTitle>
+                <p className="text-sm text-gray-500">
+                  {loadingSuggestions ? 'Analyzing tickets and generating suggestions...' :
+                   `Select keywords to add to this department`}
+                </p>
+              </DialogHeader>
+              {loadingSuggestions ? (
+                <div className="space-y-3">
+                  {[...Array(5)].map((_, i) => (
+                    <div key={i} className="animate-pulse">
+                      <div className="h-16 bg-muted rounded"></div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {keywordSuggestions.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      No new keyword suggestions found. The system already has comprehensive coverage.
+                    </div>
+                  ) : (
+                    <>
+                      <div className="space-y-2">
+                        {keywordSuggestions.map((suggestion, index) => {
+                          const isSelected = selectedSuggestions.some(s => s.keyword === suggestion.keyword)
+                          return (
+                            <div
+                              key={index}
+                              className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                                isSelected ? 'bg-blue-50 border-blue-300' : 'hover:bg-gray-50'
+                              }`}
+                              onClick={() => toggleSuggestion(suggestion)}
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-start gap-3 flex-1">
+                                  <Checkbox
+                                    checked={isSelected}
+                                    onCheckedChange={() => toggleSuggestion(suggestion)}
+                                  />
+                                  <div className="flex-1">
+                                    <div className="font-medium">{suggestion.keyword}</div>
+                                    <div className="text-sm text-gray-600 mt-1">{suggestion.reasoning}</div>
+                                  </div>
+                                </div>
+                                <Badge variant="outline">
+                                  Weight: {suggestion.weight.toFixed(1)}
+                                </Badge>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                      <div className="flex justify-between items-center pt-4 border-t">
+                        <div className="text-sm text-gray-600">
+                          {selectedSuggestions.length} of {keywordSuggestions.length} selected
+                        </div>
+                        <div className="flex gap-2">
+                          <Button variant="outline" onClick={() => setShowSuggestionsDialog(false)}>
+                            Cancel
+                          </Button>
+                          <Button
+                            onClick={applyKeywordSuggestions}
+                            disabled={selectedSuggestions.length === 0}
+                          >
+                            Add {selectedSuggestions.length} Keywords
+                          </Button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {keywords.map((department) => (
               <Card key={department.id}>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <span className={`w-3 h-3 rounded-full bg-${department.color}-500`}></span>
-                    {department.name}
-                    <Badge variant="secondary">{department.keywords.length} keywords</Badge>
-                  </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <span className={`w-3 h-3 rounded-full bg-${department.color}-500`}></span>
+                      {department.name}
+                      <Badge variant="secondary">{department.keywords.length} keywords</Badge>
+                    </CardTitle>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => generateKeywordSuggestions(department.id)}
+                    >
+                      <Brain className="w-4 h-4 mr-2" />
+                      AI Suggest
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2 max-h-60 overflow-y-auto">

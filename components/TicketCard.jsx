@@ -29,7 +29,7 @@ const statusBackgroundColors = {
   SOLVED: 'bg-green-50/50'
 }
 
-function TicketCard({ ticket, onClick }) {
+function TicketCard({ ticket, onClick, currentUserId }) {
   // Memoize computed values to prevent recalculation on every render
   const requesterInitials = useMemo(() => {
     return ticket.requester?.firstName && ticket.requester?.lastName
@@ -86,6 +86,11 @@ function TicketCard({ ticket, onClick }) {
               </span>
             )}
           </div>
+          {ticket.requesterId === currentUserId && (
+            <div className="text-xs font-semibold text-white bg-blue-600 px-2 py-1 rounded ml-2 flex-shrink-0">
+              Self Created
+            </div>
+          )}
         </div>
       </CardHeader>
 

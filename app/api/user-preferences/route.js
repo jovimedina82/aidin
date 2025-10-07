@@ -16,7 +16,8 @@ export async function GET(request) {
 
     return NextResponse.json({
       personalViewOrder: preferences?.personalViewOrder ? JSON.parse(preferences.personalViewOrder) : null,
-      companyViewOrder: preferences?.companyViewOrder ? JSON.parse(preferences.companyViewOrder) : null
+      companyViewOrder: preferences?.companyViewOrder ? JSON.parse(preferences.companyViewOrder) : null,
+      dashboardCardOrder: preferences?.dashboardCardOrder ? JSON.parse(preferences.dashboardCardOrder) : null
     })
   } catch (error) {
     console.error('Error fetching user preferences:', error)
@@ -31,18 +32,20 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { personalViewOrder, companyViewOrder } = await request.json()
+    const { personalViewOrder, companyViewOrder, dashboardCardOrder } = await request.json()
 
     const preferences = await prisma.userPreference.upsert({
       where: { userId: user.id },
       update: {
         personalViewOrder: personalViewOrder ? JSON.stringify(personalViewOrder) : null,
-        companyViewOrder: companyViewOrder ? JSON.stringify(companyViewOrder) : null
+        companyViewOrder: companyViewOrder ? JSON.stringify(companyViewOrder) : null,
+        dashboardCardOrder: dashboardCardOrder ? JSON.stringify(dashboardCardOrder) : null
       },
       create: {
         userId: user.id,
         personalViewOrder: personalViewOrder ? JSON.stringify(personalViewOrder) : null,
-        companyViewOrder: companyViewOrder ? JSON.stringify(companyViewOrder) : null
+        companyViewOrder: companyViewOrder ? JSON.stringify(companyViewOrder) : null,
+        dashboardCardOrder: dashboardCardOrder ? JSON.stringify(dashboardCardOrder) : null
       }
     })
 

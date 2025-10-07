@@ -149,10 +149,15 @@ export function AuthProvider({ children }) {
   const makeAuthenticatedRequest = async (url, options = {}) => {
     const token = getAuthToken()
 
-    // CRITICAL FIX: Build headers correctly
+    // Build headers correctly - DON'T set Content-Type for FormData
     const headers = {
-      ...options.headers,  // Spread options.headers FIRST
-      'Content-Type': 'application/json'  // Then set Content-Type
+      ...options.headers  // Spread options.headers FIRST
+    }
+
+    // Only set Content-Type for JSON if body is not FormData
+    // When body is FormData, browser will automatically set multipart/form-data with boundary
+    if (options.body && !(options.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json'
     }
 
     // ALWAYS add Authorization header if token exists

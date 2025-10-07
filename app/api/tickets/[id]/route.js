@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth"
 import { hasTicketAccess, canTakeTicket } from "@/lib/access-control"
+import { emitTicketUpdated, emitTicketDeleted } from '@/lib/socket'
 
 
 export async function GET(request, { params }) {
@@ -37,6 +38,42 @@ export async function GET(request, { params }) {
         comments: {
           include: {
             user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true
+              }
+            }
+          },
+          orderBy: {
+            createdAt: 'asc'
+          }
+        },
+        attachments: {
+          orderBy: {
+            uploadedAt: 'desc'
+          }
+        },
+        // Include parent ticket info
+        parentTicket: {
+          select: {
+            id: true,
+            ticketNumber: true,
+            title: true,
+            status: true,
+            createdAt: true
+          }
+        },
+        // Include child tickets
+        childTickets: {
+          select: {
+            id: true,
+            ticketNumber: true,
+            title: true,
+            status: true,
+            createdAt: true,
+            requester: {
               select: {
                 id: true,
                 firstName: true,
@@ -131,6 +168,26 @@ export async function PUT(request, { params }) {
       }
     }
 
+    // Staff validation - staff cannot change status or assignee of tickets they created
+    // They can only add comments to their own tickets
+    if (data.status || data.assigneeId || data.priority || data.category || data.title || data.description) {
+      const currentTicket = await prisma.ticket.findUnique({
+        where: { id: params.id }
+      })
+
+      if (currentTicket && currentTicket.requesterId === currentUser.id) {
+        const isStaff = roleNames.includes('Staff')
+        const isAdmin = roleNames.includes('Admin')
+        const isManager = roleNames.includes('Manager')
+
+        if (isStaff && !isAdmin && !isManager) {
+          return NextResponse.json({
+            error: 'Staff members cannot modify tickets they created themselves. You can only add comments to your own tickets.'
+          }, { status: 403 })
+        }
+      }
+    }
+
     // Get the current ticket to check current state for auto status changes
     const currentTicket = await prisma.ticket.findUnique({
       where: { id: params.id }
@@ -211,9 +268,17 @@ export async function PUT(request, { params }) {
           orderBy: {
             createdAt: 'asc'
           }
+        },
+        attachments: {
+          orderBy: {
+            uploadedAt: 'desc'
+          }
         }
       }
     })
+
+    // Emit Socket.IO event for live updates
+    emitTicketUpdated(ticket)
 
     return NextResponse.json(ticket)
   } catch (error) {
@@ -265,6 +330,9 @@ export async function DELETE(request, { params }) {
     await prisma.ticket.delete({
       where: { id: params.id }
     })
+
+    // Emit Socket.IO event for live updates
+    emitTicketDeleted(params.id)
 
     return NextResponse.json({
       success: true,
@@ -377,6 +445,11 @@ export async function PATCH(request, { params }) {
           },
           orderBy: {
             createdAt: 'asc'
+          }
+        },
+        attachments: {
+          orderBy: {
+            uploadedAt: 'desc'
           }
         }
       }

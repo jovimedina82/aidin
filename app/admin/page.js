@@ -639,49 +639,64 @@ export default function AdminPage() {
 
   return (
     <SidebarLayout>
-      <div className="p-8">
+      <div className="p-4 sm:p-6 md:p-8">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-6 sm:mb-8">
           <div className="flex items-center gap-3 mb-2">
-            <Settings className="h-8 w-8 text-primary" />
-            <h1 className="text-3xl font-bold">Admin Settings</h1>
+            <Settings className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
+            <h1 className="text-2xl sm:text-3xl font-bold">Admin Settings</h1>
           </div>
-          <p className="text-muted-foreground">
+          <p className="text-sm sm:text-base text-muted-foreground">
             Manage users, roles, and system configuration
           </p>
         </div>
 
         <Tabs defaultValue="users" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-7">
-            <TabsTrigger value="users">User Management</TabsTrigger>
-            <TabsTrigger value="tickets">All Tickets</TabsTrigger>
-            <TabsTrigger value="departments">Departments</TabsTrigger>
-            <TabsTrigger value="ai-admin">AI Administration</TabsTrigger>
-            <TabsTrigger value="azure-sync">Azure AD Sync</TabsTrigger>
-            <TabsTrigger value="settings">System Settings</TabsTrigger>
-            <TabsTrigger value="integrations">Integrations</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-1 h-auto p-1">
+            <TabsTrigger value="users" className="text-[10px] leading-tight py-2 px-1 sm:text-sm sm:py-2 sm:px-3 whitespace-normal min-h-[44px]">
+              User Management
+            </TabsTrigger>
+            <TabsTrigger value="tickets" className="text-[10px] leading-tight py-2 px-1 sm:text-sm sm:py-2 sm:px-3 whitespace-normal min-h-[44px]">
+              All Tickets
+            </TabsTrigger>
+            <TabsTrigger value="departments" className="text-[10px] leading-tight py-2 px-1 sm:text-sm sm:py-2 sm:px-3 whitespace-normal min-h-[44px]">
+              Departments
+            </TabsTrigger>
+            <TabsTrigger value="ai-admin" className="text-[10px] leading-tight py-2 px-1 sm:text-sm sm:py-2 sm:px-3 whitespace-normal min-h-[44px]">
+              AI Admin
+            </TabsTrigger>
+            <TabsTrigger value="azure-sync" className="text-[10px] leading-tight py-2 px-1 sm:text-sm sm:py-2 sm:px-3 whitespace-normal min-h-[44px]">
+              Azure AD
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="text-[10px] leading-tight py-2 px-1 sm:text-sm sm:py-2 sm:px-3 whitespace-normal min-h-[44px]">
+              Settings
+            </TabsTrigger>
+            <TabsTrigger value="integrations" className="text-[10px] leading-tight py-2 px-1 sm:text-sm sm:py-2 sm:px-3 whitespace-normal min-h-[44px]">
+              Integrations
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="users" className="space-y-6">
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <div>
                     <CardTitle className="flex items-center gap-2">
                       <Users className="h-5 w-5" />
                       User Management
                     </CardTitle>
-                    <CardDescription>
+                    <CardDescription className="text-xs sm:text-sm">
                       Manage user accounts and role assignments
                     </CardDescription>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     {selectedUsers.length > 0 && (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button variant="destructive">
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete Selected ({selectedUsers.length})
+                          <Button variant="destructive" size="sm" className="text-xs">
+                            <Trash2 className="mr-1 h-3 w-3 sm:mr-2 sm:h-4 sm:w-4" />
+                            <span className="hidden sm:inline">Delete Selected</span>
+                            <span className="sm:hidden">Delete</span> ({selectedUsers.length})
                           </Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
@@ -700,22 +715,22 @@ export default function AdminPage() {
                         </AlertDialogContent>
                       </AlertDialog>
                     )}
-                    <Button onClick={() => setIsAddUserDialogOpen(true)}>
-                      <Plus className="mr-2 h-4 w-4" />
+                    <Button onClick={() => setIsAddUserDialogOpen(true)} size="sm" className="text-xs">
+                      <Plus className="mr-1 h-3 w-3 sm:mr-2 sm:h-4 sm:w-4" />
                       Add User
                     </Button>
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center gap-4 mb-6">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-6">
                   <Input
                     placeholder="Search users..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="max-w-sm"
+                    className="w-full sm:max-w-sm text-sm"
                   />
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">
                     {filteredUsers.length} users
                   </span>
                 </div>
@@ -729,21 +744,24 @@ export default function AdminPage() {
                     ))}
                   </div>
                 ) : (
-                  <Table>
+                  <div className="overflow-x-auto -mx-4 sm:mx-0">
+                    <div className="inline-block min-w-full align-middle">
+                      <div className="overflow-hidden">
+                        <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-12">
+                        <TableHead className="w-8 sm:w-12">
                           <Checkbox
                             checked={selectedUsers.length === filteredUsers.length && filteredUsers.length > 0}
                             onCheckedChange={handleSelectAll}
                           />
                         </TableHead>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Department</TableHead>
-                        <TableHead>Roles</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Actions</TableHead>
+                        <TableHead className="text-xs sm:text-sm">Name</TableHead>
+                        <TableHead className="text-xs sm:text-sm hidden md:table-cell">Email</TableHead>
+                        <TableHead className="text-xs sm:text-sm hidden lg:table-cell">Department</TableHead>
+                        <TableHead className="text-xs sm:text-sm">Roles</TableHead>
+                        <TableHead className="text-xs sm:text-sm hidden sm:table-cell">Status</TableHead>
+                        <TableHead className="text-xs sm:text-sm">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -755,12 +773,15 @@ export default function AdminPage() {
                               onCheckedChange={(checked) => handleSelectUser(user.id, checked)}
                             />
                           </TableCell>
-                          <TableCell className="font-medium">
-                            {user.firstName} {user.lastName}
+                          <TableCell className="font-medium text-xs sm:text-sm">
+                            <div className="min-w-[100px]">
+                              {user.firstName} {user.lastName}
+                            </div>
+                            <div className="md:hidden text-xs text-muted-foreground mt-1">{user.email}</div>
                           </TableCell>
-                          <TableCell>{user.email}</TableCell>
-                          <TableCell>
-                            <div className="space-y-1">
+                          <TableCell className="hidden md:table-cell text-xs sm:text-sm">{user.email}</TableCell>
+                          <TableCell className="hidden lg:table-cell">
+                            <div className="space-y-1 min-w-[150px]">
                               <div className="flex flex-wrap gap-1 min-h-[20px]">
                                 {user.departments?.length > 0 ? (
                                   user.departments.map((userDept) => (
@@ -809,21 +830,21 @@ export default function AdminPage() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <div className="flex gap-1">
+                            <div className="flex gap-1 flex-wrap min-w-[80px]">
                               {user.roles?.map((roleAssignment) => (
-                                <Badge key={roleAssignment.role.name} variant="outline">
+                                <Badge key={roleAssignment.role.name} variant="outline" className="text-xs">
                                   {roleAssignment.role.name}
                                 </Badge>
                               ))}
                             </div>
                           </TableCell>
-                          <TableCell>
-                            <Badge variant={user.isActive ? "default" : "secondary"}>
+                          <TableCell className="hidden sm:table-cell">
+                            <Badge variant={user.isActive ? "default" : "secondary"} className="text-xs">
                               {user.isActive ? "Active" : "Inactive"}
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <div className="flex gap-2">
+                            <div className="flex gap-1 sm:gap-2 flex-wrap min-w-[100px] sm:min-w-[200px]">
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -831,8 +852,9 @@ export default function AdminPage() {
                                   setEditingUser(user)
                                   setIsEditDialogOpen(true)
                                 }}
+                                className="h-8 w-8 p-0 sm:h-9 sm:w-9"
                               >
-                                <Edit className="h-4 w-4" />
+                                <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
                               </Button>
                               <Select
                                 onValueChange={(role) => {
@@ -843,8 +865,8 @@ export default function AdminPage() {
                                   updateUserRoles(user.id, newRoles)
                                 }}
                               >
-                                <SelectTrigger className="w-32">
-                                  <SelectValue placeholder="Add role" />
+                                <SelectTrigger className="w-20 h-8 text-xs sm:w-32 sm:h-9 sm:text-sm">
+                                  <SelectValue placeholder="Role" />
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="Admin">Admin</SelectItem>
@@ -859,20 +881,21 @@ export default function AdminPage() {
                                 onClick={() => {
                                   handleEditUser(user.id, { isActive: !user.isActive })
                                 }}
+                                className="h-8 w-8 p-0 sm:h-9 sm:w-9"
                               >
                                 {user.isActive ? (
-                                  <UserX className="h-4 w-4 text-orange-500" />
+                                  <UserX className="h-3 w-3 sm:h-4 sm:w-4 text-orange-500" />
                                 ) : (
-                                  <UserCheck className="h-4 w-4 text-green-500" />
+                                  <UserCheck className="h-3 w-3 sm:h-4 sm:w-4 text-green-500" />
                                 )}
                               </Button>
                               <AlertDialog>
                                 <AlertDialogTrigger asChild>
-                                  <Button variant="ghost" size="sm">
-                                    <Trash2 className="h-4 w-4 text-red-500" />
+                                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 sm:h-9 sm:w-9">
+                                    <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 text-red-500" />
                                   </Button>
                                 </AlertDialogTrigger>
-                                <AlertDialogContent>
+                                <AlertDialogContent className="max-w-[90vw] sm:max-w-lg">
                                   <AlertDialogHeader>
                                     <AlertDialogTitle>Delete User</AlertDialogTitle>
                                     <AlertDialogDescription>
@@ -896,6 +919,9 @@ export default function AdminPage() {
                       ))}
                     </TableBody>
                   </Table>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -904,41 +930,42 @@ export default function AdminPage() {
           <TabsContent value="tickets" className="space-y-6">
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <div>
                     <CardTitle className="flex items-center gap-2">
                       <Ticket className="h-5 w-5" />
                       All Tickets
                     </CardTitle>
-                    <CardDescription>
+                    <CardDescription className="text-xs sm:text-sm">
                       All tickets from the last month with all statuses
                     </CardDescription>
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="flex items-center space-x-2">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-6">
+                  <div className="flex items-center space-x-2 flex-1">
                     <Search className="w-4 h-4 text-gray-400" />
                     <Input
                       placeholder="Search tickets..."
                       value={ticketSearchTerm}
                       onChange={(e) => setTicketSearchTerm(e.target.value)}
-                      className="max-w-sm"
+                      className="w-full sm:max-w-sm text-sm"
                     />
                   </div>
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">
                     {filteredTickets.length} tickets
                   </span>
                   {selectedTickets.length > 0 && (
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button variant="destructive">
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete Selected ({selectedTickets.length})
+                        <Button variant="destructive" size="sm" className="text-xs">
+                          <Trash2 className="mr-1 h-3 w-3 sm:mr-2 sm:h-4 sm:w-4" />
+                          <span className="hidden sm:inline">Delete Selected</span>
+                          <span className="sm:hidden">Delete</span> ({selectedTickets.length})
                         </Button>
                       </AlertDialogTrigger>
-                      <AlertDialogContent>
+                      <AlertDialogContent className="max-w-[90vw] sm:max-w-lg">
                         <AlertDialogHeader>
                           <AlertDialogTitle>Delete Tickets</AlertDialogTitle>
                           <AlertDialogDescription>
@@ -958,12 +985,12 @@ export default function AdminPage() {
 
                 {/* Select All Checkbox for tickets */}
                 {filteredTickets.length > 0 && (
-                  <div className="flex items-center space-x-2 mb-4 p-2 bg-gray-50 rounded">
+                  <div className="flex items-center space-x-2 mb-4 p-2 bg-gray-50 rounded text-xs sm:text-sm">
                     <Checkbox
                       checked={selectedTickets.length === filteredTickets.length && filteredTickets.length > 0}
                       onCheckedChange={handleSelectAllTickets}
                     />
-                    <span className="text-sm text-gray-600">
+                    <span className="text-gray-600">
                       Select all ({filteredTickets.length} tickets)
                     </span>
                   </div>
@@ -984,45 +1011,45 @@ export default function AdminPage() {
                 ) : (
                   <div className="space-y-4">
                     {filteredTickets.map((ticket) => (
-                      <div key={ticket.id} className="border rounded-lg p-4 hover:bg-gray-50">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-start gap-3 flex-1">
+                      <div key={ticket.id} className="border rounded-lg p-3 sm:p-4 hover:bg-gray-50">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-start gap-2 sm:gap-3 flex-1">
                             <Checkbox
                               checked={selectedTickets.includes(ticket.id)}
                               onCheckedChange={(checked) => handleSelectTicket(ticket.id, checked)}
                               className="mt-1"
                             />
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 sm:gap-3 mb-2 flex-wrap">
                                 {getStatusBadge(ticket.status)}
-                                <span className="text-sm font-mono text-gray-500">#{ticket.ticketNumber}</span>
+                                <span className="text-xs sm:text-sm font-mono text-gray-500">#{ticket.ticketNumber}</span>
                               </div>
 
-                              <h4 className="font-medium text-gray-900 mb-2">
+                              <h4 className="font-medium text-gray-900 mb-2 text-sm sm:text-base">
                                 {ticket.title}
                               </h4>
 
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4 text-xs sm:text-sm">
                                 <div className="flex items-center space-x-2">
-                                  <User className="w-4 h-4 text-gray-400" />
-                                  <span className="text-gray-600">Requester:</span>
-                                  <span className="text-gray-900">
+                                  <User className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 flex-shrink-0" />
+                                  <span className="text-gray-600 flex-shrink-0">Requester:</span>
+                                  <span className="text-gray-900 truncate">
                                     {ticket.requester?.firstName} {ticket.requester?.lastName}
                                   </span>
                                 </div>
 
                                 <div className="flex items-center space-x-2">
-                                  <User className="w-4 h-4 text-gray-400" />
-                                  <span className="text-gray-600">Assignee:</span>
-                                  <span className="text-gray-900">
+                                  <User className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 flex-shrink-0" />
+                                  <span className="text-gray-600 flex-shrink-0">Assignee:</span>
+                                  <span className="text-gray-900 truncate">
                                     {ticket.assignee ? `${ticket.assignee.firstName} ${ticket.assignee.lastName}` : 'Unassigned'}
                                   </span>
                                 </div>
 
                                 <div className="flex items-center space-x-2">
-                                  <Calendar className="w-4 h-4 text-gray-400" />
-                                  <span className="text-gray-600">Created:</span>
-                                  <span className="text-gray-900">
+                                  <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 flex-shrink-0" />
+                                  <span className="text-gray-600 flex-shrink-0">Created:</span>
+                                  <span className="text-gray-900 truncate">
                                     {formatDistanceToNow(new Date(ticket.createdAt), { addSuffix: true })}
                                   </span>
                                 </div>
@@ -1037,10 +1064,10 @@ export default function AdminPage() {
                               )}
                             </div>
 
-                            <div className="ml-4">
+                            <div className="flex-shrink-0">
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="sm">
+                                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                                     <MoreVertical className="h-4 w-4" />
                                   </Button>
                                 </DropdownMenuTrigger>
@@ -1143,27 +1170,27 @@ export default function AdminPage() {
               <CardContent>
                 <div className="space-y-6">
                   {/* Sync Status */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                     <Card>
-                      <CardContent className="pt-6">
-                        <div className="text-2xl font-bold">{azureSyncStatus?.userCount || 0}</div>
-                        <p className="text-sm text-muted-foreground">Azure AD Users</p>
+                      <CardContent className="pt-4 sm:pt-6">
+                        <div className="text-xl sm:text-2xl font-bold">{azureSyncStatus?.userCount || 0}</div>
+                        <p className="text-xs sm:text-sm text-muted-foreground">Azure AD Users</p>
                       </CardContent>
                     </Card>
                     <Card>
-                      <CardContent className="pt-6">
-                        <div className="text-2xl font-bold">
+                      <CardContent className="pt-4 sm:pt-6">
+                        <div className="text-xl sm:text-2xl font-bold">
                           {azureSyncStatus?.lastSync ? 'Connected' : 'Not Configured'}
                         </div>
-                        <p className="text-sm text-muted-foreground">Connection Status</p>
+                        <p className="text-xs sm:text-sm text-muted-foreground">Connection Status</p>
                       </CardContent>
                     </Card>
                     <Card>
-                      <CardContent className="pt-6">
-                        <div className="text-2xl font-bold">
+                      <CardContent className="pt-4 sm:pt-6">
+                        <div className="text-xl sm:text-2xl font-bold">
                           {azureSyncStatus?.syncInterval || '30 minutes'}
                         </div>
-                        <p className="text-sm text-muted-foreground">Sync Interval</p>
+                        <p className="text-xs sm:text-sm text-muted-foreground">Sync Interval</p>
                       </CardContent>
                     </Card>
                   </div>
@@ -1172,10 +1199,10 @@ export default function AdminPage() {
                   {azureSyncStatus?.lastSync && (
                     <Card>
                       <CardHeader>
-                        <CardTitle className="text-lg">Last Synchronization</CardTitle>
+                        <CardTitle className="text-base sm:text-lg">Last Synchronization</CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
                           <div>
                             <strong>Performed By:</strong> {azureSyncStatus.lastSync.performedBy}
                           </div>
@@ -1200,23 +1227,28 @@ export default function AdminPage() {
                   )}
 
                   {/* Actions */}
-                  <div className="flex items-center gap-4">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
                     <Button
                       onClick={testAzureConnection}
                       disabled={azureSyncLoading}
                       variant="outline"
+                      size="sm"
+                      className="text-xs sm:text-sm"
                     >
                       {azureSyncLoading ? 'Testing...' : 'Test Connection'}
                     </Button>
                     <Button
                       onClick={triggerManualSync}
                       disabled={azureSyncLoading}
+                      size="sm"
+                      className="text-xs sm:text-sm"
                     >
                       {azureSyncLoading ? 'Syncing...' : 'Sync Now'}
                     </Button>
                     <Badge
                       variant={azureConnectionStatus === 'connected' ? 'default' :
                               azureConnectionStatus === 'error' ? 'destructive' : 'secondary'}
+                      className="text-xs sm:text-sm self-start sm:self-center"
                     >
                       {azureConnectionStatus === 'connected' ? '✅ Connected' :
                        azureConnectionStatus === 'error' ? '❌ Connection Error' :

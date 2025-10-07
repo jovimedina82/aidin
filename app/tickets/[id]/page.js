@@ -4,6 +4,9 @@ import { useAuth } from '../../../components/AuthProvider'
 import ProtectedRoute from '../../../components/ProtectedRoute'
 import Navbar from '../../../components/Navbar'
 import VirtualAssistant from '../../../components/VirtualAssistant'
+import AttachmentUpload from '../../../components/AttachmentUpload'
+import TicketThread from '../../../components/TicketThread'
+import AIDraftReview from '../../../components/AIDraftReview'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -25,8 +28,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
-import { 
-  ArrowLeft, 
+import {
+  ArrowLeft,
   Clock,
   User,
   MessageCircle,
@@ -35,7 +38,8 @@ import {
   AlertCircle,
   CheckCircle,
   XCircle,
-  Pause
+  Pause,
+  Paperclip
 } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { formatDistanceToNow } from 'date-fns'
@@ -295,13 +299,13 @@ export default function TicketDetailPage({ params }) {
         toast.error('Failed to load users for escalation')
         return
       }
-      
+
       const usersData = await usersResponse.json()
       // Handle both array format and object with users property
       const users = Array.isArray(usersData) ? usersData : usersData.users || []
-      
+
       console.log('Users data for escalation:', users)
-      
+
       const adminUser = users.find(u => {
         const roles = u.roles || []
         const hasAdminRole = roles.some(role => {
@@ -312,28 +316,28 @@ export default function TicketDetailPage({ params }) {
         console.log(`User ${u.firstName} ${u.lastName} has admin role:`, hasAdminRole, 'roles:', roles)
         return hasAdminRole
       })
-      
+
       console.log('Found admin user:', adminUser)
-      
+
       if (!adminUser) {
         toast.error('No admin users found for escalation')
         return
       }
-      
+
       const response = await makeAuthenticatedRequest(`/api/tickets/${params.id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           assigneeId: adminUser.id,
           status: 'OPEN',
           priority: 'HIGH' // Escalated tickets get high priority
         })
       })
-      
+
       if (response.ok) {
         const updatedTicket = await response.json()
         setTicket(updatedTicket)
         toast.success(`Ticket escalated to admin: ${adminUser.firstName} ${adminUser.lastName}`)
-        
+
         // Add escalation comment
         await makeAuthenticatedRequest(`/api/tickets/${params.id}/comments`, {
           method: 'POST',
@@ -343,7 +347,7 @@ export default function TicketDetailPage({ params }) {
             isInternal: false
           })
         })
-        
+
         // Refresh ticket data
         fetchTicket()
       } else {
@@ -353,6 +357,48 @@ export default function TicketDetailPage({ params }) {
     } catch (error) {
       console.error('Failed to escalate ticket:', error)
       toast.error('Failed to escalate ticket to admin')
+    }
+  }
+
+  const markAsNotATicket = async () => {
+    const reason = prompt(
+      'Why is this not a ticket? (Optional - helps AI learn)',
+      'This email should not have been classified as a helpdesk ticket'
+    )
+
+    if (reason === null) {
+      return // User cancelled
+    }
+
+    const confirmed = confirm(
+      `Are you sure this is NOT a ticket?\n\n` +
+      `This will:\n` +
+      `• Delete ticket #${ticket.ticketNumber}\n` +
+      `• Forward original email to help@surterreproperties.com\n` +
+      `• Help train AI to avoid similar classifications\n\n` +
+      `This action cannot be undone.`
+    )
+
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      const response = await makeAuthenticatedRequest(`/api/tickets/${params.id}/mark-not-ticket`, {
+        method: 'POST',
+        body: JSON.stringify({ reason })
+      })
+
+      if (response.ok) {
+        toast.success('Ticket marked as "not a ticket" and removed')
+        router.push('/tickets')
+      } else {
+        const error = await response.json()
+        toast.error(error.error || 'Failed to mark as not a ticket')
+      }
+    } catch (error) {
+      console.error('Failed to mark as not a ticket:', error)
+      toast.error('Failed to mark as not a ticket')
     }
   }
 
@@ -495,7 +541,7 @@ export default function TicketDetailPage({ params }) {
                         
                         {/* Escalate Button (for assigned tickets - agents only) */}
                         {!isAdmin && ticket.assignee && ticket.assigneeId === user?.id && (
-                          <Button 
+                          <Button
                             onClick={() => escalateToAdmin()}
                             variant="outline"
                             className="border-orange-500 text-orange-600 hover:bg-orange-50"
@@ -504,7 +550,17 @@ export default function TicketDetailPage({ params }) {
                             Escalate to Admin
                           </Button>
                         )}
-                        
+
+                        {/* Not a Ticket Button */}
+                        <Button
+                          onClick={() => markAsNotATicket()}
+                          variant="outline"
+                          className="border-red-500 text-red-600 hover:bg-red-50"
+                        >
+                          <XCircle className="w-4 h-4 mr-2" />
+                          Not a ticket?
+                        </Button>
+
                         {/* Status Management Dropdown */}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -553,6 +609,27 @@ export default function TicketDetailPage({ params }) {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Attachments */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Paperclip size={20} />
+                    Attachments
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <AttachmentUpload
+                    ticketId={params.id}
+                    existingAttachments={ticket.attachments || []}
+                    onUploadComplete={() => fetchTicket()}
+                    readOnly={!canEdit}
+                  />
+                </CardContent>
+              </Card>
+
+              {/* AI Draft Response Review */}
+              <AIDraftReview ticket={ticket} onUpdate={fetchTicket} />
 
               {/* Comments */}
               <Card>
@@ -611,7 +688,7 @@ export default function TicketDetailPage({ params }) {
                       />
                       
                       <div className="flex items-center justify-between">
-                        {isStaff && (
+                        {isStaff && ticket?.requesterId !== user?.id && (
                           <div className="flex items-center space-x-2">
                             <Switch
                               id="internal"
@@ -777,6 +854,19 @@ export default function TicketDetailPage({ params }) {
                       </p>
                     </div>
                   )}
+                </CardContent>
+              </Card>
+
+              {/* Ticket Thread */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Ticket Thread</CardTitle>
+                  <CardDescription>
+                    Link related tickets together to keep conversations organized
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <TicketThread ticket={ticket} onUpdate={fetchTicket} />
                 </CardContent>
               </Card>
             </div>

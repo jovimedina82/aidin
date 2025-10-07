@@ -8,27 +8,19 @@ export async function GET(request) {
     const url = new URL(request.url)
     const token = url.searchParams.get('token')
 
+    // Always use production URL for helpdesk
+    const BASE_URL = 'https://helpdesk.surterreproperties.com'
+
     if (!token) {
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/login?error=no_token`)
+      return NextResponse.redirect(`${BASE_URL}/login?error=no_token`)
     }
 
     try {
       // Verify the token is valid
       const decoded = verifyToken(token)
 
-      // Create response that redirects to dashboard
-      const response = NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/dashboard`)
-
-      // Set the auth token as an HTTP-only cookie for security
-      response.cookies.set('authToken', token, {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 7, // 7 days
-        path: '/'
-      })
-
-      // Also set it in localStorage via a simple HTML page
+      // Return an HTML page that sets localStorage and then redirects
+      // This ensures localStorage is set before the dashboard loads
       const htmlResponse = new Response(`
         <!DOCTYPE html>
         <html>
@@ -88,7 +80,7 @@ export async function GET(request) {
             
             // Redirect to dashboard after a short delay
             setTimeout(() => {
-              window.location.href = '/dashboard';
+              window.location.href = 'https://helpdesk.surterreproperties.com/dashboard';
             }, 1500);
           </script>
         </body>
@@ -96,17 +88,17 @@ export async function GET(request) {
       `, {
         headers: {
           'Content-Type': 'text/html',
-          'Set-Cookie': `authToken=${token}; HttpOnly; Secure; SameSite=Lax; Max-Age=${60 * 60 * 24 * 7}; Path=/`
+          'Set-Cookie': `authToken=${token}; HttpOnly; Secure; SameSite=Lax; Max-Age=${60 * 60 * 24 * 7}; Path=/; Domain=.surterreproperties.com`
         }
       })
 
       return htmlResponse
 
     } catch (tokenError) {
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/login?error=invalid_token`)
+      return NextResponse.redirect(`${BASE_URL}/login?error=invalid_token`)
     }
 
   } catch (error) {
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/login?error=sso_error`)
+    return NextResponse.redirect(`${BASE_URL}/login?error=sso_error`)
   }
 }

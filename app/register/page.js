@@ -14,7 +14,7 @@ export default function RegisterPage() {
       {/* Animated watermark background */}
       <div className="absolute inset-0 pointer-events-none">
         <div
-          className="absolute top-1/2 left-0 transform -translate-y-1/2 animate-float-single-slow"
+          className="absolute top-1/2 left-0 transform -translate-y-1/2 animate-float-extra-slow"
           style={{
             opacity: 0.05,
             filter: 'invert(1) brightness(1.1)',

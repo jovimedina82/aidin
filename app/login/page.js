@@ -22,7 +22,9 @@ export default function LoginPage() {
 
       authUrl.searchParams.set('client_id', process.env.NEXT_PUBLIC_AZURE_AD_CLIENT_ID || '5e06ba03-616f-43e2-b4e2-a97b22669e3a')
       authUrl.searchParams.set('response_type', 'code')
-      authUrl.searchParams.set('redirect_uri', `${window.location.origin}/api/auth/azure-callback`)
+      // Always use the production URL for the helpdesk
+      const baseUrl = 'https://helpdesk.surterreproperties.com'
+      authUrl.searchParams.set('redirect_uri', `${baseUrl}/api/auth/azure-callback`)
       authUrl.searchParams.set('scope', 'openid profile email User.Read')
       authUrl.searchParams.set('state', 'azure-sso')
       authUrl.searchParams.set('prompt', 'select_account')
@@ -41,7 +43,7 @@ export default function LoginPage() {
       {/* Animated watermark background */}
       <div className="absolute inset-0 pointer-events-none">
         <div
-          className="absolute top-1/2 left-0 transform -translate-y-1/2 animate-float-single-slow"
+          className="absolute top-1/2 left-0 transform -translate-y-1/2 animate-float-extra-slow"
           style={{
             opacity: 0.05,
             filter: 'invert(1) brightness(1.1)',

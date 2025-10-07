@@ -14,18 +14,20 @@ export async function GET(request) {
   const error = url.searchParams.get('error')
   const errorDescription = url.searchParams.get('error_description')
 
+  // Always use production URL for helpdesk
+  const BASE_URL = 'https://helpdesk.surterreproperties.com'
 
   // Prevent processing the same authorization code multiple times
   if (code && processedCodes.has(code)) {
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/dashboard`)
+    return NextResponse.redirect(`${BASE_URL}/dashboard`)
   }
 
   if (error) {
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/login?error=azure_error&message=${encodeURIComponent(errorDescription || error)}`)
+    return NextResponse.redirect(`${BASE_URL}/login?error=azure_error&message=${encodeURIComponent(errorDescription || error)}`)
   }
 
   if (!code) {
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/login?error=no_authorization_code`)
+    return NextResponse.redirect(`${BASE_URL}/login?error=no_authorization_code`)
   }
 
   try {
@@ -35,13 +37,13 @@ export async function GET(request) {
     
     // Exchange code for token
     const tokenUrl = `https://login.microsoftonline.com/${process.env.AZURE_AD_TENANT_ID}/oauth2/v2.0/token`
-    
+
     const params = new URLSearchParams()
     params.append('client_id', process.env.AZURE_AD_CLIENT_ID)
     params.append('client_secret', process.env.AZURE_AD_CLIENT_SECRET)
     params.append('code', code)
     params.append('grant_type', 'authorization_code')
-    params.append('redirect_uri', `${process.env.NEXT_PUBLIC_BASE_URL}/api/auth/azure-callback`)
+    params.append('redirect_uri', `${BASE_URL}/api/auth/azure-callback`)
     params.append('scope', 'openid profile email User.Read')
 
 
@@ -80,11 +82,11 @@ export async function GET(request) {
     })
 
     if (!user) {
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/login?error=user_not_synced&email=${encodeURIComponent(azureUser.mail || azureUser.userPrincipalName)}`)
+      return NextResponse.redirect(`${BASE_URL}/login?error=user_not_synced&email=${encodeURIComponent(azureUser.mail || azureUser.userPrincipalName)}`)
     }
 
     if (!user.isActive) {
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/login?error=account_inactive`)
+      return NextResponse.redirect(`${BASE_URL}/login?error=account_inactive`)
     }
 
 
@@ -109,13 +111,23 @@ export async function GET(request) {
 
     // Redirect to sso-success page with token to set localStorage
     // This is needed because SSO callback can't directly set localStorage
-    const successUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/api/auth/sso-success?token=${encodeURIComponent(token)}`
+    const successUrl = `${BASE_URL}/api/auth/sso-success?token=${encodeURIComponent(token)}`
 
     return NextResponse.redirect(successUrl)
 
   } catch (error) {
-    
-    const errorMessage = error.response?.data?.error_description || error.message
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/login?error=sso_failed&message=${encodeURIComponent(errorMessage)}`)
+    console.error('Azure callback error:', {
+      error: error.message,
+      response: error.response?.data,
+      stack: error.stack
+    })
+
+    // Clean up the code from cache if it exists
+    if (code) {
+      processedCodes.delete(code)
+    }
+
+    const errorMessage = error.response?.data?.error_description || error.message || 'SSO authentication failed'
+    return NextResponse.redirect(`${BASE_URL}/login?error=sso_failed&message=${encodeURIComponent(errorMessage)}`)
   }
 }

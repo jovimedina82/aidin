@@ -1,19 +1,25 @@
 'use client'
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../../components/AuthProvider'
 import DashboardLayout from '../../components/DashboardLayout'
 import CreateTicketDialog from '../../components/CreateTicketDialog'
 import TicketCard from '../../components/TicketCard'
 import VirtualAssistant from '../../components/VirtualAssistant'
+import DraggableStatCard from '../../components/DraggableStatCard'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Ticket, Clock, CheckCircle, AlertCircle, Users, TrendingUp, Pause, MessageCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { useSocket } from '@/lib/hooks/useSocket'
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, rectSortingStrategy } from '@dnd-kit/sortable'
+import { toast } from 'sonner'
 
 export default function DashboardPage() {
   const { makeAuthenticatedRequest, user } = useAuth()
   const router = useRouter()
+  const { isConnected, isEnabled, on, off } = useSocket()
   const [stats, setStats] = useState({
     total: 0,
     open: 0,
@@ -29,53 +35,41 @@ export default function DashboardPage() {
   const [showAssistant, setShowAssistant] = useState(false)
   const [assistantMinimized, setAssistantMinimized] = useState(false)
 
+  // Default card order
+  const defaultCardOrder = ['total', 'open', 'pending', 'solved', 'onHold', 'new']
+  const [cardOrder, setCardOrder] = useState(defaultCardOrder)
+
+  // Drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
+
   // Azure AD token handling is now done in AuthProvider
 
-  useEffect(() => {
-    // Initial fetch with loading state
-    fetchDashboardData(true)
-
-    // Set up polling interval (every 30 seconds) - refresh in background without loading state
-    const interval = setInterval(() => {
-      fetchDashboardData(false) // false = no loading spinner
-    }, 30000)
-
-    // Cleanup on unmount
-    return () => clearInterval(interval)
-  }, [])
-
-  const fetchDashboardData = async (showLoadingState = true) => {
+  // Fetch dashboard data function (used by both polling and initial load)
+  const fetchDashboardData = useCallback(async (showLoadingState = true) => {
     try {
       if (showLoadingState) {
         setLoading(true)
       }
 
-      // Fetch stats and recent tickets in parallel (exclude solved tickets from dashboard)
+      // Fetch stats and recent NEW tickets in parallel
       const [statsResponse, ticketsResponse] = await Promise.all([
         makeAuthenticatedRequest('/api/stats'),
-        makeAuthenticatedRequest('/api/tickets?limit=8&excludeStatus=SOLVED')
+        makeAuthenticatedRequest('/api/tickets?limit=8&status=NEW')
       ])
 
       if (statsResponse.ok) {
         const statsData = await statsResponse.json()
-        console.log('Stats data received:', statsData)
-        setStats({
-          total: statsData.total || 0,
-          open: statsData.open || 0,
-          pending: statsData.pending || 0,
-          solved: statsData.solved || 0,
-          unassigned: statsData.unassigned || 0,
-          onHold: statsData.onHold || 0,
-          newTickets: statsData.newTickets || 0,
-          closed: statsData.closed || 0
-        })
-      } else {
-        console.error('Stats response not ok:', statsResponse.status, statsResponse.statusText)
+        setStats(statsData)
       }
 
       if (ticketsResponse.ok) {
         const ticketsData = await ticketsResponse.json()
-        setRecentTickets(ticketsData.tickets || [])
+        setRecentTickets(ticketsData.tickets || ticketsData || [])
       }
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error)
@@ -84,7 +78,123 @@ export default function DashboardPage() {
         setLoading(false)
       }
     }
+  }, [makeAuthenticatedRequest])
+
+  // Load user card order preference
+  const loadCardOrderPreference = useCallback(async () => {
+    try {
+      const response = await makeAuthenticatedRequest('/api/user-preferences')
+      if (response.ok) {
+        const data = await response.json()
+        if (data.dashboardCardOrder && Array.isArray(data.dashboardCardOrder)) {
+          setCardOrder(data.dashboardCardOrder)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load card order preference:', error)
+    }
+  }, [makeAuthenticatedRequest])
+
+  // Save card order preference
+  const saveCardOrderPreference = useCallback(async (newOrder) => {
+    try {
+      await makeAuthenticatedRequest('/api/user-preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dashboardCardOrder: newOrder })
+      })
+    } catch (error) {
+      console.error('Failed to save card order preference:', error)
+      toast.error('Failed to save card layout')
+    }
+  }, [makeAuthenticatedRequest])
+
+  // Handle drag end
+  const handleDragEnd = (event) => {
+    const { active, over } = event
+
+    if (active.id !== over.id) {
+      setCardOrder((items) => {
+        const oldIndex = items.indexOf(active.id)
+        const newIndex = items.indexOf(over.id)
+        const newOrder = arrayMove(items, oldIndex, newIndex)
+
+        // Save to backend
+        saveCardOrderPreference(newOrder)
+        toast.success('Dashboard layout saved')
+
+        return newOrder
+      })
+    }
   }
+
+  // Initial data fetch and load preferences
+  useEffect(() => {
+    fetchDashboardData(true)
+    loadCardOrderPreference()
+  }, [fetchDashboardData, loadCardOrderPreference])
+
+  // Socket.IO event handlers
+  useEffect(() => {
+    if (!isEnabled || !isConnected) {
+      return
+    }
+
+    console.log('📡 Setting up Socket.IO event listeners')
+
+    const handleTicketCreated = (data) => {
+      console.log('🎫 Ticket created:', data.ticket.ticketNumber)
+      fetchDashboardData(false) // Refresh without loading state
+    }
+
+    const handleTicketUpdated = (data) => {
+      console.log('🔄 Ticket updated:', data.ticket.ticketNumber)
+      fetchDashboardData(false) // Refresh without loading state
+    }
+
+    const handleTicketDeleted = (data) => {
+      console.log('🗑️ Ticket deleted:', data.ticketId)
+      fetchDashboardData(false) // Refresh without loading state
+    }
+
+    const handleStatsUpdate = (data) => {
+      console.log('📊 Stats updated')
+      setStats(data.stats)
+    }
+
+    // Register event listeners
+    on('ticket:created', handleTicketCreated)
+    on('ticket:updated', handleTicketUpdated)
+    on('ticket:deleted', handleTicketDeleted)
+    on('stats:updated', handleStatsUpdate)
+
+    // Cleanup event listeners
+    return () => {
+      off('ticket:created', handleTicketCreated)
+      off('ticket:updated', handleTicketUpdated)
+      off('ticket:deleted', handleTicketDeleted)
+      off('stats:updated', handleStatsUpdate)
+    }
+  }, [isEnabled, isConnected, on, off, fetchDashboardData])
+
+  // Polling fallback - only if WebSockets are disabled or disconnected
+  useEffect(() => {
+    // If live updates are enabled and connected, skip polling
+    if (isEnabled && isConnected) {
+      console.log('📡 Using WebSocket updates, polling disabled')
+      return
+    }
+
+    console.log('🔄 Using polling fallback (every 30 seconds)')
+
+    // Set up polling interval (every 30 seconds)
+    const interval = setInterval(() => {
+      fetchDashboardData(false) // false = no loading spinner
+    }, 30000)
+
+    // Cleanup on unmount
+    return () => clearInterval(interval)
+  }, [isEnabled, isConnected, fetchDashboardData])
 
   const handleTicketCreated = () => {
     fetchDashboardData()
@@ -95,6 +205,58 @@ export default function DashboardPage() {
   }
 
   const isStaff = user?.roles?.some(role => ['Admin', 'Manager', 'Staff'].includes(role))
+
+  // Define all stat cards configuration
+  const statCardsConfig = {
+    total: {
+      id: 'total',
+      title: 'Total Tickets',
+      value: stats.total,
+      description: 'All time tickets',
+      icon: Ticket,
+      color: ''
+    },
+    open: {
+      id: 'open',
+      title: 'Open Tickets',
+      value: stats.open,
+      description: 'Active tickets',
+      icon: Clock,
+      color: 'text-blue-600'
+    },
+    pending: {
+      id: 'pending',
+      title: 'Pending',
+      value: stats.pending,
+      description: 'Waiting for response',
+      icon: AlertCircle,
+      color: 'text-yellow-600'
+    },
+    solved: {
+      id: 'solved',
+      title: 'Solved',
+      value: stats.solved,
+      description: 'Resolved tickets',
+      icon: CheckCircle,
+      color: 'text-green-600'
+    },
+    onHold: {
+      id: 'onHold',
+      title: 'On Hold',
+      value: stats.onHold,
+      description: 'Temporarily paused',
+      icon: Pause,
+      color: 'text-purple-600'
+    },
+    new: {
+      id: 'new',
+      title: 'New',
+      value: stats.newTickets,
+      description: 'Just created',
+      icon: AlertCircle,
+      color: 'text-orange-600'
+    }
+  }
 
   // Debug logging for SSO users
   React.useEffect(() => {
@@ -132,96 +294,36 @@ export default function DashboardPage() {
             <CreateTicketDialog onTicketCreated={handleTicketCreated} />
           </div>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 mb-8">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Tickets</CardTitle>
-                <Ticket className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{loading ? '...' : stats.total}</div>
-                <p className="text-xs text-muted-foreground">
-                  All time tickets
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Open Tickets</CardTitle>
-                <Clock className="h-4 w-4 text-blue-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-blue-600">
-                  {loading ? '...' : stats.open}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Active tickets
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Pending</CardTitle>
-                <AlertCircle className="h-4 w-4 text-yellow-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-yellow-600">
-                  {loading ? '...' : stats.pending}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Waiting for response
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Solved</CardTitle>
-                <CheckCircle className="h-4 w-4 text-green-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-green-600">
-                  {loading ? '...' : stats.solved}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Resolved tickets
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">On Hold</CardTitle>
-                <Pause className="h-4 w-4 text-purple-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-purple-600">
-                  {loading ? '...' : stats.onHold}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Temporarily paused
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">New</CardTitle>
-                <AlertCircle className="h-4 w-4 text-orange-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-orange-600">
-                  {loading ? '...' : stats.newTickets}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Just created
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+          {/* Stats Cards - Draggable */}
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={cardOrder}
+              strategy={rectSortingStrategy}
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 mb-8">
+                {cardOrder.map((cardId) => {
+                  const card = statCardsConfig[cardId]
+                  if (!card) return null
+                  return (
+                    <DraggableStatCard
+                      key={card.id}
+                      id={card.id}
+                      title={card.title}
+                      value={card.value}
+                      description={card.description}
+                      icon={card.icon}
+                      color={card.color}
+                      loading={loading}
+                    />
+                  )
+                })}
+              </div>
+            </SortableContext>
+          </DndContext>
 
           {/* Recent Tickets */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -234,7 +336,7 @@ export default function DashboardPage() {
                   </Button>
                 </CardTitle>
                 <CardDescription>
-                  Recent active support tickets (excluding solved)
+                  New support tickets awaiting assignment
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -249,8 +351,8 @@ export default function DashboardPage() {
                 ) : recentTickets.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <Ticket className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No tickets yet</p>
-                    <p className="text-sm">Create your first ticket to get started</p>
+                    <p>No new tickets</p>
+                    <p className="text-sm">All tickets have been assigned or resolved</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -259,6 +361,7 @@ export default function DashboardPage() {
                         key={ticket.id}
                         ticket={ticket}
                         onClick={handleTicketClick}
+                        currentUserId={user?.id}
                       />
                     ))}
                   </div>
@@ -370,6 +473,7 @@ export default function DashboardPage() {
                           key={ticket.id}
                           ticket={ticket}
                           onClick={handleTicketClick}
+                          currentUserId={user?.id}
                         />
                       ))}
                     </div>

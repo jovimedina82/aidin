@@ -1,0 +1,118 @@
+{
+  "name": "Ticket Test Generator",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "ticket-test",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "84127110-29da-4aa7-b0cb-bc0fb1f1127b",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        16,
+        400
+      ],
+      "webhookId": "e912369a-ca6b-49ce-9794-aed37ec5290d"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "b3fbf8be-5c74-413f-b915-61e2d8ad98cd",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        848,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ---- Config you can tweak ----\nconst DEST = \"helpdesk@surterreproperties.com\";\nconst COMPANY_DOMAIN = \"surterreproperties.com\";\n\nconst people = [\n  { first: \"Josue\", last: \"Medina\", title: \"Agent Services\" },\n  { first: \"Robert\", last: \"Kasper\", title: \"Broker Associate\" },\n  { first: \"Alex\", last: \"Nguyen\", title: \"IT Support\" },\n  { first: \"Maria\", last: \"Lopez\", title: \"Marketing Coordinator\" },\n  { first: \"Taylor\", last: \"Reed\", title: \"HR Generalist\" },\n  { first: \"Jordan\", last: \"Kim\", title: \"Transaction Coordinator\" },\n];\n\nconst rooms = [\"Front Desk\", \"Conference Room B\", \"Training Room\", \"2nd Floor bullpen\", \"Accounting\"];\nconst printers = [\"HP M479\", \"Canon iR-ADV 4545\", \"Brother HL-L8360CDW\", \"Ricoh MP C3003\"];\nconst today = new Date();\nconst nextWeek = new Date(today.getTime() + 7*86400000);\n\n// Pull optional query params (?dept=IT&count=3)\nconst first = ($input?.first?.() ?? { json: {} }).json;\nconst q = first.query || {};\nconst forcedDept = (q.dept || \"\").toString().trim().toUpperCase();\nconst count = Math.min(Math.max(parseInt(q.count || \"1\", 10) || 1, 1), 50);\n\nfunction rand(a){ return a[Math.floor(Math.random()*a.length)]; }\nfunction chance(p=0.5){ return Math.random() < p; }\nfunction nameEmail(p){\n  const local = `${p.first}.${p.last}`.toLowerCase().replace(/[^a-z.]/g,'');\n  return `${local}@${COMPANY_DOMAIN}`;\n}\nfunction fmtDate(d){\n  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });\n}\nfunction subjectFor(dept, p){\n  switch (dept){\n    case \"IT\":\n      return chance(0.5)\n        ? `Help with the printer`\n        : `VPN sign-in issue from home`;\n    case \"BROKERAGE\":\n      return chance(0.5)\n        ? `Commission split question on escrow ${Math.floor(100000 + Math.random()*900000)}`\n        : `Need CDA copy for closing`;\n    case \"HR\":\n      return chance(0.5)\n        ? `PTO request for ${p.first} ${p.last} (${fmtDate(today)}–${fmtDate(nextWeek)})`\n        : `Timesheet correction needed`;\n    case \"MARKETING\":\n      return chance(0.5)\n        ? `Please update the flyer with new photos`\n        : `Social post for this weekend’s open house`;\n    default:\n      return `Quick help needed`;\n  }\n}\nfunction bodyFor(dept, p){\n  const greet = chance(0.5) ? `Hi Helpdesk,` : `Hello team,`;\n  let details = \"\";\n  if (dept === \"IT\"){\n    const room = rand(rooms);\n    const model = rand(printers);\n    details = chance(0.5)\n      ? `The ${model} in ${room} is jamming and showing error 59.F0. I’ve tried restarting but it keeps happening.`\n      : `I can’t connect to the VPN from home. It times out with error 619. Could someone check my account?`;\n  } else if (dept === \"BROKERAGE\"){\n    details = chance(0.5)\n      ? `I have a question about the commission split on escrow #${Math.floor(100000 + Math.random()*900000)}. Can you confirm the breakdown?`\n      : `Could I get the CDA copy for the closing file? I need to finalize the packet.`;\n  } else if (dept === \"HR\"){\n    details = chance(0.5)\n      ? `I’d like to request PTO from ${fmtDate(today)} to ${fmtDate(nextWeek)}. Please let me know if you need anything else.`\n      : `I submitted my timesheet but realized there’s a missing hour from yesterday. Can you update it?`;\n  } else if (dept === \"MARKETING\"){\n    details = chance(0.5)\n      ? `Could you refresh the listing flyer with the new photos we took this morning?`\n      : `We have an open house this weekend—can you draft an IG post and a quick story reminder?`;\n  } else {\n    details = `Could you take a look at an issue I’m having?`;\n  }\n  const closing = chance(0.6) ? `Thanks so much,` : `Appreciate the help,`;\n  const sigPhone = `(949) ${Math.floor(100+Math.random()*900)}-${Math.floor(1000+Math.random()*9000)}`;\n  const sig = `${p.first} ${p.last}\\n${p.title}\\n${sigPhone}`;\n  const ps = chance(0.25) ? `\\n\\nP.S. If you need screenshots let me know.` : ``;\n  return `${greet}\\n\\n${details}\\n\\n${closing}\\n${sig}${ps}`;\n}\n\nconst depts = [\"IT\", \"BROKERAGE\", \"HR\", \"MARKETING\"];\nconst items = [];\nfor (let i=0; i<count; i++){\n  const dept = depts.includes(forcedDept) ? forcedDept : rand(depts);\n  const person = rand(people);\n\n  items.push({\n    json: {\n      to: DEST,\n      subject: subjectFor(dept, person),\n      // HTML-friendly body (we'll wrap in <pre> in the node)\n      text: bodyFor(dept, person),\n      fromName: `${person.first} ${person.last}`,                // for SMTP use\n      replyTo: nameEmail(person),                                // use Reply-To\n      dept\n    }\n  });\n}\n\nreturn items;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        288,
+        400
+      ],
+      "id": "080af8a8-ed5c-4340-93c1-c0661ae6a246",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "fromEmail": "jovimedina82@gmail.com",
+        "toEmail": "={{$json.to}}",
+        "subject": "={{$json.subject}}",
+        "html": "=<pre>{{$json.text}}</pre>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        592,
+        400
+      ],
+      "id": "5d1db493-0278-4024-95ef-bee3a5ca67f9",
+      "name": "Send email",
+      "webhookId": "8e18086c-476c-4839-892f-28022e9c3d00",
+      "credentials": {
+        "smtp": {
+          "id": "hxPWSIW0NtBRhqcM",
+          "name": "GMAIL jovimedina82"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Send email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send email": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "a8c5b590-c682-4e75-9e5a-0a13582b058e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "074a2d330ff09557fb32077cd457e14980c783ef242cb9762c911f7f317695c0"
+  },
+  "id": "B110hIja1W9RBHoo",
+  "tags": []
+}

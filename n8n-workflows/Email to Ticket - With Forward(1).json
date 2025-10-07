@@ -24,18 +24,18 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://login.microsoftonline.com/a4000698-9e71-4f9a-8f4e-b64d8f8cbca7/oauth2/v2.0/token",
+        "url": "https://login.microsoftonline.com/YOUR_TENANT_ID/oauth2/v2.0/token",
         "sendBody": true,
         "contentType": "form-urlencoded",
         "bodyParameters": {
           "parameters": [
             {
               "name": "client_id",
-              "value": "5e06ba03-616f-43e2-b4e2-a97b22669e3a"
+              "value": "YOUR_CLIENT_ID"
             },
             {
               "name": "client_secret",
-              "value": "YOUR_AZURE_CLIENT_SECRET"
+              "value": "YOUR_CLIENT_SECRET"
             },
             {
               "name": "scope",
@@ -60,7 +60,7 @@
     },
     {
       "parameters": {
-        "url": "https://graph.microsoft.com/v1.0/users/helpdesk@surterreproperties.com/mailFolders/inbox/messages?$filter=isRead eq false&$top=10&$orderby=receivedDateTime desc&$select=id,subject,from,bodyPreview,receivedDateTime,isRead",
+        "url": "https://graph.microsoft.com/v1.0/users/helpdesk@surterreproperties.com/mailFolders/inbox/messages?$filter=isRead eq false&$top=10&$orderby=receivedDateTime desc&$select=id,subject,from,body,receivedDateTime,isRead,conversationId",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -102,14 +102,14 @@
       "typeVersion": 3,
       "position": [
         -1776,
-        208
+        80
       ],
       "id": "a849893f-4848-4635-b43d-2f69583405cd",
       "name": "Loop Over Items"
     },
     {
       "parameters": {
-        "jsCode": "// Build OpenAI request payload for email classification (JS-only, paired-item safe)\n\n// Current email from upstream (Graph)\nconst email = $json || {};\nconst senderEmail  = email.from?.emailAddress?.address || '';\nconst senderDomain = (senderEmail.split('@')[1] || '').toLowerCase();\nconst isInternal   = senderDomain === 'surterreproperties.com';\n\n// Trim to keep tokens under control\nconst SUBJECT = String(email.subject || '').slice(0, 300);\nconst BODY    = String(email.bodyPreview || '').slice(0, 4000);\n\n// Lightweight heuristics (we DO NOT decide here; just pass signals to the LLM)\nconst rx = {\n  vendorNoReply: /\\b(no-?reply|do-?not-?reply)\\b/i,\n  otp: /\\b(one[-\\s]?time|verification|auth(entication)?|code|otp)\\b/i,\n  unsubscribe: /\\bunsubscribe|manage preferences|view in browser\\b/i,\n  marketing: /\\b(newsletter|sale|promotion|webinar|special offer|discount|% off)\\b/i,\n  finance: /\\b(invoice|receipt|order\\s?#?\\d+|statement|payment)\\b/i,\n  bounce: /\\b(delivery status notification|mail delivery failed|undeliverable)\\b/i,\n  ooo: /\\b(out of office|automatic reply|auto\\-reply)\\b/i,\n  meeting: /\\b(invitation|meeting|calendar|event|accepted|declined)\\b/i,\n  monitoring: /\\b(alert|incident|uptime|down|status page|monitoring|alarm)\\b/i,\n  help: /\\b(please help|can you|i need|how do i|i can(?:'|')t|not working|issue|error|stopped working|access|permission)\\b/i\n};\n\nconst hints = {\n  isInternalDomain: isInternal,\n  signals: {\n    vendorNoReply: rx.vendorNoReply.test(senderEmail) || rx.vendorNoReply.test(SUBJECT) || rx.vendorNoReply.test(BODY),\n    otp:            rx.otp.test(SUBJECT) || rx.otp.test(BODY),\n    unsubscribe:    rx.unsubscribe.test(BODY),\n    marketing:      rx.marketing.test(SUBJECT) || rx.marketing.test(BODY),\n    finance:        rx.finance.test(SUBJECT) || rx.finance.test(BODY),\n    bounce:         rx.bounce.test(SUBJECT) || rx.bounce.test(BODY),\n    ooo:            rx.ooo.test(SUBJECT) || rx.ooo.test(BODY),\n    meeting:        rx.meeting.test(SUBJECT) || rx.meeting.test(BODY),\n    monitoring:     rx.monitoring.test(SUBJECT) || rx.monitoring.test(BODY),\n    helpLanguage:   rx.help.test(SUBJECT) || rx.help.test(BODY)\n  }\n};\n\n// System prompt with richer rules & scenarios (the model still decides)\nconst systemPrompt = `\nReturn STRICT JSON only: {\"class\":\"support|vendor|unclear\",\"confidence\":0.0-1.0,\"reason\":\"...\", \"priority\":\"low|normal|high\"}\n\nDefinitions\n- support: A human is asking IT for help or reporting an IT issue we can act on (login/MFA/lockout, email, Wi-Fi/VPN, printers, PCs/Macs, software install/update, app errors, permissions/shares, device setup, rooms/AV, outages, phishing report, new-user setup, hardware failure).\n- vendor: Automated/marketing/transactional/system messages (newsletters, promos, invoices/receipts, OTP codes, do-not-reply notices, shipping, monitoring alerts, CI/CD, ticket status updates, calendar invites, read receipts, delivery failures, OOO auto-replies, social notifications, HR/company-wide announcements with no ask to IT).\n- unclear: Only if not enough info and no obvious human help request.\n\nDecision priority (in order)\n1) HUMAN INTENT: if a person asks IT for help → support\n2) HELP-SEEKING LANGUAGE: \"please help\", \"can you\", \"i need\", \"how do i\", \"i can't\", \"not working\", \"issue\", \"error\", \"stopped working\" → support\n3) AUTOMATED PATTERNS: \"do not reply\", \"no-reply\", \"verify your email\", \"your code is\", \"unsubscribe\", \"receipt/invoice\", \"delivery failed\", \"out of office\", \"meeting invitation\", \"alert\" → vendor\n4) DOMAIN: company domain is a strong signal, but content wins; personal email asking for help is still support\n5) CONTENT OVER DOMAIN always wins\n\nPriority (only if class = support)\n- high: locked out / cannot work, security incident, widespread outage, production/customer impact, \"urgent/ASAP\", VIP/executive, deadline today\n- normal: typical help request without urgency\n- low: informational/non-urgent, future-dated, or improvement request\n\nConfidence\n- 0.9–1.0 when multiple cues align\n- 0.6–0.8 when mixed but leaning one way\n- 0.0–0.5 when very little context\n\nCanonical scenarios\n- Employee locked out using personal email → support (often high)\n- Printer/Teams/Outlook/VPN not working → support\n- \"Please add me to the X share/Teams/Group\" → support\n- MFA/verification code email → vendor\n- Newsletter / promotion / webinar → vendor\n- Out-of-office auto-reply → vendor\n- Mail delivery failed / read receipt → vendor\n- Calendar invitation / acceptance → vendor\n- Monitoring alert from cloud/UptimeRobot/Grafana → vendor (unless a human asks IT for help about it)\n- \"FYI\"/\"Thanks\" only, no ask → unclear\n`;\n\n// User content with context + heuristics (helps the model but doesn't force it)\nconst userContent = [\n  `From: ${senderEmail}${isInternal ? ' (company domain)' : ''}`,\n  `Domain: ${senderDomain || 'unknown'}`,\n  `Subject: ${SUBJECT}`,\n  `Body: ${BODY}`,\n  `Heuristics: ${JSON.stringify(hints)}`\n].join('\\n');\n\nconst payload = {\n  model: \"gpt-3.5-turbo\",\n  temperature: 0.0,\n  response_format: { type: \"json_object\" },\n  messages: [\n    { role: \"system\", content: systemPrompt.trim() },\n    { role: \"user\",   content: userContent }\n  ],\n  // Keep the original email available to downstream nodes\n  _originalEmail: email\n};\n\nreturn { json: payload };"
+        "jsCode": "// Build OpenAI request payload for email classification (JS-only, paired-item safe)\n\n// Current email from upstream (Graph)\nconst email = $json || {};\nconst senderEmail  = email.from?.emailAddress?.address || '';\nconst senderDomain = (senderEmail.split('@')[1] || '').toLowerCase();\nconst isInternal   = senderDomain === 'surterreproperties.com';\n\n// Trim to keep tokens under control\nconst SUBJECT = String(email.subject || '').slice(0, 300);\nconst BODY = String(email.body?.content || email.bodyPreview || '').slice(0, 4000);\n\n// Lightweight heuristics (we DO NOT decide here; just pass signals to the LLM)\nconst rx = {\n  vendorNoReply: /\\b(no-?reply|do-?not-?reply)\\b/i,\n  otp: /\\b(one[-\\s]?time|verification|auth(entication)?|code|otp)\\b/i,\n  unsubscribe: /\\bunsubscribe|manage preferences|view in browser\\b/i,\n  marketing: /\\b(newsletter|sale|promotion|webinar|special offer|discount|% off)\\b/i,\n  finance: /\\b(invoice|receipt|order\\s?#?\\d+|statement|payment)\\b/i,\n  bounce: /\\b(delivery status notification|mail delivery failed|undeliverable)\\b/i,\n  ooo: /\\b(out of office|automatic reply|auto\\-reply)\\b/i,\n  meeting: /\\b(invitation|meeting|calendar|event|accepted|declined)\\b/i,\n  monitoring: /\\b(alert|incident|uptime|down|status page|monitoring|alarm)\\b/i,\n  help: /\\b(please help|can you|i need|how do i|i can(?:'|’)t|not working|issue|error|stopped working|access|permission)\\b/i,\n  itTopics: /\\b(password|account|login|access|email|printer|software|hardware|vpn|network|wifi|mfa|security|setup|install)\\b/i\n};\n\nconst hints = {\n  isInternalDomain: isInternal,\n  signals: {\n    vendorNoReply: rx.vendorNoReply.test(senderEmail) || rx.vendorNoReply.test(SUBJECT) || rx.vendorNoReply.test(BODY),\n    otp:            rx.otp.test(SUBJECT) || rx.otp.test(BODY),\n    unsubscribe:    rx.unsubscribe.test(BODY),\n    marketing:      rx.marketing.test(SUBJECT) || rx.marketing.test(BODY),\n    finance:        rx.finance.test(SUBJECT) || rx.finance.test(BODY),\n    bounce:         rx.bounce.test(SUBJECT) || rx.bounce.test(BODY),\n    ooo:            rx.ooo.test(SUBJECT) || rx.ooo.test(BODY),\n    meeting:        rx.meeting.test(SUBJECT) || rx.meeting.test(BODY),\n    monitoring:     rx.monitoring.test(SUBJECT) || rx.monitoring.test(BODY),\n    helpLanguage:   rx.help.test(SUBJECT) || rx.help.test(BODY),\n    itTopics:       rx.itTopics.test(SUBJECT) || rx.itTopics.test(BODY)\n  }\n};\n\n// System prompt with richer rules & scenarios (the model still decides)\nconst systemPrompt = `\nReturn STRICT JSON only: {\"class\":\"support|vendor|unclear\",\"confidence\":0.0-1.0,\"reason\":\"...\", \"priority\":\"low|normal|high\"}\n\nDefinitions\n- support: A human needs IT assistance OR is communicating about an IT-related topic (passwords, accounts, access, software, hardware, policies, questions about IT systems, etc.). If it's about IT infrastructure, security, accounts, applications, devices - it's support.\n- vendor: Automated/marketing/transactional/system messages (newsletters, promos, invoices/receipts, OTP codes, do-not-reply notices, shipping, monitoring alerts, CI/CD, calendar invites, read receipts, delivery failures, OOO auto-replies).\n- unclear: Only if genuinely ambiguous with no IT context.\n\nDecision priority (in order)\n1) IT-RELATED TOPICS: passwords, MFA, accounts, access, permissions, software, hardware, email, Wi-Fi, VPN, printers, devices, security, policies, setup → support\n2) HUMAN INTENT: if a person is asking/mentioning/inquiring about IT → support\n3) HELP-SEEKING LANGUAGE: \"please help\", \"can you\", \"i need\", \"how do i\", \"i can't\", \"not working\", \"issue\", \"error\" → support\n4) AUTOMATED PATTERNS: \"do not reply\", \"no-reply\", \"verify your email\", \"your code is\", \"unsubscribe\", \"receipt/invoice\", \"delivery failed\", \"out of office\", \"meeting invitation\" → vendor\n5) DOMAIN: company domain suggests support, but content wins\n\n**KEY RULE**: If the message mentions IT topics (passwords, accounts, access, software, systems, policies, MFA, security) → ALWAYS classify as support, even if not explicitly asking for help.\n\nPriority (only if class = support)\n- high: locked out, cannot work, security incident, urgent, deadline\n- normal: typical IT questions/requests without urgency\n- low: informational, non-urgent, future improvement\n\nConfidence\n- 0.9–1.0 when clearly IT-related or asking for help\n- 0.6–0.8 when somewhat clear\n- 0.0–0.5 when very little context\n\nExamples\n- \"Password change every 6 months\" → support (IT policy/security topic)\n- \"My password expired\" → support (IT access issue)\n- \"How do I reset MFA?\" → support (IT help question)\n- \"Printer not working\" → support (IT hardware issue)\n- \"Newsletter: New Products!\" → vendor (marketing)\n- \"Your verification code is 123456\" → vendor (automated OTP)\n- \"Out of office auto-reply\" → vendor (automated)\n- \"Thanks!\" with no context → unclear\n`;\n\n// User content with context + heuristics (helps the model but doesn’t force it)\nconst userContent = [\n  `From: ${senderEmail}${isInternal ? ' (company domain)' : ''}`,\n  `Domain: ${senderDomain || 'unknown'}`,\n  `Subject: ${SUBJECT}`,\n  `Body: ${BODY}`,\n  `Heuristics: ${JSON.stringify(hints)}`\n].join('\\n');\n\nconst payload = {\n  model: \"gpt-3.5-turbo\",\n  temperature: 0.0,\n  response_format: { type: \"json_object\" },\n  messages: [\n    { role: \"system\", content: systemPrompt.trim() },\n    { role: \"user\",   content: userContent }\n  ],\n  // Keep the original email available to downstream nodes (see note below)\n  _originalEmail: email\n};\n\nreturn { json: payload };\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -148,7 +148,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Parse AI response and merge with original email data\nconst aiResponse = $input.item.json;\nconst originalEmail = $('Build AI Request').item.json._originalEmail;\nconst classification = JSON.parse(aiResponse.choices[0].message.content);\n\nreturn {\n  json: {\n    ...classification,\n    email: originalEmail\n  }\n};"
+        "jsCode": "// Parse AI response and merge with original email data\nconst aiResponse = $input.item.json;\nconst originalEmail = $('Build AI Request').first().json._originalEmail;\n\n// Safely parse the AI response with error handling\nlet classification;\ntry {\n  const content = aiResponse.choices?.[0]?.message?.content;\n  \n  if (!content) {\n    throw new Error('No content in AI response');\n  }\n  \n  // Remove any markdown code blocks if present\n  let cleanContent = content.trim();\n  if (cleanContent.startsWith('```')) {\n    cleanContent = cleanContent.replace(/```json\\n?/g, '').replace(/```\\n?/g, '');\n  }\n  \n  classification = JSON.parse(cleanContent);\n  \n  // Validate required fields\n  if (!classification.class) {\n    throw new Error('Missing \"class\" field in AI response');\n  }\n  \n} catch (error) {\n  console.error('Error parsing AI response:', error.message);\n  console.error('Raw response:', JSON.stringify(aiResponse, null, 2));\n  \n  // Fallback classification\n  classification = {\n    class: 'unclear',\n    confidence: 0.3,\n    reason: 'Failed to parse AI response: ' + error.message,\n    priority: 'normal'\n  };\n}\n\nreturn {\n  json: {\n    ...classification,\n    email: originalEmail\n  }\n};"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -181,7 +181,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Build ticket creation payload and preserve email ID + access token (paired-item safe)\n\n// Current item's data\nconst c = $json;                         // same as $input.item.json\nconst email = c.email || {};\n\n// Read token without relying on paired items\nconst accessToken = $('Get Access Token').first().json?.access_token;\n\n// Guard rails\nif (!email?.id) throw new Error('Build Ticket Payload: missing email.id on current item.');\nif (!accessToken) throw new Error('Build Ticket Payload: access token not found from \"Get Access Token\".');\n\n// Normalize priority\nconst priorityRaw =\n  c.priority ??\n  c.classification?.priority ??\n  'NORMAL';\n\nconst priority = String(priorityRaw).toUpperCase();\n\n// Keep description short/safe (many ticket APIs limit length)\nconst description = (email.bodyPreview ?? '').toString().slice(0, 5000);\n\nconst ticketPayload = {\n  title: (email.subject ?? '').toString().slice(0, 255),\n  description,\n  requesterEmail: email.from?.emailAddress?.address ?? '',\n  priority,\n  source: 'email',\n\n  // Preserve for next node(s)\n  _emailId: email.id,\n  _accessToken: accessToken\n};\n\n// Keep paired lineage to the current item (optional but harmless)\nreturn {\n  json: ticketPayload,\n  pairedItem: { item: 0 }\n};\n"
+        "jsCode": "// Build ticket creation payload and preserve email ID + access token (paired-item safe)\n\n// Current item's data\nconst c = $json;                         // same as $input.item.json\nconst email = c.email || {};\n\n// Read token without relying on paired items\nconst accessToken = $('Get Access Token').first().json?.access_token;\n\n// Guard rails\nif (!email?.id) throw new Error('Build Ticket Payload: missing email.id on current item.');\nif (!accessToken) throw new Error('Build Ticket Payload: access token not found from \"Get Access Token\".');\n\n// Normalize priority\nconst priorityRaw =\n  c.priority ??\n  c.classification?.priority ??\n  'NORMAL';\n\nconst priority = String(priorityRaw).toUpperCase();\n\n// Keep description short/safe (many ticket APIs limit length)\nconst description = (email.body?.content ?? email.bodyPreview ?? '').toString().slice(0, 5000);\n\nconst ticketPayload = {\n  title: (email.subject ?? '').toString().slice(0, 255),\n  description,\n  requesterEmail: email.from?.emailAddress?.address ?? '',\n  priority,\n  source: 'email',\n\n  // Preserve for next node(s)\n  _emailId: email.id,\n  _conversationId: email.conversationId,\n  _accessToken: accessToken\n};\n\n// Keep paired lineage to the current item (optional but harmless)\nreturn {\n  json: ticketPayload,\n  pairedItem: { item: 0 }\n};\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -195,7 +195,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://host.docker.internal:3000/api/tickets",
+        "url": "http://host.docker.internal:3011/api/tickets",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -211,7 +211,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({title: $json.title, description: $json.description, requesterEmail: $json.requesterEmail, priority: $json.priority, source: $json.source}) }}",
+        "jsonBody": "={{ JSON.stringify({title: $json.title, description: $json.description, requesterEmail: $json.requesterEmail, priority: $json.priority, source: $json.source, messageId: $json._emailId, emailConversationId: $json._conversationId}) }}",
         "options": {}
       },
       "id": "c20ad11d-26a5-4b42-b48e-88b7ecb2d13d",
@@ -362,8 +362,8 @@
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        -1776,
-        400
+        -1408,
+        512
       ],
       "id": "dce8925f-dabf-4608-a4cb-f62eaef6ac66",
       "name": "Wait 2 seconds",
@@ -418,16 +418,10 @@
     },
     "Loop Over Items": {
       "main": [
+        [],
         [
           {
             "node": "Build AI Request",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Wait 2 seconds",
             "type": "main",
             "index": 0
           }
@@ -589,7 +583,7 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "f4099bfa-82a7-4df7-a514-8fb1466a8828",
+  "versionId": "c317c208-d3e1-48a9-b2b0-cdf1c4e57d2c",
   "meta": {
     "instanceId": "074a2d330ff09557fb32077cd457e14980c783ef242cb9762c911f7f317695c0"
   },

@@ -35,6 +35,7 @@ model User {
   preferences     UserPreference?
   departments     UserDepartment[]
   auditLogs       AuditLog[]
+  classifierFeedback ClassifierFeedback[]
 
   // Hierarchical relationships
   manager         User?           @relation("UserManager", fields: [managerId], references: [id])
@@ -78,6 +79,10 @@ model Ticket {
   assigneeId            String?
   departmentId          String?
   emailConversationId   String?         // Microsoft Graph conversationId for email threading
+  parentTicketId        String?         // Parent ticket for threading
+  aiDraftResponse       String?         // AI-generated draft response awaiting staff review
+  aiDraftGeneratedAt    DateTime?       // When the AI draft was generated
+  aiDraftGeneratedBy    String?         // User ID who triggered draft generation
   createdAt             DateTime        @default(now())
   updatedAt             DateTime        @updatedAt
   resolvedAt            DateTime?
@@ -87,7 +92,13 @@ model Ticket {
   requester             User?           @relation("TicketRequester", fields: [requesterId], references: [id])
   aiDecision            AIDecision?
   kbUsage               TicketKBUsage[]
+  attachments           Attachment[]
 
+  // Parent-child threading relationships
+  parentTicket          Ticket?         @relation("TicketThread", fields: [parentTicketId], references: [id], onDelete: SetNull)
+  childTickets          Ticket[]        @relation("TicketThread")
+
+  @@index([parentTicketId])
   @@map("tickets")
 }
 
@@ -147,6 +158,7 @@ model UserPreference {
   userId               String   @unique
   personalViewOrder    String?  // JSON array of view IDs
   companyViewOrder     String?  // JSON array of view IDs
+  dashboardCardOrder   String?  // JSON array of card IDs for dashboard
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
   user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -253,4 +265,57 @@ model AuditLog {
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("audit_logs")
+}
+
+model Attachment {
+  id           String   @id @default(uuid())
+  ticketId     String
+  userId       String   // User who uploaded the file
+  fileName     String   // Original file name
+  fileSize     Int      // File size in bytes
+  mimeType     String   // MIME type (image/png, application/pdf, etc.)
+  filePath     String   // Relative path to the file on disk
+  uploadedAt   DateTime @default(now())
+  expiresAt    DateTime // Auto-calculated: uploadedAt + 6 months
+  ticket       Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([ticketId])
+  @@index([expiresAt])
+  @@map("attachments")
+}
+
+model AttachmentDeletionLog {
+  id           String   @id @default(uuid())
+  userId       String   // User whose folder the file was in
+  fileName     String
+  fileSize     Int
+  filePath     String
+  deletedAt    DateTime @default(now())
+  deletedBy    String?  // 'system' for auto-cleanup, userId for manual deletion
+  reason       String   // 'expired', 'manual', 'ticket_deleted'
+
+  @@index([userId])
+  @@index([deletedAt])
+  @@map("attachment_deletion_logs")
+}
+
+model ClassifierFeedback {
+  id               String   @id @default(uuid())
+  ticketId         String
+  emailFrom        String?
+  emailSubject     String?
+  emailBody        String?
+  originalCategory String?
+  feedbackType     String   // 'NOT_TICKET', 'WRONG_CATEGORY', 'CORRECT'
+  correctCategory  String?
+  reason           String?
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt        DateTime @default(now())
+
+  @@index([ticketId])
+  @@index([feedbackType])
+  @@index([createdAt])
+  @@map("classifier_feedback")
 }

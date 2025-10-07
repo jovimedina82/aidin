@@ -2,23 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
-/* CSS Variables - Design System */
+/* Design System Variables */
 @layer base {
   :root {
-    /* Colors */
+    /* Light Theme */
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    --primary: 195 60% 40%;  /* Surterre blue */
+    --primary: 195 60% 40%;  /* Brand blue */
     --primary-foreground: 0 0% 100%;
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 45 100% 51%;  /* Surterre gold */
+    --accent: 45 100% 51%;  /* Brand gold */
     --accent-foreground: 0 0% 13%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
@@ -29,6 +29,7 @@
   }
 
   .dark {
+    /* Dark Theme */
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
     --card: 222.2 84% 4.9%;
@@ -66,10 +67,10 @@
 @layer components {
   /* Navigation */
   .surterre-nav {
-    @apply bg-white/95 backdrop-blur-md border-b border-border;
+    @apply bg-white/95 backdrop-blur-md;
   }
 
-  /* Logo */
+  /* Logo Components */
   .surterre-logo {
     @apply flex items-center gap-3;
   }
@@ -79,14 +80,14 @@
   }
 
   .surterre-logo-title {
-    @apply text-xl font-bold tracking-tight text-foreground;
+    @apply text-xl font-bold tracking-tight;
   }
 
   .surterre-logo-subtitle {
     @apply text-[10px] uppercase tracking-[0.1em] opacity-70 font-medium;
   }
 
-  /* Buttons */
+  /* Button Components */
   .surterre-btn {
     @apply font-medium tracking-wide transition-all duration-200;
   }
@@ -97,56 +98,39 @@
 }
 
 /* Animations */
-@keyframes float-left-right {
-  0% {
+@keyframes float-horizontal {
+  0%, 100% {
     transform: translateX(-100vw) translateY(-50%);
   }
   50% {
     transform: translateX(100vw) translateY(-50%);
   }
-  100% {
-    transform: translateX(-100vw) translateY(-50%);
-  }
 }
 
-@keyframes float-left-right-delay {
-  0% {
-    transform: translateX(-100vw) translateY(-50%);
-  }
-  50% {
-    transform: translateX(100vw) translateY(-50%);
-  }
-  100% {
-    transform: translateX(-100vw) translateY(-50%);
-  }
-}
-
-@keyframes float-left-right-slow {
-  0% {
+@keyframes float-horizontal-bottom {
+  0%, 100% {
     transform: translateX(-100vw) translateY(50%);
   }
   50% {
     transform: translateX(100vw) translateY(50%);
   }
-  100% {
-    transform: translateX(-100vw) translateY(50%);
-  }
 }
 
-.animate-float-left-right {
-  animation: float-left-right 12s ease-in-out infinite;
+/* Animation utility classes */
+.animate-float-fast {
+  animation: float-horizontal 12s ease-in-out infinite;
 }
 
-.animate-float-left-right-delay {
-  animation: float-left-right-delay 15s ease-in-out infinite;
+.animate-float-medium {
+  animation: float-horizontal 15s ease-in-out infinite;
   animation-delay: -5s;
 }
 
-.animate-float-left-right-slow {
-  animation: float-left-right-slow 18s ease-in-out infinite;
+.animate-float-slow {
+  animation: float-horizontal-bottom 18s ease-in-out infinite;
   animation-delay: -8s;
 }
 
-.animate-float-single-slow {
-  animation: float-left-right 25s ease-in-out infinite;
+.animate-float-extra-slow {
+  animation: float-horizontal 25s ease-in-out infinite;
 }

@@ -29,13 +29,14 @@ services:
       - N8N_BASIC_AUTH_ACTIVE=true
       - N8N_BASIC_AUTH_USER=admin
       - N8N_BASIC_AUTH_PASSWORD=helpdesk123
-      - N8N_HOST=0.0.0.0
+      - N8N_HOST=n8n.surterreproperties.com
       - N8N_PORT=5678
-      - N8N_PROTOCOL=http
-      - WEBHOOK_URL=http://localhost:5678
+      - N8N_PROTOCOL=https
+      - WEBHOOK_URL=https://n8n.surterreproperties.com
       - GENERIC_TIMEZONE=America/New_York
-      - N8N_SECURE_COOKIE=false
+      - N8N_SECURE_COOKIE=true
       - N8N_METRICS=true
+      - N8N_ENCRYPTION_KEY=QKC7bgGANZul5S4W/O1uZTm2/+VIjRM9
     volumes:
       - n8n_data:/home/node/.n8n
       - /var/run/docker.sock:/var/run/docker.sock:ro

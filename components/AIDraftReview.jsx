@@ -1,0 +1,451 @@
+'use client'
+import { useState, useRef } from 'react'
+import { Send, Edit2, X, Sparkles, RefreshCw, Image as ImageIcon, BookOpen } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { useAuth } from './AuthProvider'
+import { toast } from 'sonner'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+
+export default function AIDraftReview({ ticket, onUpdate }) {
+  const { makeAuthenticatedRequest } = useAuth()
+  const [isEditing, setIsEditing] = useState(false)
+  const [draftContent, setDraftContent] = useState(ticket.aiDraftResponse || '')
+  const [sending, setSending] = useState(false)
+  const [regenerating, setRegenerating] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [showKBModal, setShowKBModal] = useState(false)
+  const [kbTitle, setKbTitle] = useState(ticket.title || '')
+  const [kbTags, setKbTags] = useState(ticket.category || '')
+  const [savingToKB, setSavingToKB] = useState(false)
+  const textareaRef = useRef(null)
+  const fileInputRef = useRef(null)
+
+  // If there's no draft, don't show anything
+  if (!ticket.aiDraftResponse) {
+    return null
+  }
+
+  const handleSendDraft = async () => {
+    if (!draftContent.trim()) {
+      toast.error('Draft content cannot be empty')
+      return
+    }
+
+    const confirmMessage = `Send this response to ${ticket.requester?.firstName} ${ticket.requester?.lastName}?`
+
+    if (!confirm(confirmMessage)) {
+      return
+    }
+
+    setSending(true)
+    try {
+      const response = await makeAuthenticatedRequest(`/api/tickets/${ticket.id}/send-draft`, {
+        method: 'POST',
+        body: JSON.stringify({ draftContent })
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to send draft')
+      }
+
+      toast.success('Response sent successfully')
+      setIsEditing(false)
+
+      if (onUpdate) onUpdate()
+    } catch (error) {
+      console.error('Send draft error:', error)
+      toast.error(error.message || 'Failed to send draft')
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const handleCancelEdit = () => {
+    setDraftContent(ticket.aiDraftResponse)
+    setIsEditing(false)
+  }
+
+  const handleRegenerateDraft = async () => {
+    if (!confirm('Regenerate AI draft? This will replace the current draft with a new one.')) {
+      return
+    }
+
+    setRegenerating(true)
+    try {
+      const response = await makeAuthenticatedRequest(`/api/tickets/${ticket.id}/generate-draft`, {
+        method: 'POST'
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to regenerate draft')
+      }
+
+      const result = await response.json()
+      setDraftContent(result.draft)
+      toast.success('AI draft regenerated successfully')
+
+      if (onUpdate) onUpdate()
+    } catch (error) {
+      console.error('Regenerate draft error:', error)
+      toast.error(error.message || 'Failed to regenerate draft')
+    } finally {
+      setRegenerating(false)
+    }
+  }
+
+  const handleImageUpload = async (event) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('image', file)
+
+      const response = await makeAuthenticatedRequest(`/api/tickets/${ticket.id}/upload-draft-image`, {
+        method: 'POST',
+        body: formData,
+        headers: {} // Let browser set Content-Type for FormData
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to upload image')
+      }
+
+      const result = await response.json()
+
+      // Insert image markdown at cursor position
+      const imageMarkdown = `\n![${result.filename}](${result.url})\n`
+      const textarea = textareaRef.current
+
+      if (textarea) {
+        const start = textarea.selectionStart
+        const end = textarea.selectionEnd
+        const newContent = draftContent.substring(0, start) + imageMarkdown + draftContent.substring(end)
+        setDraftContent(newContent)
+
+        // Set cursor after inserted image
+        setTimeout(() => {
+          textarea.selectionStart = textarea.selectionEnd = start + imageMarkdown.length
+          textarea.focus()
+        }, 0)
+      } else {
+        // If no textarea ref, append to end
+        setDraftContent(prev => prev + imageMarkdown)
+      }
+
+      toast.success('Image uploaded and inserted')
+    } catch (error) {
+      console.error('Image upload error:', error)
+      toast.error(error.message || 'Failed to upload image')
+    } finally {
+      setUploading(false)
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }
+
+  const handleSaveToKB = async () => {
+    if (!kbTitle.trim()) {
+      toast.error('Please enter a title for the KB article')
+      return
+    }
+
+    setSavingToKB(true)
+    try {
+      const tags = kbTags.split(',').map(t => t.trim()).filter(Boolean)
+
+      const response = await makeAuthenticatedRequest(`/api/tickets/${ticket.id}/save-to-kb`, {
+        method: 'POST',
+        body: JSON.stringify({
+          title: kbTitle,
+          content: draftContent,
+          tags: tags
+        })
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to save to knowledge base')
+      }
+
+      const result = await response.json()
+      const message = result.message || `Knowledge base article created: ${result.article.title}`
+      toast.success(message)
+      setShowKBModal(false)
+    } catch (error) {
+      console.error('Save to KB error:', error)
+      toast.error(error.message || 'Failed to save to knowledge base')
+    } finally {
+      setSavingToKB(false)
+    }
+  }
+
+  const generatedDate = ticket.aiDraftGeneratedAt
+    ? new Date(ticket.aiDraftGeneratedAt).toLocaleString()
+    : 'Unknown'
+
+  return (
+    <div className="bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-200 rounded-lg p-6 shadow-sm">
+      {/* Header */}
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <div className="p-2 bg-purple-100 rounded-lg">
+            <Sparkles className="w-5 h-5 text-purple-600" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">
+              AI-Generated Draft Response
+            </h3>
+            <p className="text-sm text-gray-600">
+              Generated {generatedDate}
+            </p>
+          </div>
+        </div>
+
+        {!isEditing && (
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={handleRegenerateDraft}
+              disabled={regenerating || sending}
+            >
+              <RefreshCw className={`w-4 h-4 mr-1 ${regenerating ? 'animate-spin' : ''}`} />
+              {regenerating ? 'Regenerating...' : 'Regenerate'}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setIsEditing(true)}
+              disabled={regenerating || sending}
+            >
+              <Edit2 className="w-4 h-4 mr-1" />
+              Edit
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Draft Content */}
+      {isEditing ? (
+        <div className="space-y-3">
+          <div className="flex gap-2 mb-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="hidden"
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading || sending}
+            >
+              <ImageIcon className="w-4 h-4 mr-1" />
+              {uploading ? 'Uploading...' : 'Add Image'}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setShowKBModal(true)}
+              disabled={sending || !draftContent.trim()}
+            >
+              <BookOpen className="w-4 h-4 mr-1" />
+              Save to KB
+            </Button>
+          </div>
+          <textarea
+            ref={textareaRef}
+            value={draftContent}
+            onChange={(e) => setDraftContent(e.target.value)}
+            className="w-full min-h-[200px] px-4 py-3 border border-purple-300 rounded-lg text-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-200 resize-y font-mono"
+            placeholder="Edit the AI-generated response..."
+          />
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs text-gray-500">
+              💡 Tip: Use markdown formatting. Upload images to make responses more complete.
+            </p>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={handleCancelEdit}
+                disabled={sending}
+              >
+                <X className="w-4 h-4 mr-1" />
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleSendDraft}
+                disabled={sending || !draftContent.trim()}
+                className="bg-purple-600 hover:bg-purple-700 text-white"
+              >
+                <Send className="w-4 h-4 mr-1" />
+                {sending ? 'Sending...' : 'Send to Requester'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="bg-white border border-purple-200 rounded-lg p-4">
+            <div className="prose prose-sm max-w-none text-gray-700">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  h1: ({node, ...props}) => <h1 className="text-xl font-bold mt-4 mb-2 text-gray-900" {...props} />,
+                  h2: ({node, ...props}) => <h2 className="text-lg font-bold mt-3 mb-2 text-gray-900" {...props} />,
+                  h3: ({node, ...props}) => <h3 className="text-base font-bold mt-2 mb-1 text-gray-900" {...props} />,
+                  h4: ({node, ...props}) => <h4 className="text-sm font-bold mt-2 mb-1 text-gray-900" {...props} />,
+                  p: ({node, ...props}) => <p className="mb-3 text-gray-700 leading-relaxed" {...props} />,
+                  strong: ({node, ...props}) => <strong className="font-semibold text-gray-900" {...props} />,
+                  ul: ({node, ...props}) => <ul className="list-disc list-inside mb-3 space-y-1" {...props} />,
+                  ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-3 space-y-1" {...props} />,
+                  li: ({node, ...props}) => <li className="text-gray-700" {...props} />,
+                  a: ({node, ...props}) => <a className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer" {...props} />,
+                  img: ({node, ...props}) => (
+                    <img
+                      className="max-w-full h-auto rounded-lg border border-gray-300 my-4"
+                      loading="lazy"
+                      {...props}
+                    />
+                  ),
+                  code: ({node, inline, ...props}) =>
+                    inline
+                      ? <code className="bg-gray-100 px-1 py-0.5 rounded text-sm font-mono text-gray-800" {...props} />
+                      : <code className="block bg-gray-100 p-2 rounded text-sm font-mono text-gray-800 overflow-x-auto" {...props} />,
+                }}
+              >
+                {draftContent}
+              </ReactMarkdown>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-gray-600">
+              <span className="font-medium">Note:</span> This response will be sent to{' '}
+              <span className="font-medium">
+                {ticket.requester?.firstName} {ticket.requester?.lastName}
+              </span>
+              {ticket.requester?.email && (
+                <span className="text-gray-500"> ({ticket.requester.email})</span>
+              )}
+            </p>
+            <Button
+              type="button"
+              onClick={handleSendDraft}
+              disabled={sending}
+              className="bg-purple-600 hover:bg-purple-700 text-white"
+            >
+              <Send className="w-4 h-4 mr-1" />
+              {sending ? 'Sending...' : 'Send to Requester'}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Info Banner */}
+      <div className="mt-4 pt-4 border-t border-purple-200">
+        <p className="text-xs text-gray-600 flex items-center gap-2">
+          <Sparkles className="w-3 h-3 text-purple-500" />
+          This AI-generated response uses knowledge base articles and internet research.
+          Please review for accuracy before sending.
+        </p>
+      </div>
+
+      {/* Save to KB Modal */}
+      {showKBModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowKBModal(false)}>
+          <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-4">
+              <BookOpen className="w-6 h-6 text-blue-600" />
+              <h3 className="text-lg font-semibold text-gray-900">Save to Knowledge Base</h3>
+            </div>
+
+            <p className="text-sm text-gray-600 mb-4">
+              Create a reusable knowledge base article from this edited response. Future similar tickets will automatically use this solution.
+            </p>
+
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 mb-4 flex items-start gap-2">
+              <Sparkles className="w-4 h-4 text-purple-600 flex-shrink-0 mt-0.5" />
+              <div className="text-xs text-purple-800">
+                <strong>AI Enhancement:</strong> Your content will be automatically transformed into a generic, reusable article by removing specific names and making it more broadly applicable.
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Article Title *
+                </label>
+                <input
+                  type="text"
+                  value={kbTitle}
+                  onChange={(e) => setKbTitle(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                  placeholder="e.g., How to fix WiFi connection issues"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Tags (comma separated)
+                </label>
+                <input
+                  type="text"
+                  value={kbTags}
+                  onChange={(e) => setKbTags(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                  placeholder="e.g., WiFi, Network, Troubleshooting"
+                />
+              </div>
+
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                <p className="text-xs text-gray-600 mb-1 font-medium">Preview:</p>
+                <p className="text-xs text-gray-700 line-clamp-3">{draftContent.substring(0, 150)}...</p>
+              </div>
+
+              <div className="flex gap-2 justify-end pt-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowKBModal(false)}
+                  disabled={savingToKB}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleSaveToKB}
+                  disabled={savingToKB || !kbTitle.trim()}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  <BookOpen className="w-4 h-4 mr-1" />
+                  {savingToKB ? 'Saving...' : 'Create Article'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

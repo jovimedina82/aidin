@@ -2,6 +2,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from './AuthProvider'
+import UserProfileModal from './UserProfileModal'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 export default function MentionTextarea({
   value,
@@ -20,6 +23,8 @@ export default function MentionTextarea({
   const [users, setUsers] = useState([])
   const [filteredUsers, setFilteredUsers] = useState([])
   const [selectedIndex, setSelectedIndex] = useState(0)
+  const [selectedUserId, setSelectedUserId] = useState(null)
+  const [showProfileModal, setShowProfileModal] = useState(false)
   const textareaRef = useRef(null)
   const mentionDropdownRef = useRef(null)
 
@@ -208,58 +213,100 @@ export default function MentionTextarea({
   }
 
   return (
-    <div className="relative">
-      {readOnly && renderMentions ? (
-        // Render formatted text with clickable mentions for read-only mode
-        <div className={`whitespace-pre-wrap ${className}`} {...props}>
-          {renderTextWithMentions(value)}
-        </div>
-      ) : (
-        // Render textarea for editing
-        <Textarea
-          ref={textareaRef}
-          value={value}
-          onChange={handleTextChange}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder}
-          className={className}
-          readOnly={readOnly}
-          {...props}
-        />
-      )}
-
-      {showMentions && filteredUsers.length > 0 && !readOnly && (
-        <div
-          ref={mentionDropdownRef}
-          className="absolute z-50 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto min-w-[200px]"
-          style={{
-            top: mentionPosition.top,
-            left: mentionPosition.left,
-          }}
-        >
-          {filteredUsers.slice(0, 10).map((user, index) => (
-            <div
-              key={user.id}
-              className={`px-3 py-2 cursor-pointer flex items-center gap-2 ${
-                index === selectedIndex ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-50'
-              }`}
-              onClick={() => handleMentionClick(user)}
+    <>
+      <div className="relative">
+        {readOnly && renderMentions ? (
+          // Render markdown with clickable mentions for read-only mode
+          <div className={`prose prose-sm max-w-none ${className}`} {...props}>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                h1: ({node, ...props}) => <h1 className="text-lg font-bold mt-2 mb-1 text-gray-900" {...props} />,
+                h2: ({node, ...props}) => <h2 className="text-base font-bold mt-2 mb-1 text-gray-900" {...props} />,
+                h3: ({node, ...props}) => <h3 className="text-sm font-bold mt-1 mb-1 text-gray-900" {...props} />,
+                h4: ({node, ...props}) => <h4 className="text-sm font-semibold mt-1 mb-1 text-gray-900" {...props} />,
+                p: ({node, children, ...props}) => {
+                  // Process mentions in paragraphs
+                  const processedChildren = typeof children === 'string'
+                    ? renderTextWithMentions(children)
+                    : children
+                  return <p className="mb-2 text-gray-700 leading-relaxed" {...props}>{processedChildren}</p>
+                },
+                strong: ({node, ...props}) => <strong className="font-semibold text-gray-900" {...props} />,
+                ul: ({node, ...props}) => <ul className="list-disc list-inside mb-2 space-y-1" {...props} />,
+                ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-2 space-y-1" {...props} />,
+                li: ({node, ...props}) => <li className="text-gray-700" {...props} />,
+                a: ({node, ...props}) => <a className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer" {...props} />,
+                img: ({node, ...props}) => (
+                  <img
+                    className="max-w-full h-auto rounded-lg border border-gray-300 my-3"
+                    loading="lazy"
+                    {...props}
+                  />
+                ),
+                code: ({node, inline, ...props}) =>
+                  inline
+                    ? <code className="bg-gray-100 px-1 py-0.5 rounded text-xs font-mono text-gray-800" {...props} />
+                    : <code className="block bg-gray-100 p-2 rounded text-sm font-mono text-gray-800 overflow-x-auto my-2" {...props} />,
+              }}
             >
-              <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs font-medium">
-                {user.firstName[0]}{user.lastName[0]}
-              </div>
-              <div className="flex-1">
-                <div className="font-medium text-sm">
-                  {user.firstName} {user.lastName}
+              {value}
+            </ReactMarkdown>
+          </div>
+        ) : (
+          // Render textarea for editing
+          <Textarea
+            ref={textareaRef}
+            value={value}
+            onChange={handleTextChange}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+            className={className}
+            readOnly={readOnly}
+            {...props}
+          />
+        )}
+
+        {showMentions && filteredUsers.length > 0 && !readOnly && (
+          <div
+            ref={mentionDropdownRef}
+            className="absolute z-50 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto min-w-[200px]"
+            style={{
+              top: mentionPosition.top,
+              left: mentionPosition.left,
+            }}
+          >
+            {filteredUsers.slice(0, 10).map((user, index) => (
+              <div
+                key={user.id}
+                className={`px-3 py-2 cursor-pointer flex items-center gap-2 ${
+                  index === selectedIndex ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-50'
+                }`}
+                onClick={() => handleMentionClick(user)}
+              >
+                <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs font-medium">
+                  {user.firstName[0]}{user.lastName[0]}
                 </div>
-                <div className="text-xs text-gray-500">
-                  {user.email}
+                <div className="flex-1">
+                  <div className="font-medium text-sm">
+                    {user.firstName} {user.lastName}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {user.email}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* User Profile Modal */}
+      <UserProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        userId={selectedUserId}
+      />
+    </>
   )
 }

@@ -73,6 +73,8 @@ function TicketsPageContent() {
   const [draggedSection, setDraggedSection] = useState(null)
   const [expandedStaff, setExpandedStaff] = useState(new Set())
   const [staff, setStaff] = useState([])
+  const [departments, setDepartments] = useState([])
+  const [departmentTicketCounts, setDepartmentTicketCounts] = useState({})
 
   // Role-based permissions
   // Handle both role formats: string array or object array
@@ -409,6 +411,9 @@ function TicketsPageContent() {
       fetchAllTickets().then(() => {
         fetchTickets()
         fetchStats()
+        if (isStaff) {
+          fetchDepartments()
+        }
         if (isAdmin) {
           fetchStaff()
         }
@@ -422,6 +427,13 @@ function TicketsPageContent() {
       fetchAllTickets()
     }
   }, [user, authLoading])
+
+  // Update department counts when tickets change
+  useEffect(() => {
+    if (allTickets && allTickets.length > 0) {
+      setDepartmentTicketCounts(calculateDepartmentCounts())
+    }
+  }, [allTickets])
 
   useEffect(() => {
     // Only fetch tickets if user is authenticated and auth is complete
@@ -572,6 +584,33 @@ function TicketsPageContent() {
     } catch (error) {
       console.error('Failed to fetch agents:', error)
     }
+  }
+
+  const fetchDepartments = async () => {
+    try {
+      const response = await makeAuthenticatedRequest('/api/admin/departments')
+      if (response.ok) {
+        const data = await response.json()
+        setDepartments(data.departments || [])
+      }
+    } catch (error) {
+      console.error('Failed to fetch departments:', error)
+    }
+  }
+
+  const calculateDepartmentCounts = () => {
+    if (!allTickets || allTickets.length === 0) return {}
+
+    const counts = {}
+    allTickets.forEach(ticket => {
+      // Only count active (non-solved) tickets
+      // finalDepartment stores the department ID
+      if (ticket.status !== 'SOLVED' && ticket.aiDecision?.finalDepartment) {
+        const deptId = ticket.aiDecision.finalDepartment
+        counts[deptId] = (counts[deptId] || 0) + 1
+      }
+    })
+    return counts
   }
 
   const fetchTickets = async (showLoadingState = true) => {
@@ -928,7 +967,13 @@ function TicketsPageContent() {
     const activeView = views.find(v => v.id === currentView)
     let matchesView = true
 
-    if (activeView?.filter) {
+    // Handle department-specific views
+    if (currentView.startsWith('department-')) {
+      const departmentId = currentView.replace('department-', '')
+      matchesView = matchesView &&
+        ticket.status !== 'SOLVED' &&
+        ticket.aiDecision?.finalDepartment === departmentId
+    } else if (activeView?.filter) {
       const filter = activeView.filter
 
       // Handle assignee filtering (specific assignee or null for unassigned)
@@ -967,8 +1012,8 @@ function TicketsPageContent() {
     }
 
     // For all other views, exclude solved tickets older than 1 month
-    // unless we're specifically viewing solved history
-    if (currentView !== 'solved-history' && currentView !== 'personal-solved-history' && ticket.status === 'SOLVED' && !isSolvedRecently(ticket)) {
+    // unless we're specifically viewing solved history or department view
+    if (!currentView.startsWith('department-') && currentView !== 'solved-history' && currentView !== 'personal-solved-history' && ticket.status === 'SOLVED' && !isSolvedRecently(ticket)) {
       matchesView = false
     }
 
@@ -1375,6 +1420,37 @@ function TicketsPageContent() {
                 </div>
               )}
 
+              {/* Ticket per Department - Staff Only */}
+              {isStaff && (
+                <div className="mt-8">
+                  <h3 className="text-white text-sm font-medium mb-4">Ticket per Department</h3>
+                  <div className="space-y-2">
+                    {departments
+                      .filter(dept => dept.isActive && departmentTicketCounts[dept.id] > 0)
+                      .sort((a, b) => (departmentTicketCounts[b.id] || 0) - (departmentTicketCounts[a.id] || 0))
+                      .map((dept) => (
+                        <button
+                          key={dept.id}
+                          onClick={() => setCurrentView(`department-${dept.id}`)}
+                          className={`w-full flex justify-between items-center text-sm py-2 px-3 rounded transition-colors ${
+                            currentView === `department-${dept.id}`
+                              ? 'bg-white/20 text-white'
+                              : 'text-white/70 hover:text-white hover:bg-white/10'
+                          }`}
+                        >
+                          <span className="truncate" title={dept.name}>{dept.name}</span>
+                          <span className="text-blue-400 ml-2 flex-shrink-0">
+                            {departmentTicketCounts[dept.id] || 0}
+                          </span>
+                        </button>
+                      ))}
+                    {departments.filter(dept => dept.isActive && departmentTicketCounts[dept.id] > 0).length === 0 && (
+                      <div className="text-sm text-white/60 py-2">No active tickets</div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Ticket Statistics - Staff Only */}
               {isStaff && (
                 <div className="mt-8">
@@ -1389,19 +1465,6 @@ function TicketsPageContent() {
                       <div className="text-xs text-white/70 mt-1">
                         {stats.solved} / {stats.total} tickets solved
                       </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Open Tickets - Staff Only */}
-              {isStaff && (
-                <div className="mt-8">
-                  <h3 className="text-white text-sm font-medium mb-4">Open tickets</h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-white/60">Your groups</span>
-                      <span className="text-blue-400">{stats.unassigned}</span>
                     </div>
                   </div>
                 </div>
@@ -1758,8 +1821,15 @@ function TicketsPageContent() {
                                       {getStatusBadge(ticket.status)}
                                       <span className="text-sm font-mono text-gray-500">#{ticket.ticketNumber}</span>
                                     </div>
-                                    <div className="text-sm font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                                      TTR: {calculateTTR(ticket.createdAt, ticket.resolvedAt)}
+                                    <div className="flex items-center space-x-2">
+                                      {ticket.requesterId === user?.id && (
+                                        <div className="text-xs font-semibold text-white bg-blue-600 px-2 py-1 rounded">
+                                          Self Created
+                                        </div>
+                                      )}
+                                      <div className="text-sm font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                                        TTR: {calculateTTR(ticket.createdAt, ticket.resolvedAt)}
+                                      </div>
                                     </div>
                                   </div>
 
@@ -1838,8 +1908,13 @@ function TicketsPageContent() {
 
                                     {/* Subject */}
                                     <div className="col-span-5">
-                                      <div className="font-medium text-gray-900 mb-1">
-                                        #{ticket.ticketNumber} {ticket.title}
+                                      <div className="font-medium text-gray-900 mb-1 flex items-center gap-2">
+                                        <span>#{ticket.ticketNumber} {ticket.title}</span>
+                                        {ticket.requesterId === user?.id && (
+                                          <span className="text-xs font-semibold text-white bg-blue-600 px-2 py-1 rounded flex-shrink-0">
+                                            Self Created
+                                          </span>
+                                        )}
                                       </div>
                                       <div className="text-sm text-gray-500 flex items-center space-x-2">
                                         <Badge className="text-xs">{ticket.category}</Badge>
@@ -1879,8 +1954,13 @@ function TicketsPageContent() {
 
                                     {/* Subject */}
                                     <div className="col-span-4">
-                                      <div className="font-medium text-gray-900 mb-1">
-                                        #{ticket.ticketNumber} {ticket.title}
+                                      <div className="font-medium text-gray-900 mb-1 flex items-center gap-2">
+                                        <span>#{ticket.ticketNumber} {ticket.title}</span>
+                                        {ticket.requesterId === user?.id && (
+                                          <span className="text-xs font-semibold text-white bg-blue-600 px-2 py-1 rounded flex-shrink-0">
+                                            Self Created
+                                          </span>
+                                        )}
                                       </div>
                                       <div className="text-sm text-gray-500 flex items-center space-x-2">
                                         <Badge className="text-xs">{ticket.category}</Badge>
@@ -1959,8 +2039,15 @@ function TicketsPageContent() {
                               {getStatusBadge(ticket.status)}
                               <span className="text-sm font-mono text-gray-500">#{ticket.ticketNumber}</span>
                             </div>
-                            <div className="text-sm font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                              TTR: {calculateTTR(ticket.createdAt, ticket.resolvedAt)}
+                            <div className="flex items-center space-x-2">
+                              {ticket.requesterId === user?.id && (
+                                <div className="text-xs font-semibold text-white bg-blue-600 px-2 py-1 rounded">
+                                  Self Created
+                                </div>
+                              )}
+                              <div className="text-sm font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                                TTR: {calculateTTR(ticket.createdAt, ticket.resolvedAt)}
+                              </div>
                             </div>
                           </div>
 
@@ -2046,8 +2133,13 @@ function TicketsPageContent() {
 
                             {/* Subject */}
                             <div className="col-span-5">
-                              <div className="font-medium text-gray-900 mb-1">
-                                #{ticket.ticketNumber} {ticket.title}
+                              <div className="font-medium text-gray-900 mb-1 flex items-center gap-2">
+                                <span>#{ticket.ticketNumber} {ticket.title}</span>
+                                {ticket.requesterId === user?.id && (
+                                  <span className="text-xs font-semibold text-white bg-blue-600 px-2 py-1 rounded flex-shrink-0">
+                                    Self Created
+                                  </span>
+                                )}
                               </div>
                               <div className="text-sm text-gray-500 flex items-center space-x-2">
                                 <Badge className="text-xs">{ticket.category}</Badge>
@@ -2087,8 +2179,13 @@ function TicketsPageContent() {
 
                             {/* Subject */}
                             <div className="col-span-4">
-                              <div className="font-medium text-gray-900 mb-1">
-                                #{ticket.ticketNumber} {ticket.title}
+                              <div className="font-medium text-gray-900 mb-1 flex items-center gap-2">
+                                <span>#{ticket.ticketNumber} {ticket.title}</span>
+                                {ticket.requesterId === user?.id && (
+                                  <span className="text-xs font-semibold text-white bg-blue-600 px-2 py-1 rounded flex-shrink-0">
+                                    Self Created
+                                  </span>
+                                )}
                               </div>
                               <div className="text-sm text-gray-500 flex items-center space-x-2">
                                 <Badge className="text-xs">{ticket.category}</Badge>

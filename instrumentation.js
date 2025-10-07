@@ -8,6 +8,7 @@ export async function register() {
 
     // Import and start the Azure AD sync scheduler
     const { default: azureSyncScheduler } = await import('./lib/services/AzureSyncScheduler.js')
+    const { default: attachmentCleanupScheduler } = await import('./lib/services/AttachmentCleanupScheduler.js')
 
     // Check if scheduler should be enabled
     const isProduction = process.env.NODE_ENV === 'production'
@@ -19,5 +20,9 @@ export async function register() {
     } else {
       console.log('⏸️  Azure AD sync scheduler disabled (not in production or manually disabled)')
     }
+
+    // Start attachment cleanup scheduler (runs in all environments)
+    console.log('🧹 Starting attachment cleanup scheduler...')
+    attachmentCleanupScheduler.start()
   }
 }

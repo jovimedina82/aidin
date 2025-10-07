@@ -41,7 +41,9 @@ export default function KnowledgeBasePage() {
   const fetchArticles = async () => {
     try {
       setLoading(true)
-      const response = await makeAuthenticatedRequest('/api/admin/knowledge-base')
+      // Use admin API if admin, otherwise use public API
+      const endpoint = isAdmin ? '/api/admin/knowledge-base' : '/api/knowledge-base'
+      const response = await makeAuthenticatedRequest(endpoint)
       if (response.ok) {
         const data = await response.json()
         setArticles(data.articles || [])
@@ -204,7 +206,10 @@ export default function KnowledgeBasePage() {
               Knowledge Base
             </h1>
             <p className="text-muted-foreground">
-              Create and manage help articles for your support team and Virtual Assistant
+              {isAdmin
+                ? 'Create and manage help articles for your support team and Virtual Assistant'
+                : 'Browse help articles and solutions for common issues'
+              }
             </p>
           </div>
           {isAdmin && (

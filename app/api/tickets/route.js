@@ -12,6 +12,120 @@ import {
 import { QueryOptimizations, PerformanceMonitor } from '@/lib/performance'
 import { generateTicketResponse, categorizeTicket, processTicketWithAI } from '@/lib/openai'
 import { buildTicketAccessWhere } from '@/lib/access-control'
+import { emitTicketCreated, emitTicketUpdated, emitStatsUpdate } from '@/lib/socket'
+
+// Utility function to strip HTML and convert to clean, well-formatted plain text
+function stripHtml(html) {
+  if (!html) return ''
+
+  let text = String(html)
+
+  // Remove script and style tags and their content
+  text = text.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+  text = text.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+
+  // Remove head section entirely (contains meta tags, styles, etc)
+  text = text.replace(/<head\b[^<]*(?:(?!<\/head>)<[^<]*)*<\/head>/gi, '')
+
+  // Extract link text before removing anchors (preserve readable links)
+  // For Microsoft safe links, try to extract the actual URL
+  text = text.replace(/<a[^>]+href="https:\/\/nam04\.safelinks\.protection\.outlook\.com\/\?url=([^&]+)[^"]*"[^>]*>([^<]*)<\/a>/gi, (match, encodedUrl, linkText) => {
+    try {
+      const decoded = decodeURIComponent(encodedUrl)
+      return linkText || decoded
+    } catch {
+      return linkText || ''
+    }
+  })
+
+  // For regular links, keep just the link text
+  text = text.replace(/<a[^>]+>([^<]*)<\/a>/gi, '$1')
+
+  // Replace inline images with a placeholder marker
+  // This helps users know an image was present in the original email
+  text = text.replace(/<img[^>]*>/gi, '\n[Image embedded in original email]\n')
+
+  // Convert block-level elements to proper paragraph spacing
+  // Paragraphs get double newlines for visual separation
+  text = text.replace(/<\/p>/gi, '\n\n')
+  text = text.replace(/<p[^>]*>/gi, '')
+
+  // Divs get single newlines
+  text = text.replace(/<\/div>/gi, '\n')
+  text = text.replace(/<div[^>]*>/gi, '')
+
+  // Headers get double newlines for emphasis
+  text = text.replace(/<\/h[1-6]>/gi, '\n\n')
+  text = text.replace(/<h[1-6][^>]*>/gi, '')
+
+  // Line breaks
+  text = text.replace(/<br[^>]*>/gi, '\n')
+
+  // Lists - preserve bullet structure
+  text = text.replace(/<\/li>/gi, '\n')
+  text = text.replace(/<li[^>]*>/gi, '• ')
+  text = text.replace(/<\/?[uo]l[^>]*>/gi, '\n')
+
+  // Tables - try to preserve some structure
+  text = text.replace(/<\/tr>/gi, '\n')
+  text = text.replace(/<tr[^>]*>/gi, '')
+  text = text.replace(/<\/td>/gi, ' ')
+  text = text.replace(/<td[^>]*>/gi, '')
+  text = text.replace(/<\/?table[^>]*>/gi, '\n')
+  text = text.replace(/<\/?tbody[^>]*>/gi, '')
+
+  // Remove all remaining HTML tags
+  text = text.replace(/<[^>]+>/g, '')
+
+  // Decode HTML entities
+  const entities = {
+    '&nbsp;': ' ',
+    '&amp;': '&',
+    '&lt;': '<',
+    '&gt;': '>',
+    '&quot;': '"',
+    '&#39;': "'",
+    '&apos;': "'",
+    '&mdash;': '—',
+    '&ndash;': '–',
+    '&rsquo;': "'",
+    '&lsquo;': "'",
+    '&rdquo;': '"',
+    '&ldquo;': '"',
+    '&hellip;': '...',
+    '&copy;': '©',
+    '&reg;': '®',
+    '&trade;': '™',
+    '&bull;': '•'
+  }
+
+  Object.entries(entities).forEach(([entity, char]) => {
+    text = text.replace(new RegExp(entity, 'gi'), char)
+  })
+
+  // Decode numeric entities (e.g., &#160;)
+  text = text.replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec))
+  text = text.replace(/&#x([0-9a-f]+);/gi, (match, hex) => String.fromCharCode(parseInt(hex, 16)))
+
+  // Clean up whitespace while preserving paragraph structure
+  // First, normalize line endings
+  text = text.replace(/\r\n/g, '\n')
+  text = text.replace(/\r/g, '\n')
+
+  // Remove lines that are just whitespace
+  text = text.replace(/^\s+$/gm, '')
+
+  // Collapse more than 2 consecutive newlines to 2 (paragraph spacing)
+  text = text.replace(/\n{3,}/g, '\n\n')
+
+  // Trim whitespace from each line
+  text = text.split('\n').map(line => line.trim()).join('\n')
+
+  // Remove leading/trailing whitespace from the whole text
+  text = text.trim()
+
+  return text
+}
 
 export const GET = withErrorHandler(async (request) => {
   PerformanceMonitor.start('tickets-fetch')
@@ -131,6 +245,15 @@ export async function POST(request) {
 
     const data = await request.json()
 
+    // Strip HTML from title and description early (important for email-based tickets)
+    // This ensures clean data for AI processing, ticket creation, and comments
+    if (data.title) {
+      data.title = stripHtml(data.title)
+    }
+    if (data.description) {
+      data.description = stripHtml(data.description)
+    }
+
     // Check if this is a reply to an existing email thread
     if (data.emailConversationId) {
       const existingTicket = await prisma.ticket.findFirst({
@@ -183,13 +306,14 @@ export async function POST(request) {
         requesterId = requester.id
       } else {
         // Create new user from email if not exists
-        const emailParts = data.requesterEmail.split('@')
+        const normalizedEmail = data.requesterEmail.toLowerCase()
+        const emailParts = normalizedEmail.split('@')
         const firstName = emailParts[0].split('.')[0] || 'Unknown'
         const lastName = emailParts[0].split('.')[1] || 'User'
 
         const newUser = await prisma.user.create({
           data: {
-            email: data.requesterEmail,
+            email: normalizedEmail,
             firstName: firstName.charAt(0).toUpperCase() + firstName.slice(1),
             lastName: lastName ? lastName.charAt(0).toUpperCase() + lastName.slice(1) : '',
             password: Math.random().toString(36).slice(-12), // Random temp password
@@ -247,38 +371,63 @@ export async function POST(request) {
       }
     }
 
-    // Generate department-based ticket number
+    // Generate department-based ticket number with retry logic to avoid collisions
     const generateTicketNumber = async (departmentId) => {
-      if (!departmentId) {
-        // Fallback for tickets without department
-        const ticketCount = await prisma.ticket.count()
-        return `GN${(ticketCount + 1).toString().padStart(6, '0')}`
+      // Retry up to 10 times to find a unique ticket number
+      for (let attempt = 0; attempt < 10; attempt++) {
+        let ticketNumber
+
+        if (!departmentId) {
+          // Fallback for tickets without department
+          const ticketCount = await prisma.ticket.count()
+          const randomOffset = Math.floor(Math.random() * 100)
+          ticketNumber = `GN${(ticketCount + randomOffset + 1).toString().padStart(6, '0')}`
+        } else {
+          // Get department name
+          const department = await prisma.department.findUnique({
+            where: { id: departmentId },
+            select: { name: true }
+          })
+
+          if (!department) {
+            // Fallback if department not found
+            const ticketCount = await prisma.ticket.count()
+            const randomOffset = Math.floor(Math.random() * 100)
+            ticketNumber = `GN${(ticketCount + randomOffset + 1).toString().padStart(6, '0')}`
+          } else {
+            // Extract first two letters of department name
+            const departmentPrefix = department.name
+              .replace(/\s+/g, '') // Remove spaces
+              .substring(0, 2)
+              .toUpperCase()
+
+            // Count tickets for this department to get next number
+            const departmentTicketCount = await prisma.ticket.count({
+              where: { departmentId }
+            })
+
+            const randomOffset = Math.floor(Math.random() * 100)
+            ticketNumber = `${departmentPrefix}${(departmentTicketCount + randomOffset + 1).toString().padStart(6, '0')}`
+          }
+        }
+
+        // Check if this ticket number already exists
+        const existing = await prisma.ticket.findUnique({
+          where: { ticketNumber }
+        })
+
+        if (!existing) {
+          return ticketNumber
+        }
+
+        // If collision, wait a tiny bit and try again
+        await new Promise(resolve => setTimeout(resolve, 50))
       }
 
-      // Get department name
-      const department = await prisma.department.findUnique({
-        where: { id: departmentId },
-        select: { name: true }
-      })
-
-      if (!department) {
-        // Fallback if department not found
-        const ticketCount = await prisma.ticket.count()
-        return `GN${(ticketCount + 1).toString().padStart(6, '0')}`
-      }
-
-      // Extract first two letters of department name
-      const departmentPrefix = department.name
-        .replace(/\s+/g, '') // Remove spaces
-        .substring(0, 2)
-        .toUpperCase()
-
-      // Count tickets for this department to get next number
-      const departmentTicketCount = await prisma.ticket.count({
-        where: { departmentId }
-      })
-
-      return `${departmentPrefix}${(departmentTicketCount + 1).toString().padStart(6, '0')}`
+      // Ultimate fallback: use timestamp + random
+      const timestamp = Date.now()
+      const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0')
+      return `TICK-${timestamp}-${random}`
     }
 
     const ticketNumber = await generateTicketNumber(departmentId)
@@ -334,6 +483,34 @@ export async function POST(request) {
       }
     }
 
+    // Process email attachments if messageId is provided
+    if (data.emailMessageId || data.messageId) {
+      setImmediate(async () => {
+        try {
+          const { EmailAttachmentHandler } = await import('@/lib/services/EmailAttachmentHandler')
+          const handler = new EmailAttachmentHandler()
+
+          const messageId = data.emailMessageId || data.messageId
+          const attachments = await handler.processEmailAttachments(
+            messageId,
+            ticket.id,
+            ticket.requesterId,
+            data.userEmail || process.env.HELPDESK_EMAIL || 'helpdesk@surterreproperties.com'
+          )
+
+          if (attachments.length > 0) {
+            console.log(`✅ Processed ${attachments.length} attachment(s) for ticket ${ticket.ticketNumber}`)
+          }
+        } catch (error) {
+          console.error(`⚠️ Failed to process attachments for ticket ${ticket.ticketNumber}:`, error.message)
+          // Don't fail ticket creation if attachments fail
+        }
+      })
+    }
+
+    // Emit Socket.IO event for live updates
+    emitTicketCreated(ticket)
+
     // Trigger N8N webhook for new ticket (don't wait for it)
     setImmediate(async () => {
       try {
@@ -384,42 +561,28 @@ export async function POST(request) {
         })
 
         if (aiUser) {
-          // Generate AI response
-          const aiResponse = await generateTicketResponse(ticket)
-
-          // Add AI comment to ticket
-          await prisma.ticketComment.create({
-            data: {
-              ticketId: ticket.id,
-              userId: aiUser.id,
-              content: aiResponse,
-              isPublic: true
+          // Generate AI response with full ticket data
+          const fullTicket = await prisma.ticket.findUnique({
+            where: { id: ticket.id },
+            include: {
+              requester: true,
+              assignee: true
             }
           })
 
-          if (process.env.NODE_ENV === 'development') {
-            console.log(`AI response added to ticket ${ticket.ticketNumber}`)
-          }
+          const aiResponse = await generateTicketResponse(fullTicket)
 
-          // If ticket was created from email, send AI response via email
-          if (ticket.emailConversationId) {
-            try {
-              await fetch('http://localhost:5678/webhook/send-ai-response', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  ticketId: ticket.id,
-                  ticketNumber: ticket.ticketNumber,
-                  aiResponse: aiResponse
-                })
-              })
-              console.log(`Triggered email send for AI response on ticket ${ticket.ticketNumber}`)
-            } catch (webhookError) {
-              console.warn('Failed to trigger AI email webhook:', webhookError.message)
+          // Save AI response as draft for staff review (don't auto-post or send email)
+          await prisma.ticket.update({
+            where: { id: ticket.id },
+            data: {
+              aiDraftResponse: aiResponse,
+              aiDraftGeneratedAt: new Date(),
+              aiDraftGeneratedBy: aiUser.id
             }
-          }
+          })
+
+          console.log(`✅ AI draft response generated for ticket ${ticket.ticketNumber}`)
         }
       } catch (error) {
         console.error('Failed to generate AI response:', error)

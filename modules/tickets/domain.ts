@@ -61,3 +61,16 @@ export interface TicketFilters {
   category?: string
   search?: string
 }
+
+// Phase 8: Workflow types
+export interface StatusTransitionInput {
+  status: Status
+}
+
+export interface AssignmentInput {
+  assigneeId: string | null
+}
+
+export type StatusTransitionMap = {
+  [K in Status]: Status[]
+}

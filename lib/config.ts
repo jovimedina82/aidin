@@ -57,6 +57,12 @@ export const config = {
   INBOUND_EMAIL_ENABLED: process.env.INBOUND_EMAIL_ENABLED === 'true',
 
   /**
+   * Tickets Workflow Configuration
+   * Phase 8: Auto-assignment feature flag
+   */
+  AUTO_ASSIGN_ENABLED: process.env.AUTO_ASSIGN_ENABLED === 'true',
+
+  /**
    * Validation
    */
   validate() {

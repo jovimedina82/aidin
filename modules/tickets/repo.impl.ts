@@ -6,6 +6,11 @@
 import { prisma } from '@/lib/prisma.js'
 import { CreateTicketDTO, TicketDTO, Status, Priority } from './domain'
 
+// Phase 8: Status update options
+interface UpdateStatusOptions {
+  resolvedAt?: Date | null
+}
+
 /**
  * Generate next ticket number
  * Format: T-YYYYMMDD-XXXX (e.g., T-20251007-0001)
@@ -98,6 +103,59 @@ export async function findById(id: string): Promise<TicketDTO | null> {
   if (!ticket) {
     return null
   }
+
+  return mapPrismaTicketToDTO(ticket)
+}
+
+/**
+ * Update ticket status
+ * Phase 8: For workflow transitions with optional resolvedAt handling
+ * @param id Ticket ID
+ * @param status New status
+ * @param opts Optional fields (resolvedAt)
+ * @returns Updated ticket DTO
+ */
+export async function updateStatus(
+  id: string,
+  status: Status,
+  opts?: UpdateStatusOptions
+): Promise<TicketDTO> {
+  const updateData: any = {
+    status,
+    updatedAt: new Date(),
+  }
+
+  // Handle resolvedAt if provided in options
+  if (opts && 'resolvedAt' in opts) {
+    updateData.resolvedAt = opts.resolvedAt
+  }
+
+  const ticket = await prisma.ticket.update({
+    where: { id },
+    data: updateData,
+  })
+
+  return mapPrismaTicketToDTO(ticket)
+}
+
+/**
+ * Update ticket assignee
+ * Phase 8: For assignment workflows
+ * @param id Ticket ID
+ * @param assigneeId New assignee ID or null to unassign
+ * @returns Updated ticket DTO
+ */
+export async function updateAssignee(
+  id: string,
+  assigneeId: string | null
+): Promise<TicketDTO> {
+  const ticket = await prisma.ticket.update({
+    where: { id },
+    data: {
+      assigneeId,
+      updatedAt: new Date(),
+    },
+  })
 
   return mapPrismaTicketToDTO(ticket)
 }

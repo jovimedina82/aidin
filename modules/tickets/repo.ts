@@ -1,10 +1,10 @@
 /**
  * Tickets Repository Interface
- * Phase 2 Scaffold - Phase 3 Implementation
+ * Phase 2 Scaffold - Phase 3 Implementation - Phase 8 Extensions
  * NO Prisma imports - interface only
  */
 
-import { CreateTicketDTO, TicketDTO, TicketFilters, UpdateTicketDTO } from './domain'
+import { CreateTicketDTO, TicketDTO, TicketFilters, UpdateTicketDTO, Status } from './domain'
 
 export interface TicketRepository {
   create(data: CreateTicketDTO): Promise<TicketDTO>
@@ -15,3 +15,6 @@ export interface TicketRepository {
   update(id: string, data: UpdateTicketDTO): Promise<TicketDTO>
   delete(id: string): Promise<void>
 }
+
+// Phase 8: Re-export implementation functions
+export { create, findById, updateStatus, updateAssignee } from './repo.impl'

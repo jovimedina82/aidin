@@ -79,6 +79,7 @@ const ROLE_PERMISSIONS: Record<string, Action[]> = {
     Action.TICKET_CREATE,
     Action.TICKET_READ,
     Action.TICKET_READ_OWN,
+    Action.TICKET_UPDATE, // Phase 8: Allow clients to close their own tickets
     Action.COMMENT_CREATE,
     Action.COMMENT_READ,
   ],

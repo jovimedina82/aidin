@@ -2,7 +2,7 @@
 report_version: 1
 phase: phase-5-ai-abstraction
 branch: refactor/phase-5-ai
-pr: <TBD>
+pr: https://github.com/jovimedina82/aidin/pull/6
 status: success
 impacts: ["ai","api","infra","extensibility"]
 risk_level: low

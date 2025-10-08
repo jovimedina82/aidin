@@ -319,3 +319,15 @@ model ClassifierFeedback {
   @@index([createdAt])
   @@map("classifier_feedback")
 }
+
+model WeeklyKPI {
+  id                      String   @id @default(cuid())
+  weekStartUTC            DateTime @unique
+  ticketsOpen             Int
+  ticketsPending          Int
+  ticketsSolved7d         Int
+  avgFirstResponseMinutes Int
+  createdAt               DateTime @default(now())
+
+  @@map("weekly_kpis")
+}

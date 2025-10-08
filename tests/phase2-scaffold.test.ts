@@ -175,10 +175,11 @@ describe('Phase 2 Scaffold - Module Exports', () => {
       expect(typeof modules.ai.respond).toBe('function')
     })
 
-    it('provider implementations should throw NotImplemented', async () => {
-      const provider = new modules.ai.OpenAIProvider({ apiKey: 'test' })
+    it('legacy provider implementations should throw NotImplemented', async () => {
+      // Phase 5: Legacy classes updated to reference Phase 5
+      const provider = new modules.ai.OpenAIProvider()
       await expect(provider.classify('test input'))
-        .rejects.toThrow(/NotImplemented.*Phase 3/)
+        .rejects.toThrow(/NotImplemented.*Phase 5/)
     })
   })
 })

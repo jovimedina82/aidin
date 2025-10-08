@@ -10,10 +10,11 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!loading) {
+      // Use replace instead of push to avoid back button issues
       if (user) {
-        router.push('/dashboard')
+        router.replace('/dashboard')
       } else {
-        router.push('/login')
+        router.replace('/login')
       }
     }
   }, [user, loading, router])

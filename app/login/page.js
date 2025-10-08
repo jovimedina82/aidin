@@ -1,6 +1,7 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/components/AuthProvider'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -9,8 +10,20 @@ import Image from 'next/image'
 
 export default function LoginPage() {
   const router = useRouter()
+  const { user, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  // Redirect to dashboard if already authenticated (but only after auth check completes)
+  useEffect(() => {
+    if (!authLoading && user) {
+      // Small delay to prevent redirect loops
+      const timer = setTimeout(() => {
+        router.replace('/dashboard')
+      }, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [user, authLoading, router])
 
   const handleAzureSignIn = async () => {
     setLoading(true)

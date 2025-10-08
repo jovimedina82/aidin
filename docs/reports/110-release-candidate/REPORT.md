@@ -2,7 +2,7 @@
 report_version: 1
 phase: phase-10-rc1
 branch: release/rc1
-pr: TBD
+pr: https://github.com/jovimedina82/aidin/pull/11
 status: success
 impacts: ["api","security","docs","ci","ops"]
 risk_level: low

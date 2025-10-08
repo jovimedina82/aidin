@@ -1,8 +1,9 @@
 /**
  * Users Service
- * Phase 2 Scaffold - Placeholder functions with TODOs
+ * Phase 2 Scaffold + Phase 3 Partial Implementation
  */
 
+import { prisma } from '@/lib/prisma.js'
 import type {
   UserDTO,
   CreateUserDTO,
@@ -11,6 +12,27 @@ import type {
   UserListResult,
   Role,
 } from './domain'
+
+/**
+ * Map Prisma user to UserDTO
+ * Helper function for consistent mapping
+ */
+function mapPrismaUserToDTO(user: any): UserDTO {
+  return {
+    id: user.id,
+    email: user.email,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    phone: user.phone,
+    roles: user.roles?.map((r: any) => r.role.name) || [],
+    isActive: user.isActive,
+    avatar: user.avatar,
+    azureId: user.azureId,
+    managerId: user.managerId,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  }
+}
 
 /**
  * Create a new user
@@ -27,23 +49,48 @@ export async function createUser(data: CreateUserDTO): Promise<UserDTO> {
 
 /**
  * Get user by ID
- * TODO: Implement in Phase 3 - fetch from repository
+ * Phase 3: Thin wrapper over Prisma
  */
 export async function getUserById(id: string): Promise<UserDTO | null> {
-  // TODO: Query user from repository
-  // TODO: Include roles and manager info
-  // TODO: Return null if not found
-  throw new Error('NotImplemented: getUserById() - Phase 3')
+  const user = await prisma.user.findUnique({
+    where: { id },
+    include: {
+      roles: {
+        include: {
+          role: true,
+        },
+      },
+    },
+  })
+
+  if (!user) {
+    return null
+  }
+
+  return mapPrismaUserToDTO(user)
 }
 
 /**
  * Get user by email
- * TODO: Implement in Phase 3 - fetch from repository
+ * Phase 3: Thin wrapper over Prisma
  */
 export async function getUserByEmail(email: string): Promise<UserDTO | null> {
-  // TODO: Query user from repository
-  // TODO: Return null if not found
-  throw new Error('NotImplemented: getUserByEmail() - Phase 3')
+  const user = await prisma.user.findUnique({
+    where: { email },
+    include: {
+      roles: {
+        include: {
+          role: true,
+        },
+      },
+    },
+  })
+
+  if (!user) {
+    return null
+  }
+
+  return mapPrismaUserToDTO(user)
 }
 
 /**

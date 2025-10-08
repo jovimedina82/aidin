@@ -99,3 +99,40 @@ if (config.NODE_ENV === 'development') {
   console.log(`   Public Registration: ${config.ENABLE_PUBLIC_REGISTRATION ? 'enabled' : 'disabled'}`)
   console.log(`   CORS Origins: ${config.ALLOWED_ORIGINS || '(same-origin only)'}`)
 }
+
+/**
+ * Get the base URL for the application
+ * Sanitizes 0.0.0.0 and :: to localhost for browser compatibility
+ */
+export function getBaseUrl(req?: Request): string {
+  // 1) Explicit env wins
+  const envUrl =
+    process.env.BASE_URL ||
+    process.env.NEXTAUTH_URL ||
+    process.env.NEXT_PUBLIC_BASE_URL
+
+  if (envUrl) {
+    return envUrl
+      .replace('0.0.0.0', 'localhost')
+      .replace('::', 'localhost')
+  }
+
+  // 2) Infer from request headers in middleware/route handlers
+  if (req) {
+    try {
+      const url = new URL(req.url)
+      let host = url.host || ''
+      // Some dev setups bind to 0.0.0.0 — browsers can't resolve that
+      host = host.replace('0.0.0.0', 'localhost').replace('::', 'localhost')
+      const proto = url.protocol && url.protocol.endsWith(':')
+        ? url.protocol.slice(0, -1)
+        : 'http'
+      return `${proto}://${host}`
+    } catch {
+      // Fall through
+    }
+  }
+
+  // 3) Fallback
+  return 'http://localhost:3000'
+}

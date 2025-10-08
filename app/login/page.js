@@ -17,14 +17,34 @@ export default function LoginPage() {
     setError('')
 
     try {
-      // Build Azure AD authorization URL
-      const authUrl = new URL(`https://login.microsoftonline.com/${process.env.NEXT_PUBLIC_AZURE_AD_TENANT_ID || 'a4000698-9e71-4f9a-8f4e-b64d8f8cbca7'}/oauth2/v2.0/authorize`)
+      // Get tenant ID - if undefined in env, will fail gracefully
+      const tenantId = process.env.NEXT_PUBLIC_AZURE_TENANT_ID || process.env.NEXT_PUBLIC_AZURE_AD_TENANT_ID
 
-      authUrl.searchParams.set('client_id', process.env.NEXT_PUBLIC_AZURE_AD_CLIENT_ID || '5e06ba03-616f-43e2-b4e2-a97b22669e3a')
+      if (!tenantId || tenantId === 'undefined') {
+        setError('Azure authentication is not configured. Please contact IT support or use dev bypass if available.')
+        setLoading(false)
+        return
+      }
+
+      // Build Azure AD authorization URL
+      const authUrl = new URL(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize`)
+
+      const clientId = process.env.NEXT_PUBLIC_AZURE_CLIENT_ID || process.env.NEXT_PUBLIC_AZURE_AD_CLIENT_ID
+      if (!clientId) {
+        setError('Azure client ID is not configured.')
+        setLoading(false)
+        return
+      }
+
+      authUrl.searchParams.set('client_id', clientId)
       authUrl.searchParams.set('response_type', 'code')
-      // Always use the production URL for the helpdesk
-      const baseUrl = 'https://helpdesk.surterreproperties.com'
-      authUrl.searchParams.set('redirect_uri', `${baseUrl}/api/auth/azure-callback`)
+
+      // Use page origin, sanitized for 0.0.0.0
+      const origin = window.location.origin
+        .replace('0.0.0.0', 'localhost')
+        .replace('::', 'localhost')
+
+      authUrl.searchParams.set('redirect_uri', `${origin}/api/auth/azure-callback`)
       authUrl.searchParams.set('scope', 'openid profile email User.Read')
       authUrl.searchParams.set('state', 'azure-sso')
       authUrl.searchParams.set('prompt', 'select_account')
@@ -36,6 +56,10 @@ export default function LoginPage() {
       setError('Failed to initiate sign-in. Please try again.')
       setLoading(false)
     }
+  }
+
+  const handleDevLogin = () => {
+    window.location.href = '/api/auth/dev-login'
   }
 
   return (
@@ -107,6 +131,18 @@ export default function LoginPage() {
                 </>
               )}
             </Button>
+
+            {/* Dev Bypass Button - Only in development with AUTH_DEV_BYPASS=true */}
+            {process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_AUTH_DEV_BYPASS === 'true' && (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full h-12 text-base"
+                onClick={handleDevLogin}
+              >
+                🔓 Dev Login (Bypass)
+              </Button>
+            )}
 
             {/* Information Box */}
             <div className="bg-muted p-4 rounded-lg">

@@ -13,6 +13,19 @@ import {
 import { checkRateLimit, getRateLimitHeaders } from './lib/http/ratelimit'
 
 /**
+ * Public paths that don't require authentication
+ */
+const PUBLIC_PATHS = [
+  '/login',
+  '/api/auth',
+  '/_next',
+  '/favicon.ico',
+  '/assets',
+  '/public',
+  '/images'
+]
+
+/**
  * Rate-limited endpoints (POST only)
  */
 const RATE_LIMITED_PATHS = [
@@ -21,6 +34,21 @@ const RATE_LIMITED_PATHS = [
   '/api/auth/register',
   '/api/auth/azure-callback',
 ]
+
+/**
+ * Check if path is public (doesn't require auth)
+ */
+function isPublicPath(pathname: string): boolean {
+  return PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p))
+}
+
+/**
+ * Check if request has valid auth token
+ */
+function isAuthenticated(request: NextRequest): boolean {
+  const authToken = request.cookies.get('authToken')?.value
+  return !!authToken
+}
 
 /**
  * Check if path matches rate-limited pattern
@@ -40,15 +68,49 @@ function isRateLimitedPath(pathname: string): boolean {
 }
 
 /**
- * Global middleware - applies to /api/** routes only
+ * Global middleware - applies to all routes
  */
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Only apply to /api/** routes
-  if (!pathname.startsWith('/api/')) {
+  // Handle public paths first
+  if (isPublicPath(pathname)) {
+    // Apply security/CORS/rate-limiting to API routes
+    if (pathname.startsWith('/api/')) {
+      return handleApiRoute(request)
+    }
     return NextResponse.next()
   }
+
+  // Protected app routes - require authentication
+  const needsAuth =
+    pathname === '/' ||
+    pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/tickets') ||
+    pathname.startsWith('/knowledge-base') ||
+    pathname.startsWith('/users') ||
+    pathname.startsWith('/admin')
+
+  if (needsAuth && !isAuthenticated(request)) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    url.searchParams.set('from', pathname)
+    return NextResponse.redirect(url)
+  }
+
+  // Apply security to API routes
+  if (pathname.startsWith('/api/')) {
+    return handleApiRoute(request)
+  }
+
+  return NextResponse.next()
+}
+
+/**
+ * Handle API route logic (rate limiting, CORS, security headers)
+ */
+function handleApiRoute(request: NextRequest) {
+  const { pathname } = request.nextUrl
 
   // Handle OPTIONS preflight
   if (request.method === 'OPTIONS') {
@@ -101,5 +163,7 @@ export function middleware(request: NextRequest) {
  * Configure which routes the middleware runs on
  */
 export const config = {
-  matcher: '/api/:path*',
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico).*)'
+  ],
 }

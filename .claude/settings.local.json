@@ -107,7 +107,9 @@
       "Bash(column:*)",
       "Bash(cut:*)",
       "Bash(npm ls:*)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "Bash(npm i:*)",
+      "Bash(test:*)"
     ],
     "deny": [],
     "ask": []

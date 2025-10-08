@@ -1,0 +1,638 @@
+
+> aidin-helpdesk@0.1.0 dev
+> NODE_OPTIONS='--max-old-space-size=2048' next dev --hostname 0.0.0.0 --port 3000
+
+  ▲ Next.js 14.2.3
+  - Local:        http://localhost:3000
+  - Network:      http://0.0.0.0:3000
+  - Environments: .env.local
+  - Experiments (use with caution):
+    · instrumentationHook
+
+ ✓ Starting...
+ ○ Compiling /instrumentation ...
+ ✓ Compiled /instrumentation in 631ms (191 modules)
+🚀 Initializing server components...
+⏸️  Azure AD sync scheduler disabled (not in production or manually disabled)
+🧹 Starting attachment cleanup scheduler...
+[Attachment Cleanup] Scheduler started (runs daily at 2:00 AM)
+ ✓ Ready in 2.5s
+   Reload env: .env.local
+ ✓ Compiled in 84ms (191 modules)
+ ○ Compiling / ...
+ ✓ Compiled / in 2.4s (760 modules)
+ GET / 200 in 2538ms
+ ✓ Compiled in 146ms (297 modules)
+ ○ Compiling /login ...
+ ✓ Compiled /login in 700ms (753 modules)
+ ✓ Compiled /middleware in 174ms (76 modules)
+ ✓ Compiled /api/auth/dev-login in 336ms (586 modules)
+🔧 Configuration:
+   AI Provider: anthropic
+   Email Provider: smtp
+   Auto-Assign: disabled
+   Inbound Email: disabled
+   Public Registration: disabled
+   CORS Origins: (same-origin only)
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`password`, `main`.`users`.`firstName`, `main`.`users`.`lastName`, `main`.`users`.`phone`, `main`.`users`.`userType`, `main`.`users`.`managerId`, `main`.`users`.`isActive`, `main`.`users`.`lastLoginAt`, `main`.`users`.`createdAt`, `main`.`users`.`updatedAt`, `main`.`users`.`azureId`, `main`.`users`.`userPrincipalName`, `main`.`users`.`jobTitle`, `main`.`users`.`officeLocation`, `main`.`users`.`mobilePhone`, `main`.`users`.`avatar`, `main`.`users`.`lastSyncAt` FROM `main`.`users` WHERE (`main`.`users`.`isActive` = ? AND EXISTS(SELECT `t0`.`userId` FROM `main`.`user_roles` AS `t0` LEFT JOIN `main`.`roles` AS `j1` ON (`j1`.`id`) = (`t0`.`roleId`) WHERE (`j1`.`name` = ? AND (`j1`.`id` IS NOT NULL) AND (`main`.`users`.`id`) = (`t0`.`userId`) AND `t0`.`userId` IS NOT NULL))) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`user_roles`.`id`, `main`.`user_roles`.`userId`, `main`.`user_roles`.`roleId` FROM `main`.`user_roles` WHERE `main`.`user_roles`.`userId` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`roles`.`id`, `main`.`roles`.`name`, `main`.`roles`.`description`, `main`.`roles`.`permissions`, `main`.`roles`.`createdAt`, `main`.`roles`.`updatedAt` FROM `main`.`roles` WHERE `main`.`roles`.`id` IN (?) LIMIT ? OFFSET ?
+ GET /api/auth/dev-login 200 in 431ms
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`password`, `main`.`users`.`firstName`, `main`.`users`.`lastName`, `main`.`users`.`phone`, `main`.`users`.`userType`, `main`.`users`.`managerId`, `main`.`users`.`isActive`, `main`.`users`.`lastLoginAt`, `main`.`users`.`createdAt`, `main`.`users`.`updatedAt`, `main`.`users`.`azureId`, `main`.`users`.`userPrincipalName`, `main`.`users`.`jobTitle`, `main`.`users`.`officeLocation`, `main`.`users`.`mobilePhone`, `main`.`users`.`avatar`, `main`.`users`.`lastSyncAt` FROM `main`.`users` WHERE (`main`.`users`.`isActive` = ? AND EXISTS(SELECT `t0`.`userId` FROM `main`.`user_roles` AS `t0` LEFT JOIN `main`.`roles` AS `j1` ON (`j1`.`id`) = (`t0`.`roleId`) WHERE (`j1`.`name` = ? AND (`j1`.`id` IS NOT NULL) AND (`main`.`users`.`id`) = (`t0`.`userId`) AND `t0`.`userId` IS NOT NULL))) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`user_roles`.`id`, `main`.`user_roles`.`userId`, `main`.`user_roles`.`roleId` FROM `main`.`user_roles` WHERE `main`.`user_roles`.`userId` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`roles`.`id`, `main`.`roles`.`name`, `main`.`roles`.`description`, `main`.`roles`.`permissions`, `main`.`roles`.`createdAt`, `main`.`roles`.`updatedAt` FROM `main`.`roles` WHERE `main`.`roles`.`id` IN (?) LIMIT ? OFFSET ?
+ GET /api/auth/dev-login 200 in 9ms
+ GET / 200 in 96ms
+ ✓ Compiled /api/auth/azure-callback in 382ms (704 modules)
+🔧 Configuration:
+   AI Provider: anthropic
+   Email Provider: smtp
+   Auto-Assign: disabled
+   Inbound Email: disabled
+   Public Registration: disabled
+   CORS Origins: (same-origin only)
+prisma:query SELECT 1
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`password`, `main`.`users`.`firstName`, `main`.`users`.`lastName`, `main`.`users`.`phone`, `main`.`users`.`userType`, `main`.`users`.`managerId`, `main`.`users`.`isActive`, `main`.`users`.`lastLoginAt`, `main`.`users`.`createdAt`, `main`.`users`.`updatedAt`, `main`.`users`.`azureId`, `main`.`users`.`userPrincipalName`, `main`.`users`.`jobTitle`, `main`.`users`.`officeLocation`, `main`.`users`.`mobilePhone`, `main`.`users`.`avatar`, `main`.`users`.`lastSyncAt` FROM `main`.`users` WHERE (`main`.`users`.`azureId` = ? OR `main`.`users`.`email` = ?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`user_roles`.`id`, `main`.`user_roles`.`userId`, `main`.`user_roles`.`roleId` FROM `main`.`user_roles` WHERE `main`.`user_roles`.`userId` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`roles`.`id`, `main`.`roles`.`name`, `main`.`roles`.`description`, `main`.`roles`.`permissions`, `main`.`roles`.`createdAt`, `main`.`roles`.`updatedAt` FROM `main`.`roles` WHERE `main`.`roles`.`id` IN (?) LIMIT ? OFFSET ?
+prisma:query UPDATE `main`.`users` SET `azureId` = ?, `lastLoginAt` = ?, `updatedAt` = ? WHERE (`main`.`users`.`id` = ? AND 1=1) RETURNING `id` AS `id`, `email` AS `email`, `password` AS `password`, `firstName` AS `firstName`, `lastName` AS `lastName`, `phone` AS `phone`, `userType` AS `userType`, `managerId` AS `managerId`, `isActive` AS `isActive`, `lastLoginAt` AS `lastLoginAt`, `createdAt` AS `createdAt`, `updatedAt` AS `updatedAt`, `azureId` AS `azureId`, `userPrincipalName` AS `userPrincipalName`, `jobTitle` AS `jobTitle`, `officeLocation` AS `officeLocation`, `mobilePhone` AS `mobilePhone`, `avatar` AS `avatar`, `lastSyncAt` AS `lastSyncAt`
+ GET /api/auth/azure-callback?code=1.AXUAmAYApHGemk-PTrZNj4y8pwO6Bl5vYeJDtOKpeyJmnjpcAWJ1AA.AgABBAIAAABlMNzVhAPUTrARzfQjWPtKAwDs_wUA9P-O2zVj_GoVWmMEy6_Q5a_aOuoL0koZR4qkelGWZVMcY6YVSxt3An9G2OJh0aR2PPQxBRbwzibDsnbe67Gh38hrZ_J2eCFNCAMX00Sx4n8HtAedejMhXBMzlaLo4n1hiFrtmmdSvcaGCXEPnMQFRUEQsp5fEyq_BFE6GeOok51byYXcW9PItCiIa-ihad7vCWLNoiXnnHjc_zToS-yU3IIpQZOgFrr4msn4aLWiSStxFS_go24Z7nN0wWIFESW85D3q-6aM5m1Hgcktj4z1G2z_yixMGsAw8uW86NAIyQ6_4M9ajw--hZHD7Iw8FIiQeBXmUxiie-cPgjniT4kyx9qRMEL7it0hKoNVK0e7oO2XtxMZNxqAFIJcEsujnaRQE3O5lNlT6pi79NysYjnxLPY1UI8RbyHvoIxNGd7alTY0Oj6JTVwXXuxbcVI84th0qEVMRJHRaljJqRhC30GK8I5TSjDlcNmrYOoR4UULPqkBWONvpQj8-DS6Zn2VBHNsxSebqMXRiApw48m1q56dwcH0okY25ErpEKKvcfxujn3s6ZvFh9mQmt98jvOOkroS2zwOpTptrYnrlA9q094eKZOXw-NRJ6TnLWoukddkI2KUWH6956_UdXFglPtDEiGrXDgikuVPqV-__sOadKlEnWdO4bn-DPS1psnGlGKe7VIzrHj_3ka5YelexQkZbOfpg-iqZPBEwtCmmt8xKdHkFGHIZq8A3eCiVzqMkfGM8mhD8L_bwD_7GP1KqRwSyB3fwlsggMi6QVcQtmg7gcX41cWaLPk2kIjvGQvq2KLtmvh2WKTSFL0PoCZt&state=azure-sso&session_state=0099afd9-316f-3108-f68e-11e28285649d 307 in 1094ms
+ ✓ Compiled /api/auth/sso-success in 90ms (706 modules)
+🔧 Configuration:
+   AI Provider: anthropic
+   Email Provider: smtp
+   Auto-Assign: disabled
+   Inbound Email: disabled
+   Public Registration: disabled
+   CORS Origins: (same-origin only)
+ GET /api/auth/sso-success?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJmYzFjYzMzMC1hYjBlLTQ1MmMtOGJkOS02MjYyOWJkYjMwZTMiLCJlbWFpbCI6ImptZWRpbmFAc3VydGVycmVwcm9wZXJ0aWVzLmNvbSIsImZpcnN0TmFtZSI6ImptZWRpbmEiLCJsYXN0TmFtZSI6IiIsInJvbGVzIjpbIkFETUlOIl0sImlhdCI6MTc1OTk0NTY3NywiZXhwIjoxNzYwNTUwNDc3fQ.U5HA6abF9cjjnCqxPaeXLSejkQp_m7UADpqa4XER0hs 200 in 154ms
+ ✓ Compiled in 877ms (483 modules)
+ ✓ Compiled in 429ms (280 modules)
+ ✓ Compiled in 362ms (76 modules)
+ ✓ Compiled /api/auth/sso-success in 120ms (319 modules)
+🔧 Configuration:
+   AI Provider: anthropic
+   Email Provider: smtp
+   Auto-Assign: disabled
+   Inbound Email: disabled
+   Public Registration: disabled
+   CORS Origins: (same-origin only)
+ GET /api/auth/sso-success?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJmYzFjYzMzMC1hYjBlLTQ1MmMtOGJkOS02MjYyOWJkYjMwZTMiLCJlbWFpbCI6ImptZWRpbmFAc3VydGVycmVwcm9wZXJ0aWVzLmNvbSIsImZpcnN0TmFtZSI6ImptZWRpbmEiLCJsYXN0TmFtZSI6IiIsInJvbGVzIjpbIkFETUlOIl0sImlhdCI6MTc1OTk0NTY3NywiZXhwIjoxNzYwNTUwNDc3fQ.U5HA6abF9cjjnCqxPaeXLSejkQp_m7UADpqa4XER0hs 302 in 194ms
+ ○ Compiling /dashboard ...
+ ✓ Compiled /dashboard in 1398ms (1317 modules)
+ GET /dashboard 200 in 1551ms
+ ✓ Compiled /api/tickets in 86ms (817 modules)
+ ✓ Compiled /login in 0ms (1168 modules)
+ ✓ Compiled in 0ms (1176 modules)
+ ✓ Compiled in 1ms (1176 modules)
+prisma:query SELECT 1
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`password`, `main`.`users`.`firstName`, `main`.`users`.`lastName`, `main`.`users`.`phone`, `main`.`users`.`userType`, `main`.`users`.`managerId`, `main`.`users`.`isActive`, `main`.`users`.`lastLoginAt`, `main`.`users`.`createdAt`, `main`.`users`.`updatedAt`, `main`.`users`.`azureId`, `main`.`users`.`userPrincipalName`, `main`.`users`.`jobTitle`, `main`.`users`.`officeLocation`, `main`.`users`.`mobilePhone`, `main`.`users`.`avatar`, `main`.`users`.`lastSyncAt` FROM `main`.`users` WHERE (`main`.`users`.`id` = ? AND 1=1) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`user_roles`.`id`, `main`.`user_roles`.`userId`, `main`.`user_roles`.`roleId` FROM `main`.`user_roles` WHERE `main`.`user_roles`.`userId` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`roles`.`id`, `main`.`roles`.`name`, `main`.`roles`.`description`, `main`.`roles`.`permissions`, `main`.`roles`.`createdAt`, `main`.`roles`.`updatedAt` FROM `main`.`roles` WHERE `main`.`roles`.`id` IN (?) LIMIT ? OFFSET ?
+ GET /api/user-preferences 200 in 1204ms
+prisma:query SELECT `main`.`user_preferences`.`id`, `main`.`user_preferences`.`userId`, `main`.`user_preferences`.`personalViewOrder`, `main`.`user_preferences`.`companyViewOrder`, `main`.`user_preferences`.`dashboardCardOrder`, `main`.`user_preferences`.`createdAt`, `main`.`user_preferences`.`updatedAt` FROM `main`.`user_preferences` WHERE (`main`.`user_preferences`.`userId` = ? AND 1=1) LIMIT ? OFFSET ?
+ ✓ Compiled in 0ms (1176 modules)
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`password`, `main`.`users`.`firstName`, `main`.`users`.`lastName`, `main`.`users`.`phone`, `main`.`users`.`userType`, `main`.`users`.`managerId`, `main`.`users`.`isActive`, `main`.`users`.`lastLoginAt`, `main`.`users`.`createdAt`, `main`.`users`.`updatedAt`, `main`.`users`.`azureId`, `main`.`users`.`userPrincipalName`, `main`.`users`.`jobTitle`, `main`.`users`.`officeLocation`, `main`.`users`.`mobilePhone`, `main`.`users`.`avatar`, `main`.`users`.`lastSyncAt` FROM `main`.`users` WHERE `main`.`users`.`id` IN (?,?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`user_roles`.`id`, `main`.`user_roles`.`userId`, `main`.`user_roles`.`roleId` FROM `main`.`user_roles` WHERE `main`.`user_roles`.`userId` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`roles`.`id`, `main`.`roles`.`name`, `main`.`roles`.`description`, `main`.`roles`.`permissions`, `main`.`roles`.`createdAt`, `main`.`roles`.`updatedAt` FROM `main`.`roles` WHERE `main`.`roles`.`id` IN (?) LIMIT ? OFFSET ?
+⏱️ stats-fetch: 13.66ms
+ GET /api/stats 200 in 1382ms
+Timer 'stats-fetch' not found
+ GET /api/stats 200 in 1286ms
+prisma:query SELECT `main`.`tickets`.`id`, `main`.`tickets`.`status`, `main`.`tickets`.`assigneeId`, `main`.`tickets`.`requesterId`, `main`.`tickets`.`updatedAt` FROM `main`.`tickets` WHERE (`main`.`tickets`.`requesterId` = ? OR `main`.`tickets`.`assigneeId` = ?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`tickets`.`id`, `main`.`tickets`.`status`, `main`.`tickets`.`assigneeId`, `main`.`tickets`.`requesterId`, `main`.`tickets`.`updatedAt` FROM `main`.`tickets` WHERE (`main`.`tickets`.`requesterId` = ? OR `main`.`tickets`.`assigneeId` = ?) LIMIT ? OFFSET ?
+ ⨯ OpenAIError: Missing credentials. Please pass an `apiKey`, or set the `OPENAI_API_KEY` environment variable.
+    at new OpenAI (webpack-internal:///(rsc)/./node_modules/openai/client.mjs:129:19)
+    at eval (webpack-internal:///(rsc)/./lib/ai/routing.js:9:16)
+    at (rsc)/./lib/ai/routing.js (/Users/owner/aidin/.next/server/app/api/tickets/route.js:491:1)
+    at __webpack_require__ (/Users/owner/aidin/.next/server/webpack-runtime.js:33:43)
+    at eval (webpack-internal:///(rsc)/./lib/openai.js:9:72)
+    at (rsc)/./lib/openai.js (/Users/owner/aidin/.next/server/app/api/tickets/route.js:524:1)
+    at __webpack_require__ (/Users/owner/aidin/.next/server/webpack-runtime.js:33:43)
+    at eval (webpack-internal:///(rsc)/./app/api/tickets/route.js:11:69)
+    at (rsc)/./app/api/tickets/route.js (/Users/owner/aidin/.next/server/app/api/tickets/route.js:436:1)
+    at __webpack_require__ (/Users/owner/aidin/.next/server/webpack-runtime.js:33:43)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader.js?name=app%2Fapi%2Ftickets%2Froute&page=%2Fapi%2Ftickets%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Ftickets%2Froute.js&appDir=%2FUsers%2Fowner%2Faidin%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fowner%2Faidin&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D!:15:101)
+    at (rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader.js?name=app%2Fapi%2Ftickets%2Froute&page=%2Fapi%2Ftickets%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Ftickets%2Froute.js&appDir=%2FUsers%2Fowner%2Faidin%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fowner%2Faidin&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D! (/Users/owner/aidin/.next/server/app/api/tickets/route.js:403:1)
+    at __webpack_require__ (/Users/owner/aidin/.next/server/webpack-runtime.js:33:43)
+    at __webpack_exec__ (/Users/owner/aidin/.next/server/app/api/tickets/route.js:567:39)
+    at /Users/owner/aidin/.next/server/app/api/tickets/route.js:568:1033
+    at __webpack_require__.X (/Users/owner/aidin/.next/server/webpack-runtime.js:168:21)
+    at /Users/owner/aidin/.next/server/app/api/tickets/route.js:568:47
+    at Object.<anonymous> (/Users/owner/aidin/.next/server/app/api/tickets/route.js:571:3)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at mod.require (/Users/owner/aidin/node_modules/next/dist/server/require-hook.js:65:28)
+    at require (node:internal/modules/helpers:182:18)
+    at requirePage (/Users/owner/aidin/node_modules/next/dist/server/require.js:109:84)
+    at /Users/owner/aidin/node_modules/next/dist/server/load-components.js:98:84
+    at async loadComponentsImpl (/Users/owner/aidin/node_modules/next/dist/server/load-components.js:98:26)
+    at async DevServer.findPageComponentsImpl (/Users/owner/aidin/node_modules/next/dist/server/next-server.js:710:36)
+    at async DevServer.findPageComponents (/Users/owner/aidin/node_modules/next/dist/server/dev/next-dev-server.js:577:20)
+    at async DevServer.renderPageComponent (/Users/owner/aidin/node_modules/next/dist/server/base-server.js:1910:24)
+    at async DevServer.renderToResponseImpl (/Users/owner/aidin/node_modules/next/dist/server/base-server.js:1962:32)
+    at async DevServer.pipeImpl (/Users/owner/aidin/node_modules/next/dist/server/base-server.js:920:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/owner/aidin/node_modules/next/dist/server/next-server.js:272:17)
+    at async DevServer.handleRequestImpl (/Users/owner/aidin/node_modules/next/dist/server/base-server.js:816:17)
+    at async /Users/owner/aidin/node_modules/next/dist/server/dev/next-dev-server.js:339:20
+    at async Span.traceAsyncFn (/Users/owner/aidin/node_modules/next/dist/trace/trace.js:154:20)
+    at async DevServer.handleRequest (/Users/owner/aidin/node_modules/next/dist/server/dev/next-dev-server.js:336:24)
+    at async invokeRender (/Users/owner/aidin/node_modules/next/dist/server/lib/router-server.js:174:21)
+    at async handleRequest (/Users/owner/aidin/node_modules/next/dist/server/lib/router-server.js:353:24)
+    at async requestHandlerImpl (/Users/owner/aidin/node_modules/next/dist/server/lib/router-server.js:377:13)
+    at async Server.requestListener (/Users/owner/aidin/node_modules/next/dist/server/lib/start-server.js:141:13) {
+  page: '/api/tickets'
+}
+ ⨯ OpenAIError: Missing credentials. Please pass an `apiKey`, or set the `OPENAI_API_KEY` environment variable.
+    at new OpenAI (webpack-internal:///(rsc)/./node_modules/openai/client.mjs:129:19)
+    at eval (webpack-internal:///(rsc)/./lib/ai/routing.js:9:16)
+    at (rsc)/./lib/ai/routing.js (/Users/owner/aidin/.next/server/app/api/tickets/route.js:491:1)
+    at __webpack_require__ (/Users/owner/aidin/.next/server/webpack-runtime.js:33:43)
+    at eval (webpack-internal:///(rsc)/./lib/openai.js:9:72)
+    at (rsc)/./lib/openai.js (/Users/owner/aidin/.next/server/app/api/tickets/route.js:524:1)
+    at __webpack_require__ (/Users/owner/aidin/.next/server/webpack-runtime.js:33:43)
+    at eval (webpack-internal:///(rsc)/./app/api/tickets/route.js:11:69)
+    at (rsc)/./app/api/tickets/route.js (/Users/owner/aidin/.next/server/app/api/tickets/route.js:436:1)
+    at __webpack_require__ (/Users/owner/aidin/.next/server/webpack-runtime.js:33:43)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader.js?name=app%2Fapi%2Ftickets%2Froute&page=%2Fapi%2Ftickets%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Ftickets%2Froute.js&appDir=%2FUsers%2Fowner%2Faidin%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fowner%2Faidin&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D!:15:101)
+    at (rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader.js?name=app%2Fapi%2Ftickets%2Froute&page=%2Fapi%2Ftickets%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Ftickets%2Froute.js&appDir=%2FUsers%2Fowner%2Faidin%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fowner%2Faidin&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D! (/Users/owner/aidin/.next/server/app/api/tickets/route.js:403:1)
+    at __webpack_require__ (/Users/owner/aidin/.next/server/webpack-runtime.js:33:43)
+    at __webpack_exec__ (/Users/owner/aidin/.next/server/app/api/tickets/route.js:567:39)
+    at /Users/owner/aidin/.next/server/app/api/tickets/route.js:568:1033
+    at __webpack_require__.X (/Users/owner/aidin/.next/server/webpack-runtime.js:168:21)
+    at /Users/owner/aidin/.next/server/app/api/tickets/route.js:568:47
+    at Object.<anonymous> (/Users/owner/aidin/.next/server/app/api/tickets/route.js:571:3)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at mod.require (/Users/owner/aidin/node_modules/next/dist/server/require-hook.js:65:28)
+    at require (node:internal/modules/helpers:182:18)
+    at requirePage (/Users/owner/aidin/node_modules/next/dist/server/require.js:109:84)
+    at /Users/owner/aidin/node_modules/next/dist/server/load-components.js:98:84
+    at async loadComponentsImpl (/Users/owner/aidin/node_modules/next/dist/server/load-components.js:98:26)
+    at async DevServer.findPageComponentsImpl (/Users/owner/aidin/node_modules/next/dist/server/next-server.js:710:36)
+    at async DevServer.findPageComponents (/Users/owner/aidin/node_modules/next/dist/server/dev/next-dev-server.js:577:20)
+    at async DevServer.renderPageComponent (/Users/owner/aidin/node_modules/next/dist/server/base-server.js:1910:24)
+    at async DevServer.renderToResponseImpl (/Users/owner/aidin/node_modules/next/dist/server/base-server.js:1962:32)
+    at async DevServer.pipeImpl (/Users/owner/aidin/node_modules/next/dist/server/base-server.js:920:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/owner/aidin/node_modules/next/dist/server/next-server.js:272:17)
+    at async DevServer.handleRequestImpl (/Users/owner/aidin/node_modules/next/dist/server/base-server.js:816:17)
+    at async /Users/owner/aidin/node_modules/next/dist/server/dev/next-dev-server.js:339:20
+    at async Span.traceAsyncFn (/Users/owner/aidin/node_modules/next/dist/trace/trace.js:154:20)
+    at async DevServer.handleRequest (/Users/owner/aidin/node_modules/next/dist/server/dev/next-dev-server.js:336:24)
+    at async invokeRender (/Users/owner/aidin/node_modules/next/dist/server/lib/router-server.js:174:21)
+    at async handleRequest (/Users/owner/aidin/node_modules/next/dist/server/lib/router-server.js:353:24)
+    at async requestHandlerImpl (/Users/owner/aidin/node_modules/next/dist/server/lib/router-server.js:377:13)
+    at async Server.requestListener (/Users/owner/aidin/node_modules/next/dist/server/lib/start-server.js:141:13) {
+  page: '/api/tickets'
+}
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 565ms (1901 modules)
+ GET /api/tickets?limit=8&status=NEW 500 in 2063ms
+ GET /api/tickets?limit=8&status=NEW 500 in 1966ms
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`password`, `main`.`users`.`firstName`, `main`.`users`.`lastName`, `main`.`users`.`phone`, `main`.`users`.`userType`, `main`.`users`.`managerId`, `main`.`users`.`isActive`, `main`.`users`.`lastLoginAt`, `main`.`users`.`createdAt`, `main`.`users`.`updatedAt`, `main`.`users`.`azureId`, `main`.`users`.`userPrincipalName`, `main`.`users`.`jobTitle`, `main`.`users`.`officeLocation`, `main`.`users`.`mobilePhone`, `main`.`users`.`avatar`, `main`.`users`.`lastSyncAt` FROM `main`.`users` WHERE `main`.`users`.`id` IN (?,?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`user_roles`.`id`, `main`.`user_roles`.`userId`, `main`.`user_roles`.`roleId` FROM `main`.`user_roles` WHERE `main`.`user_roles`.`userId` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`roles`.`id`, `main`.`roles`.`name`, `main`.`roles`.`description`, `main`.`roles`.`permissions`, `main`.`roles`.`createdAt`, `main`.`roles`.`updatedAt` FROM `main`.`roles` WHERE `main`.`roles`.`id` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`password`, `main`.`users`.`firstName`, `main`.`users`.`lastName`, `main`.`users`.`phone`, `main`.`users`.`userType`, `main`.`users`.`managerId`, `main`.`users`.`isActive`, `main`.`users`.`lastLoginAt`, `main`.`users`.`createdAt`, `main`.`users`.`updatedAt`, `main`.`users`.`azureId`, `main`.`users`.`userPrincipalName`, `main`.`users`.`jobTitle`, `main`.`users`.`officeLocation`, `main`.`users`.`mobilePhone`, `main`.`users`.`avatar`, `main`.`users`.`lastSyncAt` FROM `main`.`users` WHERE (`main`.`users`.`id` = ? AND 1=1) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`user_roles`.`id`, `main`.`user_roles`.`userId`, `main`.`user_roles`.`roleId` FROM `main`.`user_roles` WHERE `main`.`user_roles`.`userId` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`roles`.`id`, `main`.`roles`.`name`, `main`.`roles`.`description`, `main`.`roles`.`permissions`, `main`.`roles`.`createdAt`, `main`.`roles`.`updatedAt` FROM `main`.`roles` WHERE `main`.`roles`.`id` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`user_preferences`.`id`, `main`.`user_preferences`.`userId`, `main`.`user_preferences`.`personalViewOrder`, `main`.`user_preferences`.`companyViewOrder`, `main`.`user_preferences`.`dashboardCardOrder`, `main`.`user_preferences`.`createdAt`, `main`.`user_preferences`.`updatedAt` FROM `main`.`user_preferences` WHERE `main`.`user_preferences`.`userId` IN (?,?) LIMIT ? OFFSET ?
+ GET /api/user-preferences 200 in 702ms
+ GET /api/user-preferences 200 in 885ms
+⏱️ stats-fetch: 3.62ms
+ GET /api/stats 200 in 703ms
+prisma:query SELECT `main`.`tickets`.`id`, `main`.`tickets`.`status`, `main`.`tickets`.`assigneeId`, `main`.`tickets`.`requesterId`, `main`.`tickets`.`updatedAt` FROM `main`.`tickets` WHERE (`main`.`tickets`.`requesterId` = ? OR `main`.`tickets`.`assigneeId` = ?) LIMIT ? OFFSET ?
+ ⨯ OpenAIError: Missing credentials. Please pass an `apiKey`, or set the `OPENAI_API_KEY` environment variable.
+    at new OpenAI (webpack-internal:///(rsc)/./node_modules/openai/client.mjs:129:19)
+    at eval (webpack-internal:///(rsc)/./lib/ai/routing.js:9:16)
+    at (rsc)/./lib/ai/routing.js (/Users/owner/aidin/.next/server/app/api/tickets/route.js:491:1)
+    at __webpack_require__ (/Users/owner/aidin/.next/server/webpack-runtime.js:33:43)
+    at eval (webpack-internal:///(rsc)/./lib/openai.js:9:72)
+    at (rsc)/./lib/openai.js (/Users/owner/aidin/.next/server/app/api/tickets/route.js:524:1)
+    at __webpack_require__ (/Users/owner/aidin/.next/server/webpack-runtime.js:33:43)
+    at eval (webpack-internal:///(rsc)/./app/api/tickets/route.js:11:69)
+    at (rsc)/./app/api/tickets/route.js (/Users/owner/aidin/.next/server/app/api/tickets/route.js:436:1)
+    at __webpack_require__ (/Users/owner/aidin/.next/server/webpack-runtime.js:33:43)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader.js?name=app%2Fapi%2Ftickets%2Froute&page=%2Fapi%2Ftickets%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Ftickets%2Froute.js&appDir=%2FUsers%2Fowner%2Faidin%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fowner%2Faidin&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D!:15:101)
+    at (rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader.js?name=app%2Fapi%2Ftickets%2Froute&page=%2Fapi%2Ftickets%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Ftickets%2Froute.js&appDir=%2FUsers%2Fowner%2Faidin%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fowner%2Faidin&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D! (/Users/owner/aidin/.next/server/app/api/tickets/route.js:403:1)
+    at __webpack_require__ (/Users/owner/aidin/.next/server/webpack-runtime.js:33:43)
+    at __webpack_exec__ (/Users/owner/aidin/.next/server/app/api/tickets/route.js:567:39)
+    at /Users/owner/aidin/.next/server/app/api/tickets/route.js:568:1033
+    at __webpack_require__.X (/Users/owner/aidin/.next/server/webpack-runtime.js:168:21)
+    at /Users/owner/aidin/.next/server/app/api/tickets/route.js:568:47
+    at Object.<anonymous> (/Users/owner/aidin/.next/server/app/api/tickets/route.js:571:3)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at mod.require (/Users/owner/aidin/node_modules/next/dist/server/require-hook.js:65:28)
+    at require (node:internal/modules/helpers:182:18)
+    at requirePage (/Users/owner/aidin/node_modules/next/dist/server/require.js:109:84)
+    at /Users/owner/aidin/node_modules/next/dist/server/load-components.js:98:84
+    at async loadComponentsImpl (/Users/owner/aidin/node_modules/next/dist/server/load-components.js:98:26)
+    at async DevServer.findPageComponentsImpl (/Users/owner/aidin/node_modules/next/dist/server/next-server.js:710:36)
+    at async DevServer.findPageComponents (/Users/owner/aidin/node_modules/next/dist/server/dev/next-dev-server.js:577:20)
+    at async DevServer.renderPageComponent (/Users/owner/aidin/node_modules/next/dist/server/base-server.js:1910:24)
+    at async DevServer.renderToResponseImpl (/Users/owner/aidin/node_modules/next/dist/server/base-server.js:1962:32)
+    at async DevServer.pipeImpl (/Users/owner/aidin/node_modules/next/dist/server/base-server.js:920:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/owner/aidin/node_modules/next/dist/server/next-server.js:272:17)
+    at async DevServer.handleRequestImpl (/Users/owner/aidin/node_modules/next/dist/server/base-server.js:816:17)
+    at async /Users/owner/aidin/node_modules/next/dist/server/dev/next-dev-server.js:339:20
+    at async Span.traceAsyncFn (/Users/owner/aidin/node_modules/next/dist/trace/trace.js:154:20)
+    at async DevServer.handleRequest (/Users/owner/aidin/node_modules/next/dist/server/dev/next-dev-server.js:336:24)
+    at async invokeRender (/Users/owner/aidin/node_modules/next/dist/server/lib/router-server.js:174:21)
+    at async handleRequest (/Users/owner/aidin/node_modules/next/dist/server/lib/router-server.js:353:24)
+    at async requestHandlerImpl (/Users/owner/aidin/node_modules/next/dist/server/lib/router-server.js:377:13)
+    at async Server.requestListener (/Users/owner/aidin/node_modules/next/dist/server/lib/start-server.js:141:13) {
+  page: '/api/tickets'
+}
+ GET /api/tickets?limit=8&status=NEW 500 in 34ms
+ ✓ Compiled /api/auth/azure-callback in 174ms (1331 modules)
+🔧 Configuration:
+   AI Provider: anthropic
+   Email Provider: smtp
+   Auto-Assign: disabled
+   Inbound Email: disabled
+   Public Registration: disabled
+   CORS Origins: (same-origin only)
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`password`, `main`.`users`.`firstName`, `main`.`users`.`lastName`, `main`.`users`.`phone`, `main`.`users`.`userType`, `main`.`users`.`managerId`, `main`.`users`.`isActive`, `main`.`users`.`lastLoginAt`, `main`.`users`.`createdAt`, `main`.`users`.`updatedAt`, `main`.`users`.`azureId`, `main`.`users`.`userPrincipalName`, `main`.`users`.`jobTitle`, `main`.`users`.`officeLocation`, `main`.`users`.`mobilePhone`, `main`.`users`.`avatar`, `main`.`users`.`lastSyncAt` FROM `main`.`users` WHERE (`main`.`users`.`azureId` = ? OR `main`.`users`.`email` = ?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`user_roles`.`id`, `main`.`user_roles`.`userId`, `main`.`user_roles`.`roleId` FROM `main`.`user_roles` WHERE `main`.`user_roles`.`userId` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`roles`.`id`, `main`.`roles`.`name`, `main`.`roles`.`description`, `main`.`roles`.`permissions`, `main`.`roles`.`createdAt`, `main`.`roles`.`updatedAt` FROM `main`.`roles` WHERE `main`.`roles`.`id` IN (?) LIMIT ? OFFSET ?
+prisma:query UPDATE `main`.`users` SET `azureId` = ?, `lastLoginAt` = ?, `updatedAt` = ? WHERE (`main`.`users`.`id` = ? AND 1=1) RETURNING `id` AS `id`, `email` AS `email`, `password` AS `password`, `firstName` AS `firstName`, `lastName` AS `lastName`, `phone` AS `phone`, `userType` AS `userType`, `managerId` AS `managerId`, `isActive` AS `isActive`, `lastLoginAt` AS `lastLoginAt`, `createdAt` AS `createdAt`, `updatedAt` AS `updatedAt`, `azureId` AS `azureId`, `userPrincipalName` AS `userPrincipalName`, `jobTitle` AS `jobTitle`, `officeLocation` AS `officeLocation`, `mobilePhone` AS `mobilePhone`, `avatar` AS `avatar`, `lastSyncAt` AS `lastSyncAt`
+ GET /api/auth/azure-callback?code=1.AXUAmAYApHGemk-PTrZNj4y8pwO6Bl5vYeJDtOKpeyJmnjpcAWJ1AA.AgABBAIAAABlMNzVhAPUTrARzfQjWPtKAwDs_wUA9P9Cn3918SaRWKOiQ_d8RU1DTlq14O2e0LOolxsyLqGV_DeN2dWH15nY2YF1zqA4NUeXpnrMTY5OyFY7rTBUNHpKFQ_wDXGfM927agrleMWxaNAqYyTBHy4dCodsdN0HrUAkTF5T8Isbqbedfb-Sn-SZFYz3y137cY5UV8ITv_LqanrB8D20epTZcVO5l10vLyVr5c4seMRRurF9Z2z7lNbdEG7DZlnfk2cB1yRidIdHQpGKz8qP_tFZHOz2VQWl3dg-rCzSbc1pGgNeLZPJ3Su2WxNHFVJ9tQB_F11Diwc6zajWmuQg0-TD8ywhVF2h1LM1xPtY9N8xxKaZ7j-yd9aTKFknjmyTp5Xw1TpIUwPpvsLZW8aZqlpEPIlzQ7rt8QqUN6jXxPyrq_I6Bbh1c_1WOohzL8cWe29e8ATNbDCwhWu3NwhqiudZQbLwmYknPSvAWJOaMxRUPfDI5H0UldW4Eny_8j1ynB5WFNT3tmeeni70Q7lIDNbLIXTE6x5bDKaRA5FvKmLvVyRFrjWzCv4vgLmsRM4W0fQPPbynM-Sf_Lz2iZJJglG-ntChpyozat7ISzhX-d7OhHrh_zzKGI4LvC0qaa2Cv6gaviMGceiDJ97KIe0Np50KswRuX7b_-Cf2N82eYj8Anci2af7387ctQACkDwuMR-4LTCZAS0uv_BBpyUIXZNXhIOU98zGJS1V9izTDe4C1DSqrctOGzphTvkkUxEWWgVRo112ZhTaYMzNWl2NvchN5qfrDXQ7QzwmvdZ8sP4I0oS-TfWV_r7Kf0iXheb37Ih7rZbs2Ce4t-BEwj785Hrw&state=azure-sso&session_state=0099afd9-316f-3108-f68e-11e28285649d 307 in 849ms
+ GET /api/auth/sso-success?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJmYzFjYzMzMC1hYjBlLTQ1MmMtOGJkOS02MjYyOWJkYjMwZTMiLCJlbWFpbCI6ImptZWRpbmFAc3VydGVycmVwcm9wZXJ0aWVzLmNvbSIsImZpcnN0TmFtZSI6ImptZWRpbmEiLCJsYXN0TmFtZSI6IiIsInJvbGVzIjpbIkFETUlOIl0sImlhdCI6MTc1OTk0NjU1OCwiZXhwIjoxNzYwNTUxMzU4fQ.hGHkikrhQJGV5UOrWoCEAbKHseGQdJlyHHHdWnsn4OI 302 in 12ms
+ GET /dashboard 200 in 103ms
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`password`, `main`.`users`.`firstName`, `main`.`users`.`lastName`, `main`.`users`.`phone`, `main`.`users`.`userType`, `main`.`users`.`managerId`, `main`.`users`.`isActive`, `main`.`users`.`lastLoginAt`, `main`.`users`.`createdAt`, `main`.`users`.`updatedAt`, `main`.`users`.`azureId`, `main`.`users`.`userPrincipalName`, `main`.`users`.`jobTitle`, `main`.`users`.`officeLocation`, `main`.`users`.`mobilePhone`, `main`.`users`.`avatar`, `main`.`users`.`lastSyncAt` FROM `main`.`users` WHERE (`main`.`users`.`id` = ? AND 1=1) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`user_roles`.`id`, `main`.`user_roles`.`userId`, `main`.`user_roles`.`roleId` FROM `main`.`user_roles` WHERE `main`.`user_roles`.`userId` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`roles`.`id`, `main`.`roles`.`name`, `main`.`roles`.`description`, `main`.`roles`.`permissions`, `main`.`roles`.`createdAt`, `main`.`roles`.`updatedAt` FROM `main`.`roles` WHERE `main`.`roles`.`id` IN (?) LIMIT ? OFFSET ?
+⏱️ stats-fetch: 2.52ms
+ GET /api/stats 200 in 25ms
+prisma:query SELECT `main`.`tickets`.`id`, `main`.`tickets`.`status`, `main`.`tickets`.`assigneeId`, `main`.`tickets`.`requesterId`, `main`.`tickets`.`updatedAt` FROM `main`.`tickets` WHERE (`main`.`tickets`.`requesterId` = ? OR `main`.`tickets`.`assigneeId` = ?) LIMIT ? OFFSET ?
+ ⨯ OpenAIError: Missing credentials. Please pass an `apiKey`, or set the `OPENAI_API_KEY` environment variable.
+    at new OpenAI (webpack-internal:///(rsc)/./node_modules/openai/client.mjs:129:19)
+    at eval (webpack-internal:///(rsc)/./lib/ai/routing.js:9:16)
+    at (rsc)/./lib/ai/routing.js (/Users/owner/aidin/.next/server/app/api/tickets/route.js:491:1)
+    at __webpack_require__ (/Users/owner/aidin/.next/server/webpack-runtime.js:33:43)
+    at eval (webpack-internal:///(rsc)/./lib/openai.js:9:72)
+    at (rsc)/./lib/openai.js (/Users/owner/aidin/.next/server/app/api/tickets/route.js:524:1)
+    at __webpack_require__ (/Users/owner/aidin/.next/server/webpack-runtime.js:33:43)
+    at eval (webpack-internal:///(rsc)/./app/api/tickets/route.js:11:69)
+    at (rsc)/./app/api/tickets/route.js (/Users/owner/aidin/.next/server/app/api/tickets/route.js:436:1)
+    at __webpack_require__ (/Users/owner/aidin/.next/server/webpack-runtime.js:33:43)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader.js?name=app%2Fapi%2Ftickets%2Froute&page=%2Fapi%2Ftickets%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Ftickets%2Froute.js&appDir=%2FUsers%2Fowner%2Faidin%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fowner%2Faidin&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D!:15:101)
+    at (rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader.js?name=app%2Fapi%2Ftickets%2Froute&page=%2Fapi%2Ftickets%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Ftickets%2Froute.js&appDir=%2FUsers%2Fowner%2Faidin%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fowner%2Faidin&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D! (/Users/owner/aidin/.next/server/app/api/tickets/route.js:403:1)
+    at __webpack_require__ (/Users/owner/aidin/.next/server/webpack-runtime.js:33:43)
+    at __webpack_exec__ (/Users/owner/aidin/.next/server/app/api/tickets/route.js:567:39)
+    at /Users/owner/aidin/.next/server/app/api/tickets/route.js:568:1033
+    at __webpack_require__.X (/Users/owner/aidin/.next/server/webpack-runtime.js:168:21)
+    at /Users/owner/aidin/.next/server/app/api/tickets/route.js:568:47
+    at Object.<anonymous> (/Users/owner/aidin/.next/server/app/api/tickets/route.js:571:3)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at mod.require (/Users/owner/aidin/node_modules/next/dist/server/require-hook.js:65:28)
+    at require (node:internal/modules/helpers:182:18)
+    at requirePage (/Users/owner/aidin/node_modules/next/dist/server/require.js:109:84)
+    at /Users/owner/aidin/node_modules/next/dist/server/load-components.js:98:84
+    at async loadComponentsImpl (/Users/owner/aidin/node_modules/next/dist/server/load-components.js:98:26)
+    at async DevServer.findPageComponentsImpl (/Users/owner/aidin/node_modules/next/dist/server/next-server.js:710:36)
+    at async DevServer.findPageComponents (/Users/owner/aidin/node_modules/next/dist/server/dev/next-dev-server.js:577:20)
+    at async DevServer.renderPageComponent (/Users/owner/aidin/node_modules/next/dist/server/base-server.js:1910:24)
+    at async DevServer.renderToResponseImpl (/Users/owner/aidin/node_modules/next/dist/server/base-server.js:1962:32)
+    at async DevServer.pipeImpl (/Users/owner/aidin/node_modules/next/dist/server/base-server.js:920:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/owner/aidin/node_modules/next/dist/server/next-server.js:272:17)
+    at async DevServer.handleRequestImpl (/Users/owner/aidin/node_modules/next/dist/server/base-server.js:816:17)
+    at async /Users/owner/aidin/node_modules/next/dist/server/dev/next-dev-server.js:339:20
+    at async Span.traceAsyncFn (/Users/owner/aidin/node_modules/next/dist/trace/trace.js:154:20)
+    at async DevServer.handleRequest (/Users/owner/aidin/node_modules/next/dist/server/dev/next-dev-server.js:336:24)
+    at async invokeRender (/Users/owner/aidin/node_modules/next/dist/server/lib/router-server.js:174:21)
+    at async handleRequest (/Users/owner/aidin/node_modules/next/dist/server/lib/router-server.js:353:24)
+    at async requestHandlerImpl (/Users/owner/aidin/node_modules/next/dist/server/lib/router-server.js:377:13)
+    at async Server.requestListener (/Users/owner/aidin/node_modules/next/dist/server/lib/start-server.js:141:13) {
+  page: '/api/tickets'
+}
+ ⨯ OpenAIError: Missing credentials. Please pass an `apiKey`, or set the `OPENAI_API_KEY` environment variable.
+    at new OpenAI (webpack-internal:///(rsc)/./node_modules/openai/client.mjs:129:19)
+    at eval (webpack-internal:///(rsc)/./lib/ai/routing.js:9:16)
+    at (rsc)/./lib/ai/routing.js (/Users/owner/aidin/.next/server/app/api/tickets/route.js:491:1)
+    at __webpack_require__ (/Users/owner/aidin/.next/server/webpack-runtime.js:33:43)
+    at eval (webpack-internal:///(rsc)/./lib/openai.js:9:72)
+    at (rsc)/./lib/openai.js (/Users/owner/aidin/.next/server/app/api/tickets/route.js:524:1)
+    at __webpack_require__ (/Users/owner/aidin/.next/server/webpack-runtime.js:33:43)
+    at eval (webpack-internal:///(rsc)/./app/api/tickets/route.js:11:69)
+    at (rsc)/./app/api/tickets/route.js (/Users/owner/aidin/.next/server/app/api/tickets/route.js:436:1)
+    at __webpack_require__ (/Users/owner/aidin/.next/server/webpack-runtime.js:33:43)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader.js?name=app%2Fapi%2Ftickets%2Froute&page=%2Fapi%2Ftickets%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Ftickets%2Froute.js&appDir=%2FUsers%2Fowner%2Faidin%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fowner%2Faidin&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D!:15:101)
+    at (rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader.js?name=app%2Fapi%2Ftickets%2Froute&page=%2Fapi%2Ftickets%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Ftickets%2Froute.js&appDir=%2FUsers%2Fowner%2Faidin%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fowner%2Faidin&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D! (/Users/owner/aidin/.next/server/app/api/tickets/route.js:403:1)
+    at __webpack_require__ (/Users/owner/aidin/.next/server/webpack-runtime.js:33:43)
+    at __webpack_exec__ (/Users/owner/aidin/.next/server/app/api/tickets/route.js:567:39)
+    at /Users/owner/aidin/.next/server/app/api/tickets/route.js:568:1033
+    at __webpack_require__.X (/Users/owner/aidin/.next/server/webpack-runtime.js:168:21)
+    at /Users/owner/aidin/.next/server/app/api/tickets/route.js:568:47
+    at Object.<anonymous> (/Users/owner/aidin/.next/server/app/api/tickets/route.js:571:3)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at mod.require (/Users/owner/aidin/node_modules/next/dist/server/require-hook.js:65:28)
+    at require (node:internal/modules/helpers:182:18)
+    at requirePage (/Users/owner/aidin/node_modules/next/dist/server/require.js:109:84)
+    at /Users/owner/aidin/node_modules/next/dist/server/load-components.js:98:84
+    at async loadComponentsImpl (/Users/owner/aidin/node_modules/next/dist/server/load-components.js:98:26)
+    at async DevServer.findPageComponentsImpl (/Users/owner/aidin/node_modules/next/dist/server/next-server.js:710:36)
+    at async DevServer.findPageComponents (/Users/owner/aidin/node_modules/next/dist/server/dev/next-dev-server.js:577:20)
+    at async DevServer.renderPageComponent (/Users/owner/aidin/node_modules/next/dist/server/base-server.js:1910:24)
+    at async DevServer.renderToResponseImpl (/Users/owner/aidin/node_modules/next/dist/server/base-server.js:1962:32)
+    at async DevServer.pipeImpl (/Users/owner/aidin/node_modules/next/dist/server/base-server.js:920:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/owner/aidin/node_modules/next/dist/server/next-server.js:272:17)
+    at async DevServer.handleRequestImpl (/Users/owner/aidin/node_modules/next/dist/server/base-server.js:816:17)
+    at async /Users/owner/aidin/node_modules/next/dist/server/dev/next-dev-server.js:339:20
+    at async Span.traceAsyncFn (/Users/owner/aidin/node_modules/next/dist/trace/trace.js:154:20)
+    at async DevServer.handleRequest (/Users/owner/aidin/node_modules/next/dist/server/dev/next-dev-server.js:336:24)
+    at async invokeRender (/Users/owner/aidin/node_modules/next/dist/server/lib/router-server.js:174:21)
+    at async handleRequest (/Users/owner/aidin/node_modules/next/dist/server/lib/router-server.js:353:24)
+    at async requestHandlerImpl (/Users/owner/aidin/node_modules/next/dist/server/lib/router-server.js:377:13)
+    at async Server.requestListener (/Users/owner/aidin/node_modules/next/dist/server/lib/start-server.js:141:13) {
+  page: '/api/tickets'
+}
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`password`, `main`.`users`.`firstName`, `main`.`users`.`lastName`, `main`.`users`.`phone`, `main`.`users`.`userType`, `main`.`users`.`managerId`, `main`.`users`.`isActive`, `main`.`users`.`lastLoginAt`, `main`.`users`.`createdAt`, `main`.`users`.`updatedAt`, `main`.`users`.`azureId`, `main`.`users`.`userPrincipalName`, `main`.`users`.`jobTitle`, `main`.`users`.`officeLocation`, `main`.`users`.`mobilePhone`, `main`.`users`.`avatar`, `main`.`users`.`lastSyncAt` FROM `main`.`users` WHERE (`main`.`users`.`id` = ? AND 1=1) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`user_roles`.`id`, `main`.`user_roles`.`userId`, `main`.`user_roles`.`roleId` FROM `main`.`user_roles` WHERE `main`.`user_roles`.`userId` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`roles`.`id`, `main`.`roles`.`name`, `main`.`roles`.`description`, `main`.`roles`.`permissions`, `main`.`roles`.`createdAt`, `main`.`roles`.`updatedAt` FROM `main`.`roles` WHERE `main`.`roles`.`id` IN (?) LIMIT ? OFFSET ?
+ GET /api/user-preferences 200 in 58ms
+prisma:query SELECT `main`.`user_preferences`.`id`, `main`.`user_preferences`.`userId`, `main`.`user_preferences`.`personalViewOrder`, `main`.`user_preferences`.`companyViewOrder`, `main`.`user_preferences`.`dashboardCardOrder`, `main`.`user_preferences`.`createdAt`, `main`.`user_preferences`.`updatedAt` FROM `main`.`user_preferences` WHERE (`main`.`user_preferences`.`userId` = ? AND 1=1) LIMIT ? OFFSET ?
+ GET /api/tickets?limit=8&status=NEW 500 in 70ms
+ GET /api/tickets?limit=8&status=NEW 500 in 70ms
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`password`, `main`.`users`.`firstName`, `main`.`users`.`lastName`, `main`.`users`.`phone`, `main`.`users`.`userType`, `main`.`users`.`managerId`, `main`.`users`.`isActive`, `main`.`users`.`lastLoginAt`, `main`.`users`.`createdAt`, `main`.`users`.`updatedAt`, `main`.`users`.`azureId`, `main`.`users`.`userPrincipalName`, `main`.`users`.`jobTitle`, `main`.`users`.`officeLocation`, `main`.`users`.`mobilePhone`, `main`.`users`.`avatar`, `main`.`users`.`lastSyncAt` FROM `main`.`users` WHERE (`main`.`users`.`id` = ? AND 1=1) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`user_roles`.`id`, `main`.`user_roles`.`userId`, `main`.`user_roles`.`roleId` FROM `main`.`user_roles` WHERE `main`.`user_roles`.`userId` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`roles`.`id`, `main`.`roles`.`name`, `main`.`roles`.`description`, `main`.`roles`.`permissions`, `main`.`roles`.`createdAt`, `main`.`roles`.`updatedAt` FROM `main`.`roles` WHERE `main`.`roles`.`id` IN (?) LIMIT ? OFFSET ?
+ GET /api/user-preferences 200 in 68ms
+prisma:query SELECT `main`.`user_preferences`.`id`, `main`.`user_preferences`.`userId`, `main`.`user_preferences`.`personalViewOrder`, `main`.`user_preferences`.`companyViewOrder`, `main`.`user_preferences`.`dashboardCardOrder`, `main`.`user_preferences`.`createdAt`, `main`.`user_preferences`.`updatedAt` FROM `main`.`user_preferences` WHERE (`main`.`user_preferences`.`userId` = ? AND 1=1) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`password`, `main`.`users`.`firstName`, `main`.`users`.`lastName`, `main`.`users`.`phone`, `main`.`users`.`userType`, `main`.`users`.`managerId`, `main`.`users`.`isActive`, `main`.`users`.`lastLoginAt`, `main`.`users`.`createdAt`, `main`.`users`.`updatedAt`, `main`.`users`.`azureId`, `main`.`users`.`userPrincipalName`, `main`.`users`.`jobTitle`, `main`.`users`.`officeLocation`, `main`.`users`.`mobilePhone`, `main`.`users`.`avatar`, `main`.`users`.`lastSyncAt` FROM `main`.`users` WHERE (`main`.`users`.`id` = ? AND 1=1) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`user_roles`.`id`, `main`.`user_roles`.`userId`, `main`.`user_roles`.`roleId` FROM `main`.`user_roles` WHERE `main`.`user_roles`.`userId` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`roles`.`id`, `main`.`roles`.`name`, `main`.`roles`.`description`, `main`.`roles`.`permissions`, `main`.`roles`.`createdAt`, `main`.`roles`.`updatedAt` FROM `main`.`roles` WHERE `main`.`roles`.`id` IN (?) LIMIT ? OFFSET ?
+⏱️ stats-fetch: 2.00ms
+ GET /api/stats 200 in 75ms
+prisma:query SELECT `main`.`tickets`.`id`, `main`.`tickets`.`status`, `main`.`tickets`.`assigneeId`, `main`.`tickets`.`requesterId`, `main`.`tickets`.`updatedAt` FROM `main`.`tickets` WHERE (`main`.`tickets`.`requesterId` = ? OR `main`.`tickets`.`assigneeId` = ?) LIMIT ? OFFSET ?
+ ⨯ OpenAIError: Missing credentials. Please pass an `apiKey`, or set the `OPENAI_API_KEY` environment variable.
+    at new OpenAI (webpack-internal:///(rsc)/./node_modules/openai/client.mjs:129:19)
+    at eval (webpack-internal:///(rsc)/./lib/ai/routing.js:9:16)
+    at (rsc)/./lib/ai/routing.js (/Users/owner/aidin/.next/server/app/api/tickets/route.js:491:1)
+    at __webpack_require__ (/Users/owner/aidin/.next/server/webpack-runtime.js:33:43)
+    at eval (webpack-internal:///(rsc)/./lib/openai.js:9:72)
+    at (rsc)/./lib/openai.js (/Users/owner/aidin/.next/server/app/api/tickets/route.js:524:1)
+    at __webpack_require__ (/Users/owner/aidin/.next/server/webpack-runtime.js:33:43)
+    at eval (webpack-internal:///(rsc)/./app/api/tickets/route.js:11:69)
+    at (rsc)/./app/api/tickets/route.js (/Users/owner/aidin/.next/server/app/api/tickets/route.js:436:1)
+    at __webpack_require__ (/Users/owner/aidin/.next/server/webpack-runtime.js:33:43)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader.js?name=app%2Fapi%2Ftickets%2Froute&page=%2Fapi%2Ftickets%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Ftickets%2Froute.js&appDir=%2FUsers%2Fowner%2Faidin%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fowner%2Faidin&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D!:15:101)
+    at (rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader.js?name=app%2Fapi%2Ftickets%2Froute&page=%2Fapi%2Ftickets%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Ftickets%2Froute.js&appDir=%2FUsers%2Fowner%2Faidin%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fowner%2Faidin&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D! (/Users/owner/aidin/.next/server/app/api/tickets/route.js:403:1)
+    at __webpack_require__ (/Users/owner/aidin/.next/server/webpack-runtime.js:33:43)
+    at __webpack_exec__ (/Users/owner/aidin/.next/server/app/api/tickets/route.js:567:39)
+    at /Users/owner/aidin/.next/server/app/api/tickets/route.js:568:1033
+    at __webpack_require__.X (/Users/owner/aidin/.next/server/webpack-runtime.js:168:21)
+    at /Users/owner/aidin/.next/server/app/api/tickets/route.js:568:47
+    at Object.<anonymous> (/Users/owner/aidin/.next/server/app/api/tickets/route.js:571:3)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at mod.require (/Users/owner/aidin/node_modules/next/dist/server/require-hook.js:65:28)
+    at require (node:internal/modules/helpers:182:18)
+    at requirePage (/Users/owner/aidin/node_modules/next/dist/server/require.js:109:84)
+    at /Users/owner/aidin/node_modules/next/dist/server/load-components.js:98:84
+    at async loadComponentsImpl (/Users/owner/aidin/node_modules/next/dist/server/load-components.js:98:26)
+    at async DevServer.findPageComponentsImpl (/Users/owner/aidin/node_modules/next/dist/server/next-server.js:710:36)
+    at async DevServer.findPageComponents (/Users/owner/aidin/node_modules/next/dist/server/dev/next-dev-server.js:577:20)
+    at async DevServer.renderPageComponent (/Users/owner/aidin/node_modules/next/dist/server/base-server.js:1910:24)
+    at async DevServer.renderToResponseImpl (/Users/owner/aidin/node_modules/next/dist/server/base-server.js:1962:32)
+    at async DevServer.pipeImpl (/Users/owner/aidin/node_modules/next/dist/server/base-server.js:920:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/owner/aidin/node_modules/next/dist/server/next-server.js:272:17)
+    at async DevServer.handleRequestImpl (/Users/owner/aidin/node_modules/next/dist/server/base-server.js:816:17)
+    at async /Users/owner/aidin/node_modules/next/dist/server/dev/next-dev-server.js:339:20
+    at async Span.traceAsyncFn (/Users/owner/aidin/node_modules/next/dist/trace/trace.js:154:20)
+    at async DevServer.handleRequest (/Users/owner/aidin/node_modules/next/dist/server/dev/next-dev-server.js:336:24)
+    at async invokeRender (/Users/owner/aidin/node_modules/next/dist/server/lib/router-server.js:174:21)
+    at async handleRequest (/Users/owner/aidin/node_modules/next/dist/server/lib/router-server.js:353:24)
+    at async requestHandlerImpl (/Users/owner/aidin/node_modules/next/dist/server/lib/router-server.js:377:13)
+    at async Server.requestListener (/Users/owner/aidin/node_modules/next/dist/server/lib/start-server.js:141:13) {
+  page: '/api/tickets'
+}
+ GET /api/tickets?limit=8&status=NEW 500 in 36ms
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`password`, `main`.`users`.`firstName`, `main`.`users`.`lastName`, `main`.`users`.`phone`, `main`.`users`.`userType`, `main`.`users`.`managerId`, `main`.`users`.`isActive`, `main`.`users`.`lastLoginAt`, `main`.`users`.`createdAt`, `main`.`users`.`updatedAt`, `main`.`users`.`azureId`, `main`.`users`.`userPrincipalName`, `main`.`users`.`jobTitle`, `main`.`users`.`officeLocation`, `main`.`users`.`mobilePhone`, `main`.`users`.`avatar`, `main`.`users`.`lastSyncAt` FROM `main`.`users` WHERE (`main`.`users`.`id` = ? AND 1=1) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`user_roles`.`id`, `main`.`user_roles`.`userId`, `main`.`user_roles`.`roleId` FROM `main`.`user_roles` WHERE `main`.`user_roles`.`userId` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`roles`.`id`, `main`.`roles`.`name`, `main`.`roles`.`description`, `main`.`roles`.`permissions`, `main`.`roles`.`createdAt`, `main`.`roles`.`updatedAt` FROM `main`.`roles` WHERE `main`.`roles`.`id` IN (?) LIMIT ? OFFSET ?
+⏱️ stats-fetch: 2.03ms
+ GET /api/stats 200 in 32ms
+prisma:query SELECT `main`.`tickets`.`id`, `main`.`tickets`.`status`, `main`.`tickets`.`assigneeId`, `main`.`tickets`.`requesterId`, `main`.`tickets`.`updatedAt` FROM `main`.`tickets` WHERE (`main`.`tickets`.`requesterId` = ? OR `main`.`tickets`.`assigneeId` = ?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`password`, `main`.`users`.`firstName`, `main`.`users`.`lastName`, `main`.`users`.`phone`, `main`.`users`.`userType`, `main`.`users`.`managerId`, `main`.`users`.`isActive`, `main`.`users`.`lastLoginAt`, `main`.`users`.`createdAt`, `main`.`users`.`updatedAt`, `main`.`users`.`azureId`, `main`.`users`.`userPrincipalName`, `main`.`users`.`jobTitle`, `main`.`users`.`officeLocation`, `main`.`users`.`mobilePhone`, `main`.`users`.`avatar`, `main`.`users`.`lastSyncAt` FROM `main`.`users` WHERE (`main`.`users`.`id` = ? AND 1=1) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`user_roles`.`id`, `main`.`user_roles`.`userId`, `main`.`user_roles`.`roleId` FROM `main`.`user_roles` WHERE `main`.`user_roles`.`userId` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`roles`.`id`, `main`.`roles`.`name`, `main`.`roles`.`description`, `main`.`roles`.`permissions`, `main`.`roles`.`createdAt`, `main`.`roles`.`updatedAt` FROM `main`.`roles` WHERE `main`.`roles`.`id` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`user_preferences`.`id`, `main`.`user_preferences`.`userId`, `main`.`user_preferences`.`personalViewOrder`, `main`.`user_preferences`.`companyViewOrder`, `main`.`user_preferences`.`dashboardCardOrder`, `main`.`user_preferences`.`createdAt`, `main`.`user_preferences`.`updatedAt` FROM `main`.`user_preferences` WHERE (`main`.`user_preferences`.`userId` = ? AND 1=1) LIMIT ? OFFSET ?
+ GET /api/user-preferences 200 in 35ms
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`password`, `main`.`users`.`firstName`, `main`.`users`.`lastName`, `main`.`users`.`phone`, `main`.`users`.`userType`, `main`.`users`.`managerId`, `main`.`users`.`isActive`, `main`.`users`.`lastLoginAt`, `main`.`users`.`createdAt`, `main`.`users`.`updatedAt`, `main`.`users`.`azureId`, `main`.`users`.`userPrincipalName`, `main`.`users`.`jobTitle`, `main`.`users`.`officeLocation`, `main`.`users`.`mobilePhone`, `main`.`users`.`avatar`, `main`.`users`.`lastSyncAt` FROM `main`.`users` WHERE (`main`.`users`.`azureId` = ? OR `main`.`users`.`email` = ?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`user_roles`.`id`, `main`.`user_roles`.`userId`, `main`.`user_roles`.`roleId` FROM `main`.`user_roles` WHERE `main`.`user_roles`.`userId` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`roles`.`id`, `main`.`roles`.`name`, `main`.`roles`.`description`, `main`.`roles`.`permissions`, `main`.`roles`.`createdAt`, `main`.`roles`.`updatedAt` FROM `main`.`roles` WHERE `main`.`roles`.`id` IN (?) LIMIT ? OFFSET ?
+ GET /api/auth/azure-callback?code=1.AXUAmAYApHGemk-PTrZNj4y8pwO6Bl5vYeJDtOKpeyJmnjpcAWJ1AA.AgABBAIAAABlMNzVhAPUTrARzfQjWPtKAwDs_wUA9P-VEJkSMdtuHI7jBmfsyh_zCa_i7_uwrYN6xW4zYDppBz21AujgPjkVmgtPoIVwL2IbiW1YJlL40xG6vy9aqm2sTEYloMCnljwn5eOBFhQJdbDxn2fH8M1zkqbuRvFAY63UYLeqlme50J0P1hz-s9lOTOOAfgWT6c6x-VPBXObbvOEpO6-TihwqzPEvRwbJb822N2zB9VjkdQ_DnjIjXV_fnT-W9ROrw-Agogqrk240N_9U7JYBTHMFJ5fvZvKwOPUYZa_16D9lpPkXXTjIMv1nkCAGtOpUFVZ5IRM3I_6fUQi9ei8jRAkndd0j6yUpbp54EM_T--s52PFsFHF4KBt2IDANc7yJ-Lqx9yKlsZuPeZIub51WhjF7PCZQCb_mmaAvv2RAFvcw7catdzUTPPk3rihW2raMeebQDeEhi-iZqLLY4Hwhr0ED0NG2LhMZOZnEiCpkSLzkf-eM0VoIfwekKrjG3jKghEneMyFrsj0FrbKcp9ifIiQsAJOHD2hn7QhFJtsTkfkeg2f1C-dyXhcqYJFtXvlofIKWLCiEIThLZt8WXeb3ZngAW1O6aqWIx5oKt6Ca33rFsT2BypJMZf_HWOU8WQVUSp9f-EyH63_CiM6-fV9-UPR7cUMaMfMIa5bmRXm16cqMSk_Ij54a5-KZQyJ5zzPCW8u5X4SeOgTB8qfyfEAoqBmt1bJE_T2HY0VYl1wnayKshTTLNPWj7OKVpRVgMDDehUL2oWF1WZz5GMUfYWibCWuptnU9T0g0zyPbmM1oHbrvgYvKsqc23lHhPMaOA6_RcdKM27sCYc4gaZHtD82hTow&state=azure-sso&session_state=0099afd9-316f-3108-f68e-11e28285649d 307 in 497ms
+prisma:query UPDATE `main`.`users` SET `azureId` = ?, `lastLoginAt` = ?, `updatedAt` = ? WHERE (`main`.`users`.`id` = ? AND 1=1) RETURNING `id` AS `id`, `email` AS `email`, `password` AS `password`, `firstName` AS `firstName`, `lastName` AS `lastName`, `phone` AS `phone`, `userType` AS `userType`, `managerId` AS `managerId`, `isActive` AS `isActive`, `lastLoginAt` AS `lastLoginAt`, `createdAt` AS `createdAt`, `updatedAt` AS `updatedAt`, `azureId` AS `azureId`, `userPrincipalName` AS `userPrincipalName`, `jobTitle` AS `jobTitle`, `officeLocation` AS `officeLocation`, `mobilePhone` AS `mobilePhone`, `avatar` AS `avatar`, `lastSyncAt` AS `lastSyncAt`
+ GET /api/auth/sso-success?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJmYzFjYzMzMC1hYjBlLTQ1MmMtOGJkOS02MjYyOWJkYjMwZTMiLCJlbWFpbCI6ImptZWRpbmFAc3VydGVycmVwcm9wZXJ0aWVzLmNvbSIsImZpcnN0TmFtZSI6ImptZWRpbmEiLCJsYXN0TmFtZSI6IiIsInJvbGVzIjpbIkFETUlOIl0sImlhdCI6MTc1OTk0NjU2NCwiZXhwIjoxNzYwNTUxMzY0fQ.kl37m-74V_dZ3jLL7I0ABeNtvbNlSg4WuaNQyqsaYg0 302 in 12ms
+ GET /dashboard 200 in 19ms
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`password`, `main`.`users`.`firstName`, `main`.`users`.`lastName`, `main`.`users`.`phone`, `main`.`users`.`userType`, `main`.`users`.`managerId`, `main`.`users`.`isActive`, `main`.`users`.`lastLoginAt`, `main`.`users`.`createdAt`, `main`.`users`.`updatedAt`, `main`.`users`.`azureId`, `main`.`users`.`userPrincipalName`, `main`.`users`.`jobTitle`, `main`.`users`.`officeLocation`, `main`.`users`.`mobilePhone`, `main`.`users`.`avatar`, `main`.`users`.`lastSyncAt` FROM `main`.`users` WHERE (`main`.`users`.`id` = ? AND 1=1) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`user_roles`.`id`, `main`.`user_roles`.`userId`, `main`.`user_roles`.`roleId` FROM `main`.`user_roles` WHERE `main`.`user_roles`.`userId` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`roles`.`id`, `main`.`roles`.`name`, `main`.`roles`.`description`, `main`.`roles`.`permissions`, `main`.`roles`.`createdAt`, `main`.`roles`.`updatedAt` FROM `main`.`roles` WHERE `main`.`roles`.`id` IN (?) LIMIT ? OFFSET ?
+ GET /api/user-preferences 200 in 16ms
+prisma:query SELECT `main`.`user_preferences`.`id`, `main`.`user_preferences`.`userId`, `main`.`user_preferences`.`personalViewOrder`, `main`.`user_preferences`.`companyViewOrder`, `main`.`user_preferences`.`dashboardCardOrder`, `main`.`user_preferences`.`createdAt`, `main`.`user_preferences`.`updatedAt` FROM `main`.`user_preferences` WHERE (`main`.`user_preferences`.`userId` = ? AND 1=1) LIMIT ? OFFSET ?
+ ⨯ OpenAIError: Missing credentials. Please pass an `apiKey`, or set the `OPENAI_API_KEY` environment variable.
+    at new OpenAI (webpack-internal:///(rsc)/./node_modules/openai/client.mjs:129:19)
+    at eval (webpack-internal:///(rsc)/./lib/ai/routing.js:9:16)
+    at (rsc)/./lib/ai/routing.js (/Users/owner/aidin/.next/server/app/api/tickets/route.js:491:1)
+    at __webpack_require__ (/Users/owner/aidin/.next/server/webpack-runtime.js:33:43)
+    at eval (webpack-internal:///(rsc)/./lib/openai.js:9:72)
+    at (rsc)/./lib/openai.js (/Users/owner/aidin/.next/server/app/api/tickets/route.js:524:1)
+    at __webpack_require__ (/Users/owner/aidin/.next/server/webpack-runtime.js:33:43)
+    at eval (webpack-internal:///(rsc)/./app/api/tickets/route.js:11:69)
+    at (rsc)/./app/api/tickets/route.js (/Users/owner/aidin/.next/server/app/api/tickets/route.js:436:1)
+    at __webpack_require__ (/Users/owner/aidin/.next/server/webpack-runtime.js:33:43)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader.js?name=app%2Fapi%2Ftickets%2Froute&page=%2Fapi%2Ftickets%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Ftickets%2Froute.js&appDir=%2FUsers%2Fowner%2Faidin%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fowner%2Faidin&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D!:15:101)
+    at (rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader.js?name=app%2Fapi%2Ftickets%2Froute&page=%2Fapi%2Ftickets%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Ftickets%2Froute.js&appDir=%2FUsers%2Fowner%2Faidin%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fowner%2Faidin&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D! (/Users/owner/aidin/.next/server/app/api/tickets/route.js:403:1)
+    at __webpack_require__ (/Users/owner/aidin/.next/server/webpack-runtime.js:33:43)
+    at __webpack_exec__ (/Users/owner/aidin/.next/server/app/api/tickets/route.js:567:39)
+    at /Users/owner/aidin/.next/server/app/api/tickets/route.js:568:1033
+    at __webpack_require__.X (/Users/owner/aidin/.next/server/webpack-runtime.js:168:21)
+    at /Users/owner/aidin/.next/server/app/api/tickets/route.js:568:47
+    at Object.<anonymous> (/Users/owner/aidin/.next/server/app/api/tickets/route.js:571:3)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at mod.require (/Users/owner/aidin/node_modules/next/dist/server/require-hook.js:65:28)
+    at require (node:internal/modules/helpers:182:18)
+    at requirePage (/Users/owner/aidin/node_modules/next/dist/server/require.js:109:84)
+    at /Users/owner/aidin/node_modules/next/dist/server/load-components.js:98:84
+    at async loadComponentsImpl (/Users/owner/aidin/node_modules/next/dist/server/load-components.js:98:26)
+    at async DevServer.findPageComponentsImpl (/Users/owner/aidin/node_modules/next/dist/server/next-server.js:710:36)
+    at async DevServer.findPageComponents (/Users/owner/aidin/node_modules/next/dist/server/dev/next-dev-server.js:577:20)
+    at async DevServer.renderPageComponent (/Users/owner/aidin/node_modules/next/dist/server/base-server.js:1910:24)
+    at async DevServer.renderToResponseImpl (/Users/owner/aidin/node_modules/next/dist/server/base-server.js:1962:32)
+    at async DevServer.pipeImpl (/Users/owner/aidin/node_modules/next/dist/server/base-server.js:920:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/owner/aidin/node_modules/next/dist/server/next-server.js:272:17)
+    at async DevServer.handleRequestImpl (/Users/owner/aidin/node_modules/next/dist/server/base-server.js:816:17)
+    at async /Users/owner/aidin/node_modules/next/dist/server/dev/next-dev-server.js:339:20
+    at async Span.traceAsyncFn (/Users/owner/aidin/node_modules/next/dist/trace/trace.js:154:20)
+    at async DevServer.handleRequest (/Users/owner/aidin/node_modules/next/dist/server/dev/next-dev-server.js:336:24)
+    at async invokeRender (/Users/owner/aidin/node_modules/next/dist/server/lib/router-server.js:174:21)
+    at async handleRequest (/Users/owner/aidin/node_modules/next/dist/server/lib/router-server.js:353:24)
+    at async requestHandlerImpl (/Users/owner/aidin/node_modules/next/dist/server/lib/router-server.js:377:13)
+    at async Server.requestListener (/Users/owner/aidin/node_modules/next/dist/server/lib/start-server.js:141:13) {
+  page: '/api/tickets'
+}
+ ⨯ OpenAIError: Missing credentials. Please pass an `apiKey`, or set the `OPENAI_API_KEY` environment variable.
+    at new OpenAI (webpack-internal:///(rsc)/./node_modules/openai/client.mjs:129:19)
+    at eval (webpack-internal:///(rsc)/./lib/ai/routing.js:9:16)
+    at (rsc)/./lib/ai/routing.js (/Users/owner/aidin/.next/server/app/api/tickets/route.js:491:1)
+    at __webpack_require__ (/Users/owner/aidin/.next/server/webpack-runtime.js:33:43)
+    at eval (webpack-internal:///(rsc)/./lib/openai.js:9:72)
+    at (rsc)/./lib/openai.js (/Users/owner/aidin/.next/server/app/api/tickets/route.js:524:1)
+    at __webpack_require__ (/Users/owner/aidin/.next/server/webpack-runtime.js:33:43)
+    at eval (webpack-internal:///(rsc)/./app/api/tickets/route.js:11:69)
+    at (rsc)/./app/api/tickets/route.js (/Users/owner/aidin/.next/server/app/api/tickets/route.js:436:1)
+    at __webpack_require__ (/Users/owner/aidin/.next/server/webpack-runtime.js:33:43)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader.js?name=app%2Fapi%2Ftickets%2Froute&page=%2Fapi%2Ftickets%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Ftickets%2Froute.js&appDir=%2FUsers%2Fowner%2Faidin%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fowner%2Faidin&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D!:15:101)
+    at (rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader.js?name=app%2Fapi%2Ftickets%2Froute&page=%2Fapi%2Ftickets%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Ftickets%2Froute.js&appDir=%2FUsers%2Fowner%2Faidin%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fowner%2Faidin&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D! (/Users/owner/aidin/.next/server/app/api/tickets/route.js:403:1)
+    at __webpack_require__ (/Users/owner/aidin/.next/server/webpack-runtime.js:33:43)
+    at __webpack_exec__ (/Users/owner/aidin/.next/server/app/api/tickets/route.js:567:39)
+    at /Users/owner/aidin/.next/server/app/api/tickets/route.js:568:1033
+    at __webpack_require__.X (/Users/owner/aidin/.next/server/webpack-runtime.js:168:21)
+    at /Users/owner/aidin/.next/server/app/api/tickets/route.js:568:47
+    at Object.<anonymous> (/Users/owner/aidin/.next/server/app/api/tickets/route.js:571:3)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at mod.require (/Users/owner/aidin/node_modules/next/dist/server/require-hook.js:65:28)
+    at require (node:internal/modules/helpers:182:18)
+    at requirePage (/Users/owner/aidin/node_modules/next/dist/server/require.js:109:84)
+    at /Users/owner/aidin/node_modules/next/dist/server/load-components.js:98:84
+    at async loadComponentsImpl (/Users/owner/aidin/node_modules/next/dist/server/load-components.js:98:26)
+    at async DevServer.findPageComponentsImpl (/Users/owner/aidin/node_modules/next/dist/server/next-server.js:710:36)
+    at async DevServer.findPageComponents (/Users/owner/aidin/node_modules/next/dist/server/dev/next-dev-server.js:577:20)
+    at async DevServer.renderPageComponent (/Users/owner/aidin/node_modules/next/dist/server/base-server.js:1910:24)
+    at async DevServer.renderToResponseImpl (/Users/owner/aidin/node_modules/next/dist/server/base-server.js:1962:32)
+    at async DevServer.pipeImpl (/Users/owner/aidin/node_modules/next/dist/server/base-server.js:920:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/owner/aidin/node_modules/next/dist/server/next-server.js:272:17)
+    at async DevServer.handleRequestImpl (/Users/owner/aidin/node_modules/next/dist/server/base-server.js:816:17)
+    at async /Users/owner/aidin/node_modules/next/dist/server/dev/next-dev-server.js:339:20
+    at async Span.traceAsyncFn (/Users/owner/aidin/node_modules/next/dist/trace/trace.js:154:20)
+    at async DevServer.handleRequest (/Users/owner/aidin/node_modules/next/dist/server/dev/next-dev-server.js:336:24)
+    at async invokeRender (/Users/owner/aidin/node_modules/next/dist/server/lib/router-server.js:174:21)
+    at async handleRequest (/Users/owner/aidin/node_modules/next/dist/server/lib/router-server.js:353:24)
+    at async requestHandlerImpl (/Users/owner/aidin/node_modules/next/dist/server/lib/router-server.js:377:13)
+    at async Server.requestListener (/Users/owner/aidin/node_modules/next/dist/server/lib/start-server.js:141:13) {
+  page: '/api/tickets'
+}
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`password`, `main`.`users`.`firstName`, `main`.`users`.`lastName`, `main`.`users`.`phone`, `main`.`users`.`userType`, `main`.`users`.`managerId`, `main`.`users`.`isActive`, `main`.`users`.`lastLoginAt`, `main`.`users`.`createdAt`, `main`.`users`.`updatedAt`, `main`.`users`.`azureId`, `main`.`users`.`userPrincipalName`, `main`.`users`.`jobTitle`, `main`.`users`.`officeLocation`, `main`.`users`.`mobilePhone`, `main`.`users`.`avatar`, `main`.`users`.`lastSyncAt` FROM `main`.`users` WHERE (`main`.`users`.`id` = ? AND 1=1) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`user_roles`.`id`, `main`.`user_roles`.`userId`, `main`.`user_roles`.`roleId` FROM `main`.`user_roles` WHERE `main`.`user_roles`.`userId` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`roles`.`id`, `main`.`roles`.`name`, `main`.`roles`.`description`, `main`.`roles`.`permissions`, `main`.`roles`.`createdAt`, `main`.`roles`.`updatedAt` FROM `main`.`roles` WHERE `main`.`roles`.`id` IN (?) LIMIT ? OFFSET ?
+⏱️ stats-fetch: 29.65ms
+ GET /api/stats 200 in 48ms
+prisma:query SELECT `main`.`tickets`.`id`, `main`.`tickets`.`status`, `main`.`tickets`.`assigneeId`, `main`.`tickets`.`requesterId`, `main`.`tickets`.`updatedAt` FROM `main`.`tickets` WHERE (`main`.`tickets`.`requesterId` = ? OR `main`.`tickets`.`assigneeId` = ?) LIMIT ? OFFSET ?
+ GET /api/tickets?limit=8&status=NEW 500 in 54ms
+ GET /api/tickets?limit=8&status=NEW 500 in 54ms
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`password`, `main`.`users`.`firstName`, `main`.`users`.`lastName`, `main`.`users`.`phone`, `main`.`users`.`userType`, `main`.`users`.`managerId`, `main`.`users`.`isActive`, `main`.`users`.`lastLoginAt`, `main`.`users`.`createdAt`, `main`.`users`.`updatedAt`, `main`.`users`.`azureId`, `main`.`users`.`userPrincipalName`, `main`.`users`.`jobTitle`, `main`.`users`.`officeLocation`, `main`.`users`.`mobilePhone`, `main`.`users`.`avatar`, `main`.`users`.`lastSyncAt` FROM `main`.`users` WHERE (`main`.`users`.`id` = ? AND 1=1) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`user_roles`.`id`, `main`.`user_roles`.`userId`, `main`.`user_roles`.`roleId` FROM `main`.`user_roles` WHERE `main`.`user_roles`.`userId` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`roles`.`id`, `main`.`roles`.`name`, `main`.`roles`.`description`, `main`.`roles`.`permissions`, `main`.`roles`.`createdAt`, `main`.`roles`.`updatedAt` FROM `main`.`roles` WHERE `main`.`roles`.`id` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`user_preferences`.`id`, `main`.`user_preferences`.`userId`, `main`.`user_preferences`.`personalViewOrder`, `main`.`user_preferences`.`companyViewOrder`, `main`.`user_preferences`.`dashboardCardOrder`, `main`.`user_preferences`.`createdAt`, `main`.`user_preferences`.`updatedAt` FROM `main`.`user_preferences` WHERE (`main`.`user_preferences`.`userId` = ? AND 1=1) LIMIT ? OFFSET ?
+ GET /api/user-preferences 200 in 19ms
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`password`, `main`.`users`.`firstName`, `main`.`users`.`lastName`, `main`.`users`.`phone`, `main`.`users`.`userType`, `main`.`users`.`managerId`, `main`.`users`.`isActive`, `main`.`users`.`lastLoginAt`, `main`.`users`.`createdAt`, `main`.`users`.`updatedAt`, `main`.`users`.`azureId`, `main`.`users`.`userPrincipalName`, `main`.`users`.`jobTitle`, `main`.`users`.`officeLocation`, `main`.`users`.`mobilePhone`, `main`.`users`.`avatar`, `main`.`users`.`lastSyncAt` FROM `main`.`users` WHERE (`main`.`users`.`id` = ? AND 1=1) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`user_roles`.`id`, `main`.`user_roles`.`userId`, `main`.`user_roles`.`roleId` FROM `main`.`user_roles` WHERE `main`.`user_roles`.`userId` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`roles`.`id`, `main`.`roles`.`name`, `main`.`roles`.`description`, `main`.`roles`.`permissions`, `main`.`roles`.`createdAt`, `main`.`roles`.`updatedAt` FROM `main`.`roles` WHERE `main`.`roles`.`id` IN (?) LIMIT ? OFFSET ?
+⏱️ stats-fetch: 1.54ms
+ GET /api/stats 200 in 23ms
+prisma:query SELECT `main`.`tickets`.`id`, `main`.`tickets`.`status`, `main`.`tickets`.`assigneeId`, `main`.`tickets`.`requesterId`, `main`.`tickets`.`updatedAt` FROM `main`.`tickets` WHERE (`main`.`tickets`.`requesterId` = ? OR `main`.`tickets`.`assigneeId` = ?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`password`, `main`.`users`.`firstName`, `main`.`users`.`lastName`, `main`.`users`.`phone`, `main`.`users`.`userType`, `main`.`users`.`managerId`, `main`.`users`.`isActive`, `main`.`users`.`lastLoginAt`, `main`.`users`.`createdAt`, `main`.`users`.`updatedAt`, `main`.`users`.`azureId`, `main`.`users`.`userPrincipalName`, `main`.`users`.`jobTitle`, `main`.`users`.`officeLocation`, `main`.`users`.`mobilePhone`, `main`.`users`.`avatar`, `main`.`users`.`lastSyncAt` FROM `main`.`users` WHERE (`main`.`users`.`id` = ? AND 1=1) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`user_roles`.`id`, `main`.`user_roles`.`userId`, `main`.`user_roles`.`roleId` FROM `main`.`user_roles` WHERE `main`.`user_roles`.`userId` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`roles`.`id`, `main`.`roles`.`name`, `main`.`roles`.`description`, `main`.`roles`.`permissions`, `main`.`roles`.`createdAt`, `main`.`roles`.`updatedAt` FROM `main`.`roles` WHERE `main`.`roles`.`id` IN (?) LIMIT ? OFFSET ?
+ ⨯ OpenAIError: Missing credentials. Please pass an `apiKey`, or set the `OPENAI_API_KEY` environment variable.
+    at new OpenAI (webpack-internal:///(rsc)/./node_modules/openai/client.mjs:129:19)
+    at eval (webpack-internal:///(rsc)/./lib/ai/routing.js:9:16)
+    at (rsc)/./lib/ai/routing.js (/Users/owner/aidin/.next/server/app/api/tickets/route.js:491:1)
+    at __webpack_require__ (/Users/owner/aidin/.next/server/webpack-runtime.js:33:43)
+    at eval (webpack-internal:///(rsc)/./lib/openai.js:9:72)
+    at (rsc)/./lib/openai.js (/Users/owner/aidin/.next/server/app/api/tickets/route.js:524:1)
+    at __webpack_require__ (/Users/owner/aidin/.next/server/webpack-runtime.js:33:43)
+    at eval (webpack-internal:///(rsc)/./app/api/tickets/route.js:11:69)
+    at (rsc)/./app/api/tickets/route.js (/Users/owner/aidin/.next/server/app/api/tickets/route.js:436:1)
+    at __webpack_require__ (/Users/owner/aidin/.next/server/webpack-runtime.js:33:43)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader.js?name=app%2Fapi%2Ftickets%2Froute&page=%2Fapi%2Ftickets%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Ftickets%2Froute.js&appDir=%2FUsers%2Fowner%2Faidin%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fowner%2Faidin&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D!:15:101)
+    at (rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader.js?name=app%2Fapi%2Ftickets%2Froute&page=%2Fapi%2Ftickets%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Ftickets%2Froute.js&appDir=%2FUsers%2Fowner%2Faidin%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fowner%2Faidin&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D! (/Users/owner/aidin/.next/server/app/api/tickets/route.js:403:1)
+    at __webpack_require__ (/Users/owner/aidin/.next/server/webpack-runtime.js:33:43)
+    at __webpack_exec__ (/Users/owner/aidin/.next/server/app/api/tickets/route.js:567:39)
+    at /Users/owner/aidin/.next/server/app/api/tickets/route.js:568:1033
+    at __webpack_require__.X (/Users/owner/aidin/.next/server/webpack-runtime.js:168:21)
+    at /Users/owner/aidin/.next/server/app/api/tickets/route.js:568:47
+    at Object.<anonymous> (/Users/owner/aidin/.next/server/app/api/tickets/route.js:571:3)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at mod.require (/Users/owner/aidin/node_modules/next/dist/server/require-hook.js:65:28)
+    at require (node:internal/modules/helpers:182:18)
+    at requirePage (/Users/owner/aidin/node_modules/next/dist/server/require.js:109:84)
+    at /Users/owner/aidin/node_modules/next/dist/server/load-components.js:98:84
+    at async loadComponentsImpl (/Users/owner/aidin/node_modules/next/dist/server/load-components.js:98:26)
+    at async DevServer.findPageComponentsImpl (/Users/owner/aidin/node_modules/next/dist/server/next-server.js:710:36)
+    at async DevServer.findPageComponents (/Users/owner/aidin/node_modules/next/dist/server/dev/next-dev-server.js:577:20)
+    at async DevServer.renderPageComponent (/Users/owner/aidin/node_modules/next/dist/server/base-server.js:1910:24)
+    at async DevServer.renderToResponseImpl (/Users/owner/aidin/node_modules/next/dist/server/base-server.js:1962:32)
+    at async DevServer.pipeImpl (/Users/owner/aidin/node_modules/next/dist/server/base-server.js:920:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/owner/aidin/node_modules/next/dist/server/next-server.js:272:17)
+    at async DevServer.handleRequestImpl (/Users/owner/aidin/node_modules/next/dist/server/base-server.js:816:17)
+    at async /Users/owner/aidin/node_modules/next/dist/server/dev/next-dev-server.js:339:20
+    at async Span.traceAsyncFn (/Users/owner/aidin/node_modules/next/dist/trace/trace.js:154:20)
+    at async DevServer.handleRequest (/Users/owner/aidin/node_modules/next/dist/server/dev/next-dev-server.js:336:24)
+    at async invokeRender (/Users/owner/aidin/node_modules/next/dist/server/lib/router-server.js:174:21)
+    at async handleRequest (/Users/owner/aidin/node_modules/next/dist/server/lib/router-server.js:353:24)
+    at async requestHandlerImpl (/Users/owner/aidin/node_modules/next/dist/server/lib/router-server.js:377:13)
+    at async Server.requestListener (/Users/owner/aidin/node_modules/next/dist/server/lib/start-server.js:141:13) {
+  page: '/api/tickets'
+}
+⏱️ stats-fetch: 13.47ms
+ GET /api/stats 200 in 32ms
+prisma:query SELECT `main`.`tickets`.`id`, `main`.`tickets`.`status`, `main`.`tickets`.`assigneeId`, `main`.`tickets`.`requesterId`, `main`.`tickets`.`updatedAt` FROM `main`.`tickets` WHERE (`main`.`tickets`.`requesterId` = ? OR `main`.`tickets`.`assigneeId` = ?) LIMIT ? OFFSET ?
+ GET /api/tickets?limit=8&status=NEW 500 in 38ms
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`password`, `main`.`users`.`firstName`, `main`.`users`.`lastName`, `main`.`users`.`phone`, `main`.`users`.`userType`, `main`.`users`.`managerId`, `main`.`users`.`isActive`, `main`.`users`.`lastLoginAt`, `main`.`users`.`createdAt`, `main`.`users`.`updatedAt`, `main`.`users`.`azureId`, `main`.`users`.`userPrincipalName`, `main`.`users`.`jobTitle`, `main`.`users`.`officeLocation`, `main`.`users`.`mobilePhone`, `main`.`users`.`avatar`, `main`.`users`.`lastSyncAt` FROM `main`.`users` WHERE (`main`.`users`.`id` = ? AND 1=1) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`user_roles`.`id`, `main`.`user_roles`.`userId`, `main`.`user_roles`.`roleId` FROM `main`.`user_roles` WHERE `main`.`user_roles`.`userId` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`roles`.`id`, `main`.`roles`.`name`, `main`.`roles`.`description`, `main`.`roles`.`permissions`, `main`.`roles`.`createdAt`, `main`.`roles`.`updatedAt` FROM `main`.`roles` WHERE `main`.`roles`.`id` IN (?) LIMIT ? OFFSET ?
+ GET /api/user-preferences 200 in 17ms
+prisma:query SELECT `main`.`user_preferences`.`id`, `main`.`user_preferences`.`userId`, `main`.`user_preferences`.`personalViewOrder`, `main`.`user_preferences`.`companyViewOrder`, `main`.`user_preferences`.`dashboardCardOrder`, `main`.`user_preferences`.`createdAt`, `main`.`user_preferences`.`updatedAt` FROM `main`.`user_preferences` WHERE (`main`.`user_preferences`.`userId` = ? AND 1=1) LIMIT ? OFFSET ?
+ ✓ Compiled /api/auth/dev-login in 148ms (1333 modules)
+🔧 Configuration:
+   AI Provider: anthropic
+   Email Provider: smtp
+   Auto-Assign: disabled
+   Inbound Email: disabled
+   Public Registration: disabled
+   CORS Origins: (same-origin only)
+ GET /api/auth/dev-login 200 in 227ms
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`email`, `main`.`users`.`password`, `main`.`users`.`firstName`, `main`.`users`.`lastName`, `main`.`users`.`phone`, `main`.`users`.`userType`, `main`.`users`.`managerId`, `main`.`users`.`isActive`, `main`.`users`.`lastLoginAt`, `main`.`users`.`createdAt`, `main`.`users`.`updatedAt`, `main`.`users`.`azureId`, `main`.`users`.`userPrincipalName`, `main`.`users`.`jobTitle`, `main`.`users`.`officeLocation`, `main`.`users`.`mobilePhone`, `main`.`users`.`avatar`, `main`.`users`.`lastSyncAt` FROM `main`.`users` WHERE (`main`.`users`.`isActive` = ? AND EXISTS(SELECT `t0`.`userId` FROM `main`.`user_roles` AS `t0` LEFT JOIN `main`.`roles` AS `j1` ON (`j1`.`id`) = (`t0`.`roleId`) WHERE (`j1`.`name` = ? AND (`j1`.`id` IS NOT NULL) AND (`main`.`users`.`id`) = (`t0`.`userId`) AND `t0`.`userId` IS NOT NULL))) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`user_roles`.`id`, `main`.`user_roles`.`userId`, `main`.`user_roles`.`roleId` FROM `main`.`user_roles` WHERE `main`.`user_roles`.`userId` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`roles`.`id`, `main`.`roles`.`name`, `main`.`roles`.`description`, `main`.`roles`.`permissions`, `main`.`roles`.`createdAt`, `main`.`roles`.`updatedAt` FROM `main`.`roles` WHERE `main`.`roles`.`id` IN (?) LIMIT ? OFFSET ?
+ ✓ Compiled in 411ms (219 modules)
+ ✓ Compiled in 523ms (698 modules)
+ ✓ Compiled in 435ms (698 modules)
+ ✓ Compiled in 511ms (698 modules)
+ ✓ Compiled in 458ms (698 modules)
+ ✓ Compiled in 437ms (698 modules)
+[?25h

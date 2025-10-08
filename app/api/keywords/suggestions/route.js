@@ -3,9 +3,17 @@ import { PrismaClient } from '@/lib/generated/prisma/index.js'
 import OpenAI from 'openai'
 
 const prisma = new PrismaClient()
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+
+// Lazy initialization of OpenAI client to avoid build errors when API key is missing
+let openai = null
+function getOpenAI() {
+  if (!openai && process.env.OPENAI_API_KEY) {
+    openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    })
+  }
+  return openai
+}
 
 // Force this route to be dynamic (not cached)
 export const dynamic = 'force-dynamic'
@@ -103,7 +111,16 @@ Respond with JSON only:
   ]
 }`
 
-    const completion = await openai.chat.completions.create({
+    const client = getOpenAI()
+    if (!client) {
+      console.warn('OpenAI client not initialized (missing OPENAI_API_KEY)')
+      return NextResponse.json({
+        success: false,
+        error: 'AI service not available'
+      }, { status: 503 })
+    }
+
+    const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {

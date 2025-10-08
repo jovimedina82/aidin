@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '../../../../lib/prisma.js'
 import { generateToken } from '../../../../lib/auth.js'
+import { getBaseUrl } from '../../../../lib/config.ts'
 import axios from 'axios'
 
 export const dynamic = 'force-dynamic'
@@ -14,8 +15,8 @@ export async function GET(request) {
   const error = url.searchParams.get('error')
   const errorDescription = url.searchParams.get('error_description')
 
-  // Always use production URL for helpdesk
-  const BASE_URL = 'https://helpdesk.surterreproperties.com'
+  // Get base URL from environment or request origin
+  const BASE_URL = getBaseUrl(request)
 
   // Prevent processing the same authorization code multiple times
   if (code && processedCodes.has(code)) {

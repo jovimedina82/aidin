@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import dynamic from 'next/dynamic'
 import { useAuth } from '../../../components/AuthProvider'
 import ProtectedRoute from '../../../components/ProtectedRoute'
 import Navbar from '../../../components/Navbar'
@@ -7,6 +8,8 @@ import VirtualAssistant from '../../../components/VirtualAssistant'
 import AttachmentUpload from '../../../components/AttachmentUpload'
 import TicketThread from '../../../components/TicketThread'
 import AIDraftReview from '../../../components/AIDraftReview'
+
+const ImageGallery = dynamic(() => import('../../../components/ImageGallery'), { ssr: false })
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -593,10 +596,18 @@ export default function TicketDetailPage({ params }) {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="prose max-w-none">
+                  <div className="prose max-w-none ticket-content">
                     <p className="whitespace-pre-wrap">{ticket.description}</p>
                   </div>
-                  
+
+                  {/* Image Gallery for inline attachments */}
+                  {ticket.attachments && Array.isArray(ticket.attachments) && ticket.attachments.length > 0 && (
+                    <ImageGallery images={ticket.attachments.map((url) => ({
+                      url,
+                      thumb: url.includes('.webp') ? url.replace('.webp', '_thumb.webp') : url
+                    }))} />
+                  )}
+
                   <div className="flex items-center gap-4 mt-6 pt-6 border-t text-sm text-muted-foreground">
                     <div className="flex items-center gap-2">
                       <User size={16} />

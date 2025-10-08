@@ -13,6 +13,7 @@ This directory contains detailed reports for each development phase of the AIDIN
 | [6.0](/docs/reports/070-phase-6-email/) | Email Provider Abstraction | refactor/phase-6-email | [#7](https://github.com/jovimedina82/aidin/pull/7) | ✅ Complete | api, email, infra, security | low |
 | [7.0](/docs/reports/080-phase-7-comments/) | Comments Service/Policy/Repo | refactor/phase-7-comments | [#8](https://github.com/jovimedina82/aidin/pull/8) | ✅ Complete | api, comments, authz, refactor | low |
 | [8.0](/docs/reports/090-phase-8-workflows/) | Tickets Workflows | refactor/phase-8-workflows | [#9](https://github.com/jovimedina82/aidin/pull/9) | ✅ Complete | api, tickets, workflows, authz | low |
+| [9.0](/docs/reports/100-phase-9-analytics/) | Analytics & Weekly Reporting | refactor/phase-9-analytics | [#10](https://github.com/jovimedina82/aidin/pull/10) | ✅ Complete | api, reports, analytics, infra | low |
 
 ## Report Structure
 

@@ -2,7 +2,7 @@
 report_version: 1
 phase: phase-9-analytics
 branch: refactor/phase-9-analytics
-pr:
+pr: https://github.com/jovimedina82/aidin/pull/10
 status: success
 impacts: ["api","reports","analytics","infra"]
 risk_level: low

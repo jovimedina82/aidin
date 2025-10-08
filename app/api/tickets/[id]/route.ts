@@ -1,120 +1,108 @@
 import { NextResponse } from 'next/server'
-import { prisma } from "@/lib/prisma"
-import { getCurrentUser } from "@/lib/auth"
-import { hasTicketAccess, canTakeTicket } from "@/lib/access-control"
+import { getCurrentUser } from '@/lib/auth'
+import { hasTicketAccess } from '@/lib/access-control'
 import { emitTicketUpdated, emitTicketDeleted } from '@/lib/socket'
+import { handleApi, errors } from '@/lib/errors'
+import { logger } from '@/lib/logger'
+import { prisma } from '@/lib/db'
 
-
-export async function GET(request, { params }) {
-  try {
-    // Get current user for access control
-    const currentUser = await getCurrentUser(request)
-    if (!currentUser) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-
-    const ticket = await prisma.ticket.findUnique({
-      where: {
-        id: params.id
-      },
-      include: {
-        requester: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true
-          }
-        },
-        assignee: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true
-          }
-        },
-        comments: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true
-              }
-            }
-          },
-          orderBy: {
-            createdAt: 'asc'
-          }
-        },
-        attachments: {
-          orderBy: {
-            uploadedAt: 'desc'
-          }
-        },
-        // Include parent ticket info
-        parentTicket: {
-          select: {
-            id: true,
-            ticketNumber: true,
-            title: true,
-            status: true,
-            createdAt: true
-          }
-        },
-        // Include child tickets
-        childTickets: {
-          select: {
-            id: true,
-            ticketNumber: true,
-            title: true,
-            status: true,
-            createdAt: true,
-            requester: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true
-              }
-            }
-          },
-          orderBy: {
-            createdAt: 'asc'
-          }
-        }
-      }
-    })
-
-    if (!ticket) {
-      return NextResponse.json(
-        { error: 'Ticket not found' },
-        { status: 404 }
-      )
-    }
-
-    // Apply access control
-    const hasAccess = await hasTicketAccess(currentUser, ticket)
-
-    if (!hasAccess) {
-      return NextResponse.json(
-        { error: 'Access denied' },
-        { status: 403 }
-      )
-    }
-
-    return NextResponse.json(ticket)
-  } catch (error) {
-    console.error('Error fetching ticket:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch ticket' },
-      { status: 500 }
-    )
+export const GET = handleApi(async (request: Request, { params }: { params: { id: string } }) => {
+  // Get current user for access control
+  const currentUser = await getCurrentUser(request)
+  if (!currentUser) {
+    throw errors.unauthorized()
   }
-}
+
+  const ticket = await prisma.ticket.findUnique({
+    where: {
+      id: params.id,
+    },
+    include: {
+      requester: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+        },
+      },
+      assignee: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+        },
+      },
+      comments: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'asc',
+        },
+      },
+      attachments: {
+        orderBy: {
+          uploadedAt: 'desc',
+        },
+      },
+      // Include parent ticket info
+      parentTicket: {
+        select: {
+          id: true,
+          ticketNumber: true,
+          title: true,
+          status: true,
+          createdAt: true,
+        },
+      },
+      // Include child tickets
+      childTickets: {
+        select: {
+          id: true,
+          ticketNumber: true,
+          title: true,
+          status: true,
+          createdAt: true,
+          requester: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'asc',
+        },
+      },
+    },
+  })
+
+  if (!ticket) {
+    throw errors.notFound('Ticket')
+  }
+
+  // Apply access control
+  const hasAccess = await hasTicketAccess(currentUser, ticket)
+
+  if (!hasAccess) {
+    throw errors.forbidden('You do not have access to this ticket')
+  }
+
+  logger.debug({ ticketId: params.id, userId: currentUser.id }, 'Ticket retrieved')
+
+  return NextResponse.json(ticket)
+})
 
 export async function PUT(request, { params }) {
   try {
@@ -128,15 +116,15 @@ export async function PUT(request, { params }) {
 
     // Get user roles
     const userRoles = currentUser?.roles || []
-    const roleNames = userRoles.map(role =>
-      typeof role === 'string' ? role : (role.role?.name || role.name)
+    const roleNames = userRoles.map((role) =>
+      typeof role === 'string' ? role : role.role.name
     )
 
     // If assigneeId is being updated, validate staff assignment rules
     if (data.assigneeId) {
       // Get the current ticket to check who created it
       const currentTicket = await prisma.ticket.findUnique({
-        where: { id: params.id }
+        where: { id: params.id },
       })
 
       if (!currentTicket) {
@@ -151,18 +139,22 @@ export async function PUT(request, { params }) {
           include: {
             roles: {
               include: {
-                role: true
-              }
-            }
-          }
+                role: true,
+              },
+            },
+          },
         })
 
         if (assignee) {
-          const assigneeRoles = assignee.roles.map(role => role.role.name)
+          const assigneeRoles = assignee.roles.map((role) => role.role.name)
           if (assigneeRoles.includes('Staff')) {
-            return NextResponse.json({
-              error: 'Staff members cannot be assigned to tickets they created themselves. Please assign to another staff member, manager, or admin.'
-            }, { status: 403 })
+            return NextResponse.json(
+              {
+                error:
+                  'Staff members cannot be assigned to tickets they created themselves. Please assign to another staff member, manager, or admin.',
+              },
+              { status: 403 }
+            )
           }
         }
       }
@@ -170,9 +162,16 @@ export async function PUT(request, { params }) {
 
     // Staff validation - staff cannot change status or assignee of tickets they created
     // They can only add comments to their own tickets
-    if (data.status || data.assigneeId || data.priority || data.category || data.title || data.description) {
+    if (
+      data.status ||
+      data.assigneeId ||
+      data.priority ||
+      data.category ||
+      data.title ||
+      data.description
+    ) {
       const currentTicket = await prisma.ticket.findUnique({
-        where: { id: params.id }
+        where: { id: params.id },
       })
 
       if (currentTicket && currentTicket.requesterId === currentUser.id) {
@@ -181,16 +180,20 @@ export async function PUT(request, { params }) {
         const isManager = roleNames.includes('Manager')
 
         if (isStaff && !isAdmin && !isManager) {
-          return NextResponse.json({
-            error: 'Staff members cannot modify tickets they created themselves. You can only add comments to your own tickets.'
-          }, { status: 403 })
+          return NextResponse.json(
+            {
+              error:
+                'Staff members cannot modify tickets they created themselves. You can only add comments to your own tickets.',
+            },
+            { status: 403 }
+          )
         }
       }
     }
 
     // Get the current ticket to check current state for auto status changes
     const currentTicket = await prisma.ticket.findUnique({
-      where: { id: params.id }
+      where: { id: params.id },
     })
 
     if (!currentTicket) {
@@ -210,17 +213,21 @@ export async function PUT(request, { params }) {
 
     // Rule 2: Auto-assign ticket to current user when changing status from NEW to OPEN/PENDING/ON_HOLD/SOLVED
     // if the ticket is currently unassigned
-    if (data.status &&
-        currentTicket.status === 'NEW' &&
-        !currentTicket.assigneeId &&
-        ['OPEN', 'PENDING', 'ON_HOLD', 'SOLVED'].includes(data.status)) {
+    if (
+      data.status &&
+      currentTicket.status === 'NEW' &&
+      !currentTicket.assigneeId &&
+      ['OPEN', 'PENDING', 'ON_HOLD', 'SOLVED'].includes(data.status)
+    ) {
       updateData.assigneeId = currentUser.id
     }
 
     // Rule 3: Auto-change status from NEW to OPEN when taking (self-assigning) an unassigned NEW ticket
-    if (data.assigneeId === currentUser.id &&
-        currentTicket.status === 'NEW' &&
-        !currentTicket.assigneeId) {
+    if (
+      data.assigneeId === currentUser.id &&
+      currentTicket.status === 'NEW' &&
+      !currentTicket.assigneeId
+    ) {
       updateData.status = 'OPEN'
     }
 
@@ -231,11 +238,11 @@ export async function PUT(request, { params }) {
 
     const ticket = await prisma.ticket.update({
       where: {
-        id: params.id
+        id: params.id,
       },
       data: {
         ...updateData,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       },
       include: {
         requester: {
@@ -243,16 +250,16 @@ export async function PUT(request, { params }) {
             id: true,
             firstName: true,
             lastName: true,
-            email: true
-          }
+            email: true,
+          },
         },
         assignee: {
           select: {
             id: true,
             firstName: true,
             lastName: true,
-            email: true
-          }
+            email: true,
+          },
         },
         comments: {
           include: {
@@ -261,20 +268,20 @@ export async function PUT(request, { params }) {
                 id: true,
                 firstName: true,
                 lastName: true,
-                email: true
-              }
-            }
+                email: true,
+              },
+            },
           },
           orderBy: {
-            createdAt: 'asc'
-          }
+            createdAt: 'asc',
+          },
         },
         attachments: {
           orderBy: {
-            uploadedAt: 'desc'
-          }
-        }
-      }
+            uploadedAt: 'desc',
+          },
+        },
+      },
     })
 
     // Emit Socket.IO event for live updates
@@ -283,10 +290,7 @@ export async function PUT(request, { params }) {
     return NextResponse.json(ticket)
   } catch (error) {
     console.error('Error updating ticket:', error)
-    return NextResponse.json(
-      { error: 'Failed to update ticket' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to update ticket' }, { status: 500 })
   }
 }
 
@@ -300,21 +304,24 @@ export async function DELETE(request, { params }) {
 
     // Get user roles to check if admin
     const userRoles = currentUser?.roles || []
-    const roleNames = userRoles.map(role =>
-      typeof role === 'string' ? role : (role.role?.name || role.name)
+    const roleNames = userRoles.map((role) =>
+      typeof role === 'string' ? role : role.role.name
     )
     const isAdmin = roleNames.includes('Admin')
 
     // Only admins can delete tickets
     if (!isAdmin) {
-      return NextResponse.json({
-        error: 'Only administrators can delete tickets'
-      }, { status: 403 })
+      return NextResponse.json(
+        {
+          error: 'Only administrators can delete tickets',
+        },
+        { status: 403 }
+      )
     }
 
     // Check if ticket exists
     const ticket = await prisma.ticket.findUnique({
-      where: { id: params.id }
+      where: { id: params.id },
     })
 
     if (!ticket) {
@@ -323,12 +330,12 @@ export async function DELETE(request, { params }) {
 
     // Delete related comments first (due to foreign key constraints)
     await prisma.ticketComment.deleteMany({
-      where: { ticketId: params.id }
+      where: { ticketId: params.id },
     })
 
     // Delete the ticket
     await prisma.ticket.delete({
-      where: { id: params.id }
+      where: { id: params.id },
     })
 
     // Emit Socket.IO event for live updates
@@ -336,14 +343,11 @@ export async function DELETE(request, { params }) {
 
     return NextResponse.json({
       success: true,
-      message: 'Ticket deleted successfully'
+      message: 'Ticket deleted successfully',
     })
   } catch (error) {
     console.error('Error deleting ticket:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete ticket' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to delete ticket' }, { status: 500 })
   }
 }
 
@@ -357,8 +361,8 @@ export async function PATCH(request, { params }) {
 
     // Get user roles to check if admin
     const userRoles = currentUser?.roles || []
-    const roleNames = userRoles.map(role =>
-      typeof role === 'string' ? role : (role.role?.name || role.name)
+    const roleNames = userRoles.map((role) =>
+      typeof role === 'string' ? role : role.role.name
     )
     const isAdmin = roleNames.includes('Admin')
 
@@ -366,7 +370,7 @@ export async function PATCH(request, { params }) {
 
     // First, get the current ticket to check current state
     const currentTicket = await prisma.ticket.findUnique({
-      where: { id: params.id }
+      where: { id: params.id },
     })
 
     if (!currentTicket) {
@@ -380,9 +384,12 @@ export async function PATCH(request, { params }) {
     if (data.status) {
       // Rule 1: Only admin can change status TO 'NEW'
       if (data.status === 'NEW' && currentTicket.status !== 'NEW' && !isAdmin) {
-        return NextResponse.json({
-          error: 'Only System Administrator can change status back to NEW'
-        }, { status: 403 })
+        return NextResponse.json(
+          {
+            error: 'Only System Administrator can change status back to NEW',
+          },
+          { status: 403 }
+        )
       }
 
       // Rule 2: When changing TO 'NEW', always unassign the ticket
@@ -394,9 +401,13 @@ export async function PATCH(request, { params }) {
       if (currentTicket.status === 'NEW' && data.status !== 'NEW') {
         // Rule 3a: Staff validation - staff cannot take tickets they created themselves
         if (currentTicket.requesterId === currentUser.id && roleNames.includes('Staff')) {
-          return NextResponse.json({
-            error: 'Staff members cannot take tickets they created themselves. This ticket must be assigned to another staff member, manager, or admin.'
-          }, { status: 403 })
+          return NextResponse.json(
+            {
+              error:
+                'Staff members cannot take tickets they created themselves. This ticket must be assigned to another staff member, manager, or admin.',
+            },
+            { status: 403 }
+          )
         }
         updateData.assigneeId = currentUser.id
       }
@@ -406,14 +417,13 @@ export async function PATCH(request, { params }) {
       updateData.resolvedAt = new Date()
     }
 
-
     const ticket = await prisma.ticket.update({
       where: {
-        id: params.id
+        id: params.id,
       },
       data: {
         ...updateData,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       },
       include: {
         requester: {
@@ -421,16 +431,16 @@ export async function PATCH(request, { params }) {
             id: true,
             firstName: true,
             lastName: true,
-            email: true
-          }
+            email: true,
+          },
         },
         assignee: {
           select: {
             id: true,
             firstName: true,
             lastName: true,
-            email: true
-          }
+            email: true,
+          },
         },
         comments: {
           include: {
@@ -439,28 +449,25 @@ export async function PATCH(request, { params }) {
                 id: true,
                 firstName: true,
                 lastName: true,
-                email: true
-              }
-            }
+                email: true,
+              },
+            },
           },
           orderBy: {
-            createdAt: 'asc'
-          }
+            createdAt: 'asc',
+          },
         },
         attachments: {
           orderBy: {
-            uploadedAt: 'desc'
-          }
-        }
-      }
+            uploadedAt: 'desc',
+          },
+        },
+      },
     })
 
     return NextResponse.json(ticket)
   } catch (error) {
     console.error('Error updating ticket:', error)
-    return NextResponse.json(
-      { error: 'Failed to update ticket' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to update ticket' }, { status: 500 })
   }
 }

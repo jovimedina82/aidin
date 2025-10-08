@@ -10,6 +10,8 @@
         "start:default": "next start",
         "lint": "next lint",
         "type-check": "tsc --noEmit",
+        "test": "vitest",
+        "test:ui": "vitest --ui",
         "db:generate": "prisma generate",
         "db:push": "prisma db push",
         "db:seed": "node prisma/seed.js",
@@ -55,6 +57,8 @@
         "node-cron": "^4.2.1",
         "nodemailer": "^7.0.7",
         "openai": "^5.21.0",
+        "pino": "^10.0.0",
+        "pino-pretty": "^13.1.1",
         "prisma": "^6.16.1",
         "react": "^18",
         "react-dom": "^18",
@@ -67,18 +71,21 @@
         "tailwind-merge": "^3.3.1",
         "tailwindcss-animate": "^1.0.7",
         "uuid": "^11.0.3",
-        "xlsx": "^0.18.5"
+        "xlsx": "^0.18.5",
+        "zod": "^3.25.76"
     },
     "devDependencies": {
         "@types/node": "24.5.2",
         "@types/react": "^18.3.12",
+        "@vitest/ui": "^3.2.4",
         "autoprefixer": "^10.4.19",
         "eslint": "^9.36.0",
         "eslint-config-next": "^15.5.3",
         "globals": "^16.2.0",
         "postcss": "^8",
         "tailwindcss": "^3.4.1",
-        "typescript": "^5.9.2"
+        "typescript": "^5.9.2",
+        "vitest": "^3.2.4"
     },
     "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }

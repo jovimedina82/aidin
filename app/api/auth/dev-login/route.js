@@ -55,75 +55,13 @@ export async function GET(request) {
     // Get sanitized base URL
     const base = getBaseUrl(request)
 
-    // Create HTML response that sets localStorage and redirects
-    const htmlResponse = new Response(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Dev Login...</title>
-        <style>
-          body {
-            font-family: system-ui, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            background: #f5f5f5;
-          }
-          .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3498db;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin-bottom: 20px;
-          }
-          @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-          .container { text-align: center; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="spinner"></div>
-          <h2>Dev Login (Bypass)</h2>
-          <p>Logging in as ${devUser.email}...</p>
-        </div>
-        <script>
-          // Store the token
-          localStorage.setItem('authToken', '${token}');
+    // Create redirect response with cookie (no localStorage needed, using HttpOnly cookie only)
+    const response = NextResponse.redirect(`${base}/dashboard`, 302)
 
-          // Store user data
-          const userData = {
-            id: '${devUser.id}',
-            email: '${devUser.email}',
-            firstName: '${devUser.firstName || ''}',
-            lastName: '${devUser.lastName || ''}',
-            roles: ${JSON.stringify(devUser.roles.map(ur => ur.role.name))},
-            isActive: true
-          };
+    // Set HttpOnly cookie
+    response.headers.set('Set-Cookie', `authToken=${token}; HttpOnly; SameSite=Lax; Max-Age=${60 * 60 * 24 * 7}; Path=/`)
 
-          localStorage.setItem('user', JSON.stringify(userData));
-
-          console.log('Dev bypass login successful:', '${devUser.email}');
-
-          // Redirect to dashboard
-          setTimeout(() => {
-            window.location.href = '${base}/dashboard';
-          }, 1000);
-        </script>
-      </body>
-      </html>
-    `, {
-      headers: {
-        'Content-Type': 'text/html',
-        // Dev-only cookie (no domain, no secure)
-        'Set-Cookie': `authToken=${token}; HttpOnly; SameSite=Lax; Max-Age=${60 * 60 * 24 * 7}; Path=/`
-      }
-    })
-
-    return htmlResponse
+    return response
 
   } catch (error) {
     console.error('Dev login error:', error)

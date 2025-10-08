@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getCurrentUser } from "@/lib/auth"
+import { handleApiError, unauthorizedError } from '@/lib/http/errors'
 
 export const dynamic = 'force-dynamic'
 
@@ -8,7 +9,7 @@ export async function GET(request) {
     const user = await getCurrentUser(request)
 
     if (!user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return unauthorizedError('Authentication required')
     }
 
     // Return the user information
@@ -28,9 +29,6 @@ export async function GET(request) {
 
     return NextResponse.json(userResponse)
   } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Auth/me error:', error)
-    }
-    return NextResponse.json({ error: 'Authentication failed' }, { status: 500 })
+    return handleApiError(error)
   }
 }

@@ -2,7 +2,7 @@
 phase: 7.0
 title: "Comments Module - Service/Policy/Repo Implementation"
 branch: refactor/phase-7-comments
-pr: TBD
+pr: https://github.com/jovimedina82/aidin/pull/8
 status: complete
 date: 2025-10-08
 author: Claude Code

@@ -231,16 +231,49 @@ export const GET = withErrorHandler(async (request) => {
 
 export async function POST(request) {
   try {
-    // Authentication check (allow n8n/system with basic auth OR logged-in user)
+    // Phase 3: Enhanced authentication with RBAC
+    // Special case: Allow n8n/system requests with basic auth (email webhook integration)
     const authHeader = request.headers.get('authorization')
     const isSystemRequest = authHeader?.includes('Basic')
 
+    // For system requests, use legacy auth
     const user = await getCurrentUser(request)
     if (!user && !isSystemRequest) {
       return NextResponse.json(
         { error: 'Unauthorized access. Please log in.' },
         { status: 401 }
       )
+    }
+
+    // Phase 3 RBAC: Check if authenticated user has permission to create tickets
+    // Note: This only applies to logged-in users, not system requests
+    if (user && !isSystemRequest) {
+      // Import RBAC at runtime to avoid circular dependencies
+      const { users } = await import('@/modules')
+
+      // Map database user to UserDTO for RBAC check
+      const userDTO = {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        phone: user.phone,
+        roles: user.roles?.map(r => r.role.name) || [],
+        isActive: user.isActive,
+        avatar: user.avatar,
+        azureId: user.azureId,
+        managerId: user.managerId,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      }
+
+      // Check if user has permission to create tickets
+      if (!users.rbac.can(userDTO, users.rbac.Action.TICKET_CREATE)) {
+        return NextResponse.json(
+          { error: 'Access denied. You do not have permission to create tickets.' },
+          { status: 403 }
+        )
+      }
     }
 
     const data = await request.json()

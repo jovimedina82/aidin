@@ -1,0 +1,11 @@
+/**
+ * Auth Module - Public API
+ * Phase 2 Scaffold + Phase 3 Implementation
+ */
+
+export * from './domain'
+export * as service from './service'
+export * as middleware from './middleware'
+export * as jwt from './jwt'
+export * from './providers/jwt'
+export * from './providers/azure-ad'

@@ -2,7 +2,7 @@
 report_version: 1
 phase: phase-1-core-infra
 branch: refactor/core-infra-phase1
-pr: [To be created]
+pr: https://github.com/jovimedina82/aidin/pull/2
 status: success
 impacts: ["api","infra","devx"]
 risk_level: low

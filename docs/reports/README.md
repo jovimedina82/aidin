@@ -8,7 +8,7 @@ This directory contains all project phase reports, architectural audits, and tec
 |-------|-------|--------|----| -------|---------|------------|
 | [0](./000-phase-0/) | Repository Audit & Architectural Analysis | N/A | N/A | ✅ Complete | analysis | low |
 | [0.1](./010-phase-0.1-security-hotfixes/) | Security Hotfixes | `hotfix/security-phase0.1` | [#1](https://github.com/jovimedina82/aidin/pull/1) | ✅ Complete | api, ops, security | medium |
-| [1](./020-phase-1-core-infra/) | Core Infrastructure | `refactor/core-infra-phase1` | [TBD](#) | ✅ Complete | api, infra, devx | low |
+| [1](./020-phase-1-core-infra/) | Core Infrastructure | `refactor/core-infra-phase1` | [#2](https://github.com/jovimedina82/aidin/pull/2) | ✅ Complete | api, infra, devx | low |
 
 ## Phase Summaries
 

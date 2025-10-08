@@ -2,7 +2,7 @@
 report_version: 1
 phase: phase-3-auth-rbac
 branch: refactor/phase-3-auth-rbac
-pr: TBD
+pr: https://github.com/jovimedina82/aidin/pull/4
 status: success
 impacts: ["api", "auth", "rbac", "modules", "tests"]
 risk_level: low

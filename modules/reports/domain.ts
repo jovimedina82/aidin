@@ -1,32 +1,40 @@
 /**
- * Reports Domain Types and DTOs
- * Phase 2 Scaffold
+ * Phase 9: Analytics & Weekly Reporting
+ * Domain types for KPIs and weekly snapshots
  */
 
+/**
+ * Weekly KPI snapshot stored in database
+ */
 export interface WeeklyKPI {
-  weekStart: Date
-  weekEnd: Date
-  openTickets: number
-  closedTickets: number
-  avgResponseTime: number
-  avgResolutionTime: number
-  satisfactionScore?: number
-  topCategories: { category: string; count: number }[]
+  id: string
+  weekStartUTC: Date
+  ticketsOpen: number
+  ticketsPending: number
+  ticketsSolved7d: number
+  avgFirstResponseMinutes: number
   createdAt: Date
 }
 
-export interface TrendPoint {
-  date: Date
-  value: number
+/**
+ * In-memory KPI computation result
+ * No DB write, used for real-time API responses
+ */
+export interface KPISet {
+  tickets_open: number
+  tickets_pending: number
+  tickets_solved_7d: number
+  avg_first_response_minutes: number
+  computed_at: string // ISO 8601
 }
 
-export interface TrendData {
-  metric: string
-  points: TrendPoint[]
-}
-
-export interface KPIFilters {
-  startDate?: Date
-  endDate?: Date
-  category?: string
+/**
+ * Input for upserting a weekly snapshot
+ */
+export interface WeeklyKPIInput {
+  weekStartUTC: Date
+  ticketsOpen: number
+  ticketsPending: number
+  ticketsSolved7d: number
+  avgFirstResponseMinutes: number
 }

@@ -1,10 +1,9 @@
 /**
+ * Phase 9: Analytics & Weekly Reporting
  * Reports Module - Public API
- * Phase 2 Scaffold
  */
 
 export * from './domain'
 export * as service from './service'
+export * as repo from './repo'
 export * as scheduler from './scheduler'
-// repo exports interface only
-export type { ReportsRepository } from './repo'

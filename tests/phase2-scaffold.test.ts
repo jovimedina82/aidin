@@ -113,19 +113,22 @@ describe('Phase 2 Scaffold - Module Exports', () => {
 
   describe('Reports Module', () => {
     it('should export domain types', () => {
-      // Types are interfaces, so we check the service exists
-      expect(modules.reports.service.computeWeeklyKPIs).toBeDefined()
+      // Phase 9: New API - computeKPIs instead of computeWeeklyKPIs
+      expect(modules.reports.service.computeKPIs).toBeDefined()
     })
 
     it('should export service and scheduler functions', () => {
-      expect(modules.reports.service.computeWeeklyKPIs).toBeDefined()
-      expect(modules.reports.service.getTrends).toBeDefined()
-      expect(modules.reports.scheduler.scheduleWeeklyReport).toBeDefined()
+      // Phase 9: Updated API
+      expect(modules.reports.service.computeKPIs).toBeDefined()
+      expect(modules.reports.scheduler.runWeeklySnapshot).toBeDefined()
+      expect(modules.reports.repo.upsertWeek).toBeDefined()
+      expect(modules.reports.repo.latest).toBeDefined()
     })
 
-    it('service functions should throw NotImplemented', async () => {
-      await expect(modules.reports.service.computeWeeklyKPIs())
-        .rejects.toThrow(/NotImplemented.*Phase 3/)
+    it('service functions should be implemented (Phase 9)', async () => {
+      // Phase 9: Functions are now implemented, not throwing NotImplemented
+      expect(modules.reports.service.computeKPIs).toBeInstanceOf(Function)
+      expect(modules.reports.scheduler.runWeeklySnapshot).toBeInstanceOf(Function)
     })
   })
 

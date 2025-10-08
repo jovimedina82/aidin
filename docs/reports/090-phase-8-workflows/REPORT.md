@@ -2,7 +2,7 @@
 report_version: 1
 phase: phase-8-workflows
 branch: refactor/phase-8-workflows
-pr: <placeholder>
+pr: https://github.com/jovimedina82/aidin/pull/9
 status: success
 impacts: ["api","tickets","workflows","authz"]
 risk_level: low

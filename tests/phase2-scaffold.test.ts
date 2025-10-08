@@ -45,10 +45,20 @@ describe('Phase 2 Scaffold - Module Exports', () => {
       expect(modules.users.rbac.Action).toBeDefined()
     })
 
-    it('RBAC functions should return false (stub)', () => {
-      const mockUser: any = { id: '1', roles: [modules.users.Role.ADMIN] }
-      expect(modules.users.rbac.can(mockUser, modules.users.rbac.Action.USER_CREATE)).toBe(false)
-      expect(modules.users.rbac.hasRole(mockUser, [modules.users.Role.ADMIN])).toBe(false)
+    it('RBAC functions should work (implemented in Phase 3)', () => {
+      const mockUser: any = {
+        id: '1',
+        roles: ['Admin'], // Use string role name instead of enum
+        email: 'admin@test.com',
+        firstName: 'Admin',
+        lastName: 'User',
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+      // Phase 3: RBAC is now implemented and should work
+      expect(modules.users.rbac.can(mockUser, modules.users.rbac.Action.USER_CREATE)).toBe(true)
+      expect(modules.users.rbac.hasRole(mockUser, [modules.users.Role.ADMIN])).toBe(true)
     })
   })
 

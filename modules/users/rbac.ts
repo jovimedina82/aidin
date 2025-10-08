@@ -23,6 +23,10 @@ export enum Action {
   TICKET_ASSIGN = 'ticket:assign',
   TICKET_CLOSE = 'ticket:close',
 
+  // Comment actions (Phase 7)
+  COMMENT_CREATE = 'comment:create',
+  COMMENT_READ = 'comment:read',
+
   // Admin actions
   ADMIN_SETTINGS = 'admin:settings',
   ADMIN_REPORTS = 'admin:reports',
@@ -52,6 +56,8 @@ const ROLE_PERMISSIONS: Record<string, Action[]> = {
     Action.TICKET_DELETE,
     Action.TICKET_ASSIGN,
     Action.TICKET_CLOSE,
+    Action.COMMENT_CREATE,
+    Action.COMMENT_READ,
     Action.ADMIN_SETTINGS,
     Action.ADMIN_REPORTS,
     Action.ADMIN_SYSTEM,
@@ -64,6 +70,8 @@ const ROLE_PERMISSIONS: Record<string, Action[]> = {
     Action.TICKET_UPDATE,
     Action.TICKET_ASSIGN,
     Action.TICKET_CLOSE,
+    Action.COMMENT_CREATE,
+    Action.COMMENT_READ,
     Action.USER_READ,
   ],
   Client: [
@@ -71,6 +79,8 @@ const ROLE_PERMISSIONS: Record<string, Action[]> = {
     Action.TICKET_CREATE,
     Action.TICKET_READ,
     Action.TICKET_READ_OWN,
+    Action.COMMENT_CREATE,
+    Action.COMMENT_READ,
   ],
   Manager: [
     // Managers have same permissions as Staff plus user management
@@ -80,6 +90,8 @@ const ROLE_PERMISSIONS: Record<string, Action[]> = {
     Action.TICKET_UPDATE,
     Action.TICKET_ASSIGN,
     Action.TICKET_CLOSE,
+    Action.COMMENT_CREATE,
+    Action.COMMENT_READ,
     Action.USER_READ,
     Action.USER_UPDATE,
     Action.ADMIN_REPORTS,

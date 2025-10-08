@@ -1,28 +1,36 @@
 import { NextResponse } from 'next/server'
+import * as email from '@/modules/email'
 
 // This endpoint receives webhook notifications from Microsoft Graph
 // when new emails arrive in the helpdesk inbox
+// Phase 6: Uses modules/email for validation
 
 export async function POST(request) {
   try {
     const body = await request.json()
 
-    // Validate clientState to ensure webhook is from Microsoft
+    // Phase 6: Validate webhook using modules/email with constant-time comparison
     const clientState = body.value?.[0]?.clientState
-    const expectedClientState = process.env.GRAPH_WEBHOOK_SECRET || 'aidin-helpdesk-secret-key'
+    const validation = email.validateInboundWebhook(clientState)
 
-    if (clientState !== expectedClientState) {
-      console.warn('Invalid clientState in webhook notification')
-      return NextResponse.json({ error: 'Invalid clientState' }, { status: 401 })
+    if (!validation.valid) {
+      console.warn('Webhook validation failed:', validation.error)
+      return NextResponse.json(
+        { error: validation.error || 'Unauthorized' },
+        { status: 401 }
+      )
     }
 
+    // Phase 6: Parse webhook payload
+    const { notifications } = email.parseWebhookPayload(body)
+
     console.log('📧 Email webhook notification received:', {
-      notifications: body.value?.length || 0,
+      notifications: notifications.length,
       timestamp: new Date().toISOString()
     })
 
     // Process each notification
-    for (const notification of body.value || []) {
+    for (const notification of notifications) {
       // Forward notification to N8N webhook for email processing
       try {
         const n8nWebhookUrl = process.env.N8N_EMAIL_WEBHOOK_URL || 'http://localhost:5678/webhook/new-email'

@@ -1,8 +1,10 @@
 /**
  * Email Module Exports
- * Phase 2 Scaffold
+ * Phase 6: Provider abstraction
  */
 
+export * from './domain'
+export * from './provider'
 export * from './sender'
 export * from './ingestor'
 export * from './provider/smtp'

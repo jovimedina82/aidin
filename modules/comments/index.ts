@@ -1,9 +1,13 @@
 /**
  * Comments Module - Public API
- * Phase 2 Scaffold
+ * Phase 7: Service/Policy/Repo implementation
  */
 
 export * from './domain'
 export * as service from './service'
-// repo exports interface only
+export * as policy from './policy'
+export * as repo from './repo'
+
+// Legacy exports
 export type { CommentRepository } from './repo'
+export { CommentVisibilityEnum as CommentVisibility } from './domain'

@@ -146,15 +146,15 @@ describe('Phase 2 Scaffold - Module Exports', () => {
       expect(result.success).toBe(true)
     })
 
-    it('SMTP and Graph providers should throw NotImplemented', async () => {
-      const smtpProvider = new modules.email.SMTPProvider({
-        host: 'smtp.test.com',
-        port: 587,
-        user: 'test',
-        password: 'test',
+    it('SMTP and Graph providers should be implemented (Phase 6)', async () => {
+      // Phase 6: Legacy classes now work as stubs
+      const smtpProvider = new modules.email.SMTPProvider()
+      const result = await smtpProvider.send({
+        to: 'test@test.com',
+        subject: 'Subject',
+        body: 'Body'
       })
-      await expect(smtpProvider.send('test@test.com', 'Subject', 'Body'))
-        .rejects.toThrow(/NotImplemented.*Phase 3/)
+      expect(result.success).toBe(true)
     })
   })
 

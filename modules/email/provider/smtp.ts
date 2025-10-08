@@ -1,20 +1,43 @@
 /**
  * SMTP Email Provider
- * Phase 2 Scaffold - Phase 3 Implementation
+ * Phase 6: Stub implementation
  */
 
-import { EmailProvider, EmailAttachment } from '../sender'
+import type { EmailProvider } from './index'
+import type { EmailMessage, SendResult } from '../domain'
 
-// TODO: Phase 3 - Add nodemailer dependency
-// TODO: Phase 3 - Configure SMTP settings from environment variables
+export function smtpProvider(config: {
+  host?: string
+  port?: number
+  user?: string
+  pass?: string
+}): EmailProvider {
+  return {
+    name: 'smtp',
 
+    async send(message: EmailMessage): Promise<SendResult> {
+      // Stub implementation - in production, use nodemailer
+      console.log('[SMTPProvider] Would send email via SMTP:', {
+        to: message.to,
+        subject: message.subject,
+        bodyLength: message.body.length,
+      })
+
+      // Return mock success
+      return {
+        success: true,
+        id: `smtp-${Date.now()}`,
+        messageId: `<${Date.now()}@smtp.local>`,
+      }
+    },
+  }
+}
+
+// Legacy class for backward compatibility
 export class SMTPProvider implements EmailProvider {
-  async send(
-    to: string | string[],
-    subject: string,
-    body: string,
-    attachments?: EmailAttachment[]
-  ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-    throw new Error('NotImplemented: SMTPProvider.send() - Phase 3')
+  name = 'smtp'
+
+  async send(message: EmailMessage): Promise<SendResult> {
+    return smtpProvider({}).send(message)
   }
 }

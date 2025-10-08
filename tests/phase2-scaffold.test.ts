@@ -87,9 +87,10 @@ describe('Phase 2 Scaffold - Module Exports', () => {
       expect(modules.tickets.policy.canViewTicket(mockUser, mockTicket)).toBe(false)
     })
 
-    it('service functions should throw NotImplemented', async () => {
+    it('legacy service functions should throw NotImplemented', async () => {
+      // Phase 4: Legacy functions updated to reference new create()/get()
       await expect(modules.tickets.service.getTicketById('123'))
-        .rejects.toThrow(/NotImplemented.*Phase 3/)
+        .rejects.toThrow(/NotImplemented.*Phase 4/)
     })
   })
 

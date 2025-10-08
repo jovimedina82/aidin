@@ -2,9 +2,9 @@
 report_version: 1
 phase: phase-5-ai-abstraction
 branch: refactor/phase-5-ai
-pr: (pending)
+pr: <TBD>
 status: success
-impacts: ["ai","providers","refactor","abstraction"]
+impacts: ["ai","api","infra","extensibility"]
 risk_level: low
 ---
 

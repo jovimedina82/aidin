@@ -35,3 +35,13 @@ export interface AzureADConfig {
   clientSecret: string
   redirectUri: string
 }
+
+/**
+ * User session data extracted from JWT
+ * Phase 3: Used for request-level authentication
+ */
+export interface UserSession {
+  userId: string
+  email: string
+  roles: string[]
+}

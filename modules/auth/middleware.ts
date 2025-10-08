@@ -1,72 +1,170 @@
 /**
- * Authentication Middleware Stubs
- * Phase 2 Scaffold - Returns 501 if used
+ * Authentication Middleware
+ * Phase 3 Implementation - Real authentication and authorization
  */
 
 import { NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma.js'
+import { extractToken, verifyToken } from './jwt'
 import type { AuthUser } from './domain'
+import { Provider } from './domain'
 
 /**
  * Middleware to require authenticated user
- * TODO: Implement in Phase 3 - extract and validate JWT from request
- * @returns 501 Not Implemented (stub)
+ * Extracts JWT from request, validates it, and fetches user from database
+ * @param request - Next.js Request object
+ * @returns AuthUser object or 401 NextResponse
  */
 export async function requireUser(request: Request): Promise<AuthUser | NextResponse> {
-  // TODO: Extract token from Authorization header
-  // TODO: Validate token using validateToken()
-  // TODO: Return user if valid, or 401 response
-  return NextResponse.json(
-    {
-      error: {
-        code: 'NOT_IMPLEMENTED',
-        message: 'requireUser() middleware not implemented - Phase 2 scaffold',
+  // Extract token from Authorization header or cookies
+  const token = extractToken(request)
+
+  if (!token) {
+    return NextResponse.json(
+      {
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'Authentication required',
+        },
+      },
+      { status: 401 }
+    )
+  }
+
+  // Verify and decode token
+  const decoded = verifyToken(token)
+
+  if (!decoded?.userId) {
+    return NextResponse.json(
+      {
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'Invalid or expired token',
+        },
+      },
+      { status: 401 }
+    )
+  }
+
+  // Fetch user from database with roles
+  const user = await prisma.user.findUnique({
+    where: { id: decoded.userId },
+    include: {
+      roles: {
+        include: {
+          role: true,
+        },
       },
     },
-    { status: 501 }
-  )
+  })
+
+  if (!user) {
+    return NextResponse.json(
+      {
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'User not found',
+        },
+      },
+      { status: 401 }
+    )
+  }
+
+  if (!user.isActive) {
+    return NextResponse.json(
+      {
+        error: {
+          code: 'FORBIDDEN',
+          message: 'User account is inactive',
+        },
+      },
+      { status: 403 }
+    )
+  }
+
+  // Map database user to AuthUser interface
+  const authUser: AuthUser = {
+    id: user.id,
+    email: user.email,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    roles: user.roles.map((r) => r.role.name),
+    provider: user.azureId ? Provider.AZURE_AD : Provider.LOCAL,
+  }
+
+  return authUser
 }
 
 /**
  * Middleware to require specific roles
- * TODO: Implement in Phase 3 - check user roles against required roles
- * @returns 501 Not Implemented (stub)
+ * Checks if user has at least one of the required roles
+ * @param user - Authenticated user object
+ * @param requiredRoles - Array of role names (e.g., ['ADMIN', 'STAFF'])
+ * @returns void if authorized, 403 NextResponse if not
  */
 export async function requireRoles(
   user: AuthUser,
   requiredRoles: string[]
 ): Promise<void | NextResponse> {
-  // TODO: Check if user has any of the required roles
-  // TODO: Return 403 if user doesn't have required role
-  return NextResponse.json(
-    {
-      error: {
-        code: 'NOT_IMPLEMENTED',
-        message: 'requireRoles() middleware not implemented - Phase 2 scaffold',
-      },
-    },
-    { status: 501 }
+  const hasRequiredRole = user.roles.some((role) =>
+    requiredRoles.includes(role.toUpperCase())
   )
+
+  if (!hasRequiredRole) {
+    return NextResponse.json(
+      {
+        error: {
+          code: 'FORBIDDEN',
+          message: `Access denied. Required roles: ${requiredRoles.join(', ')}`,
+        },
+      },
+      { status: 403 }
+    )
+  }
+
+  // User has required role
+  return
 }
 
 /**
  * Middleware to require specific permissions
- * TODO: Implement in Phase 3 - check user permissions
- * @returns 501 Not Implemented (stub)
+ * Checks if user has all required permissions
+ * @param user - Authenticated user object
+ * @param permissions - Array of permission strings
+ * @returns void if authorized, 403 NextResponse if not
  */
 export async function requirePermissions(
   user: AuthUser,
   permissions: string[]
 ): Promise<void | NextResponse> {
-  // TODO: Load user permissions from database
-  // TODO: Check if user has all required permissions
-  // TODO: Return 403 if user doesn't have permissions
-  return NextResponse.json(
-    {
-      error: {
-        code: 'NOT_IMPLEMENTED',
-        message: 'requirePermissions() middleware not implemented - Phase 2 scaffold',
+  // Fetch user roles with permissions from database
+  const userRoles = await prisma.userRole.findMany({
+    where: { userId: user.id },
+    include: { role: true },
+  })
+
+  // Collect all permissions from user's roles
+  const userPermissions = new Set<string>()
+  for (const userRole of userRoles) {
+    const rolePermissions = userRole.role.permissions as string[]
+    rolePermissions.forEach((perm) => userPermissions.add(perm))
+  }
+
+  // Check if user has all required permissions
+  const hasAllPermissions = permissions.every((perm) => userPermissions.has(perm))
+
+  if (!hasAllPermissions) {
+    return NextResponse.json(
+      {
+        error: {
+          code: 'FORBIDDEN',
+          message: `Access denied. Missing required permissions.`,
+        },
       },
-    },
-    { status: 501 }
-  )
+      { status: 403 }
+    )
+  }
+
+  // User has all required permissions
+  return
 }

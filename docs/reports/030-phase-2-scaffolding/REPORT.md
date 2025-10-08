@@ -2,7 +2,7 @@
 report_version: 1
 phase: phase-2-scaffolding
 branch: refactor/phase-2-scaffold
-pr: [To be created]
+pr: https://github.com/jovimedina82/aidin/pull/3
 status: success
 impacts: ["api","infra","code-structure","tests"]
 risk_level: low

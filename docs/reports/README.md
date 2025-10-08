@@ -7,7 +7,7 @@ This directory contains all project phase reports, architectural audits, and tec
 | Phase | Title | Branch | PR | Status | Impacts | Risk Level |
 |-------|-------|--------|----| -------|---------|------------|
 | [0](./000-phase-0/) | Repository Audit & Architectural Analysis | N/A | N/A | ✅ Complete | analysis | low |
-| [0.1](./010-phase-0.1-security-hotfixes/) | Security Hotfixes | `hotfix/security-phase0.1` | [#1](<PR_URL>) | ✅ Complete | api, ops, security | medium |
+| [0.1](./010-phase-0.1-security-hotfixes/) | Security Hotfixes | `hotfix/security-phase0.1` | [#1](https://github.com/jovimedina82/aidin/pull/1) | ✅ Complete | api, ops, security | medium |
 
 ## Phase Summaries
 

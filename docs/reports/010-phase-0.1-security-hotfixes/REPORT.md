@@ -4,7 +4,7 @@
 report_version: 1
 phase: phase-0.1-security-hotfixes
 branch: hotfix/security-phase0.1
-pr: <PR_URL>
+pr: https://github.com/jovimedina82/aidin/pull/1
 status: success
 impacts: ["api","ops","security"]
 risk_level: medium

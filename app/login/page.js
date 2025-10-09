@@ -1,189 +1,198 @@
-'use client'
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { useAuth } from '@/components/AuthProvider'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader2, Building2, Shield } from 'lucide-react'
-import Image from 'next/image'
+'use client';
+
+import { useState } from 'react';
+import { motion } from 'framer-motion';
+import { Building2, Mail, Shield, ArrowRight, Sparkles } from 'lucide-react';
 
 export default function LoginPage() {
-  const router = useRouter()
-  const { user, loading: authLoading } = useAuth()
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false);
+  const devEnabled = process.env.NEXT_PUBLIC_DEV_LOGIN ?? process.env.DEV_LOGIN_ENABLED;
 
-  // Redirect to dashboard if already authenticated (but only after auth check completes)
-  useEffect(() => {
-    if (!authLoading && user) {
-      // Small delay to prevent redirect loops
-      const timer = setTimeout(() => {
-        router.replace('/dashboard')
-      }, 100)
-      return () => clearTimeout(timer)
-    }
-  }, [user, authLoading, router])
-
-  const handleAzureSignIn = async () => {
-    setLoading(true)
-    setError('')
-
+  async function handleDevLogin() {
     try {
-      // Get tenant ID - if undefined in env, will fail gracefully
-      const tenantId = process.env.NEXT_PUBLIC_AZURE_TENANT_ID || process.env.NEXT_PUBLIC_AZURE_AD_TENANT_ID
-
-      if (!tenantId || tenantId === 'undefined') {
-        setError('Azure authentication is not configured. Please contact IT support or use dev bypass if available.')
-        setLoading(false)
-        return
-      }
-
-      // Build Azure AD authorization URL
-      const authUrl = new URL(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize`)
-
-      const clientId = process.env.NEXT_PUBLIC_AZURE_CLIENT_ID || process.env.NEXT_PUBLIC_AZURE_AD_CLIENT_ID
-      if (!clientId) {
-        setError('Azure client ID is not configured.')
-        setLoading(false)
-        return
-      }
-
-      authUrl.searchParams.set('client_id', clientId)
-      authUrl.searchParams.set('response_type', 'code')
-
-      // Use page origin, sanitized for 0.0.0.0
-      const origin = window.location.origin
-        .replace('0.0.0.0', 'localhost')
-        .replace('::', 'localhost')
-
-      authUrl.searchParams.set('redirect_uri', `${origin}/api/auth/azure-callback`)
-      authUrl.searchParams.set('scope', 'openid profile email User.Read')
-      authUrl.searchParams.set('state', 'azure-sso')
-      authUrl.searchParams.set('prompt', 'select_account')
-
-      // Redirect to Azure AD
-      window.location.href = authUrl.toString()
-    } catch (error) {
-      console.error('Azure sign-in error:', error)
-      setError('Failed to initiate sign-in. Please try again.')
-      setLoading(false)
+      setBusy(true);
+      const r = await fetch('/api/auth/dev-login', { method: 'POST' });
+      if (!r.ok) throw new Error('dev login failed');
+      window.location.href = '/dashboard';
+    } catch (e) {
+      console.error(e);
+      alert('Dev login failed');
+    } finally {
+      setBusy(false);
     }
   }
 
-  const handleDevLogin = () => {
-    window.location.href = '/api/auth/dev-login'
+  async function handleAzure() {
+    window.location.href = '/api/auth/azure/login';
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden" style={{ backgroundColor: '#3d6964' }}>
-      {/* Animated watermark background */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div
-          className="absolute top-1/2 left-0 transform -translate-y-1/2 animate-float-extra-slow"
-          style={{
-            opacity: 0.05,
-            filter: 'invert(1) brightness(1.1)',
-            clipPath: 'polygon(50% 0%, 10% 95%, 90% 95%)'
-          }}
-        >
-          <Image
-            src="/images/aidin-logo.png"
-            alt="Aidin Watermark"
-            width={400}
-            height={400}
-            className="object-contain"
-          />
-        </div>
+    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      {/* Animated background elements */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-emerald-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
       </div>
 
-      <Card className="w-full max-w-md relative z-10">
-        <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
-            <div className="w-24 h-24 rounded-full overflow-hidden bg-white flex items-center justify-center">
-              <Image
-                src="/images/aidin-logo.png"
-                alt="Aidin Logo"
-                width={92}
-                height={92}
-                className="object-contain"
-              />
-            </div>
-          </div>
-          <div className="text-black font-bold text-lg mb-2">AIDIN HELPDESK</div>
-          <CardTitle className="text-2xl">Welcome Back</CardTitle>
-          <CardDescription>
-            Sign in with your Surterre Properties account
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {error && (
-            <Alert variant="destructive" className="mb-6">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+      {/* Grid pattern overlay */}
+      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS1vcGFjaXR5PSIwLjAzIiBzdHJva2Utd2lkdGg9IjEiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz48L3N2Zz4=')] opacity-30"></div>
 
-          {/* SSO Sign In Button */}
-          <div className="space-y-6">
-            <Button
-              type="button"
-              className="w-full h-12 text-base"
-              onClick={handleAzureSignIn}
-              disabled={loading}
-              style={{ backgroundColor: '#3d6964' }}
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Signing in...
-                </>
-              ) : (
-                <>
-                  <Building2 className="mr-2 h-5 w-5" />
-                  Sign in with Surterre Email
-                </>
-              )}
-            </Button>
+      <div className="relative min-h-screen flex items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="w-full max-w-md"
+        >
+          {/* Main card */}
+          <div className="bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
+            {/* Header with gradient */}
+            <div className="relative bg-gradient-to-r from-purple-600/50 to-emerald-600/50 p-8 pb-12">
+              <div className="absolute inset-0 bg-black/20"></div>
+              <div className="relative">
+                {/* Logo */}
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+                  className="flex items-center justify-center mb-6"
+                >
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-white/20 rounded-2xl blur-xl"></div>
+                    <div className="relative bg-white/90 backdrop-blur-sm rounded-2xl p-4 shadow-xl">
+                      <img
+                        src="/images/aidin-logo.png"
+                        width={64}
+                        height={64}
+                        alt="AIDIN"
+                        className="w-16 h-16"
+                      />
+                    </div>
+                  </div>
+                </motion.div>
 
-            {/* Dev Bypass Button - Only in development with AUTH_DEV_BYPASS=true */}
-            {process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_AUTH_DEV_BYPASS === 'true' && (
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full h-12 text-base"
-                onClick={handleDevLogin}
-              >
-                🔓 Dev Login (Bypass)
-              </Button>
-            )}
-
-            {/* Information Box */}
-            <div className="bg-muted p-4 rounded-lg">
-              <div className="flex items-start gap-3">
-                <Shield className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                <div className="text-sm">
-                  <p className="font-medium mb-1">Secure Single Sign-On</p>
-                  <p className="text-muted-foreground">
-                    Use your Surterre Properties Microsoft account to access the helpdesk.
-                    This ensures secure authentication through your organization's Active Directory.
+                {/* Title */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.3 }}
+                  className="text-center"
+                >
+                  <h1 className="text-3xl font-bold text-white mb-2">
+                    Welcome Back
+                  </h1>
+                  <p className="text-white/80 text-sm font-medium">
+                    AIDIN Helpdesk System
                   </p>
-                </div>
+                </motion.div>
               </div>
             </div>
 
-            {/* Help Text */}
-            <div className="text-center text-sm text-muted-foreground">
-              <p>Having trouble signing in?</p>
-              <p className="mt-1">
-                Contact IT support at{' '}
-                <a href="mailto:helpdesk@surterreproperties.com" className="text-primary hover:underline">
-                  helpdesk@surterreproperties.com
-                </a>
-              </p>
+            {/* Form section */}
+            <div className="p-8 pt-6">
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="space-y-4"
+              >
+                {/* SSO Button */}
+                <button
+                  onClick={handleAzure}
+                  className="group relative w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-4 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5"
+                >
+                  <div className="flex items-center justify-center space-x-3">
+                    <Building2 className="w-5 h-5" />
+                    <span>Sign in with Surterre Email</span>
+                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                  {/* Shine effect */}
+                  <div className="absolute inset-0 rounded-xl overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                  </div>
+                </button>
+
+                {/* Dev Login Button */}
+                {devEnabled === 'true' && (
+                  <motion.button
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.5 }}
+                    onClick={handleDevLogin}
+                    disabled={busy}
+                    className="w-full bg-white/5 hover:bg-white/10 border-2 border-white/20 hover:border-white/30 text-white font-medium py-3 px-6 rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <div className="flex items-center justify-center space-x-2">
+                      <Sparkles className="w-4 h-4" />
+                      <span>{busy ? 'Signing in…' : 'Dev Login (Bypass)'}</span>
+                    </div>
+                  </motion.button>
+                )}
+
+                {/* Features */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.6 }}
+                  className="pt-6 space-y-3"
+                >
+                  <div className="flex items-center space-x-3 text-white/70 text-sm">
+                    <div className="bg-emerald-500/20 p-2 rounded-lg">
+                      <Shield className="w-4 h-4 text-emerald-400" />
+                    </div>
+                    <span>Secure Single Sign-On via Microsoft Entra ID</span>
+                  </div>
+                  <div className="flex items-center space-x-3 text-white/70 text-sm">
+                    <div className="bg-blue-500/20 p-2 rounded-lg">
+                      <Mail className="w-4 h-4 text-blue-400" />
+                    </div>
+                    <span>Access your support tickets & knowledge base</span>
+                  </div>
+                </motion.div>
+              </motion.div>
             </div>
           </div>
-        </CardContent>
-      </Card>
+
+          {/* Footer */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.7 }}
+            className="mt-8 text-center"
+          >
+            <p className="text-white/50 text-xs">
+              Protected by enterprise-grade security
+            </p>
+            <p className="text-white/30 text-xs mt-1">
+              © 2025 Surterre Properties. All rights reserved.
+            </p>
+          </motion.div>
+        </motion.div>
+      </div>
+
+      <style jsx>{`
+        @keyframes blob {
+          0%, 100% {
+            transform: translate(0, 0) scale(1);
+          }
+          33% {
+            transform: translate(30px, -50px) scale(1.1);
+          }
+          66% {
+            transform: translate(-20px, 20px) scale(0.9);
+          }
+        }
+        .animate-blob {
+          animation: blob 7s infinite;
+        }
+        .animation-delay-2000 {
+          animation-delay: 2s;
+        }
+        .animation-delay-4000 {
+          animation-delay: 4s;
+        }
+      `}</style>
     </div>
-  )
+  );
 }

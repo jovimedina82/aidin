@@ -8,6 +8,7 @@ import {
 } from '@/lib/api-utils'
 import { MicrosoftGraphService, getAppOnlyAccessToken } from '@/lib/services/MicrosoftGraphService'
 import { prisma } from '@/lib/prisma'
+import { logEvent } from '@/lib/audit'
 
 export const POST = withErrorHandler(async (request) => {
   const user = await getCurrentUser(request)
@@ -165,25 +166,24 @@ export const POST = withErrorHandler(async (request) => {
       }
     }
 
-    // Create audit log
-    await prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        action: 'AZURE_SYNC_MANUAL',
-        entityType: 'User',
-        entityId: 'bulk-sync',
-        oldValues: null,
-        newValues: JSON.stringify({
-          groupName,
-          totalUsers: users.length,
-          created,
-          updated,
-          skipped,
-          errors: errors.length,
-          timestamp: new Date(),
-          automated: false,
-          triggeredBy: user.email
-        })
+    // Create audit log using new audit system
+    await logEvent({
+      action: 'azure.sync.manual',
+      actorId: user.id,
+      actorEmail: user.email,
+      actorType: 'human',
+      entityType: 'user',
+      entityId: 'bulk-sync',
+      metadata: {
+        groupName,
+        totalUsers: users.length,
+        created,
+        updated,
+        skipped,
+        errors: errors.length,
+        timestamp: new Date().toISOString(),
+        automated: false,
+        triggeredBy: user.email
       }
     })
 
@@ -208,21 +208,24 @@ export const POST = withErrorHandler(async (request) => {
   } catch (error) {
     console.error('Manual Azure sync error:', error)
 
-    // Create error audit log
-    await prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        action: 'AZURE_SYNC_MANUAL_ERROR',
-        entityType: 'User',
+    // Create error audit log using new audit system
+    try {
+      await logEvent({
+        action: 'azure.sync.error',
+        actorId: user.id,
+        actorEmail: user.email,
+        actorType: 'human',
+        entityType: 'user',
         entityId: 'bulk-sync',
-        oldValues: null,
-        newValues: JSON.stringify({
+        metadata: {
           error: error.message,
-          timestamp: new Date(),
+          timestamp: new Date().toISOString(),
           triggeredBy: user.email
-        })
-      }
-    })
+        }
+      })
+    } catch (logError) {
+      console.error('Failed to create error audit log:', logError)
+    }
 
     return ApiError.internalServerError(`Sync failed: ${error.message}`)
   }

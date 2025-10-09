@@ -52,6 +52,14 @@ export async function PUT(request, { params }) {
             color: true
           }
         },
+        createdBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        },
         ticketResponses: {
           select: {
             id: true,
@@ -83,6 +91,71 @@ export async function PUT(request, { params }) {
     }
 
     return NextResponse.json({ error: 'Failed to update knowledge base article' }, { status: 500 })
+  }
+}
+
+export async function PATCH(request, { params }) {
+  try {
+    const user = await getCurrentUser(request)
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Check if user has admin, manager, or staff access
+    const userRoles = user?.roles || []
+    const roleNames = userRoles.map(role =>
+      typeof role === 'string' ? role : (role.role?.name || role.name)
+    )
+    const hasPermission = roleNames.some(role => ['Admin', 'Manager', 'Staff'].includes(role))
+
+    if (!hasPermission) {
+      return NextResponse.json({ error: 'Admin, Manager, or Staff access required' }, { status: 403 })
+    }
+
+    const data = await request.json()
+    const { isActive } = data
+
+    if (typeof isActive !== 'boolean') {
+      return NextResponse.json({ error: 'isActive must be a boolean' }, { status: 400 })
+    }
+
+    // Toggle article active status
+    const updatedArticle = await prisma.knowledgeBase.update({
+      where: { id: params.id },
+      data: { isActive },
+      include: {
+        department: {
+          select: {
+            name: true,
+            color: true
+          }
+        },
+        createdBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        }
+      }
+    })
+
+    return NextResponse.json({
+      ...updatedArticle,
+      tags: updatedArticle.tags ? JSON.parse(updatedArticle.tags) : [],
+      images: updatedArticle.images ? JSON.parse(updatedArticle.images) : [],
+      hasEmbedding: !!updatedArticle.embedding
+    })
+
+  } catch (error) {
+    console.error('Error toggling knowledge base article status:', error)
+
+    if (error.code === 'P2025') {
+      return NextResponse.json({ error: 'Article not found' }, { status: 404 })
+    }
+
+    return NextResponse.json({ error: 'Failed to toggle article status' }, { status: 500 })
   }
 }
 

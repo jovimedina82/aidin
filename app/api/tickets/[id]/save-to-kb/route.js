@@ -251,6 +251,7 @@ Transform this into a generic, reusable knowledge base article. Keep the markdow
         content: finalContent,
         tags: tags ? JSON.stringify(tags) : JSON.stringify([ticket.category]),
         departmentId: ticket.departmentId,
+        createdById: user.id,
         isActive: true,
         usageCount: 0
       }

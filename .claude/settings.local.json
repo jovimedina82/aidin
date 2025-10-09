@@ -109,7 +109,8 @@
       "Bash(npm ls:*)",
       "Bash(git rm:*)",
       "Bash(npm i:*)",
-      "Bash(test:*)"
+      "Bash(test:*)",
+      "Bash(/dev/null echo \"1. Cookie saved\" curl -s -b /tmp/final.txt http://localhost:3000/api/auth/me)"
     ],
     "deny": [],
     "ask": []

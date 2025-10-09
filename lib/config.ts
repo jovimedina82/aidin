@@ -136,3 +136,14 @@ export function getBaseUrl(req?: Request): string {
   // 3) Fallback
   return 'http://localhost:3000'
 }
+
+export function cookieOptions() {
+  const isProd = process.env.NODE_ENV === 'production';
+  const onLocalhost = !isProd;
+  return {
+    httpOnly: true,
+    sameSite: 'lax' as const,
+    secure: !onLocalhost,
+    path: '/',
+  };
+}

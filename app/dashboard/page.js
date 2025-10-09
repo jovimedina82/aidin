@@ -9,6 +9,12 @@ import DraggableStatCard from '../../components/DraggableStatCard'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { Ticket, Clock, CheckCircle, AlertCircle, Users, TrendingUp, Pause, MessageCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useSocket } from '@/lib/hooks/useSocket'
@@ -204,7 +210,15 @@ export default function DashboardPage() {
     router.push(`/tickets/${ticket.id}`)
   }
 
-  const isStaff = user?.roles?.some(role => ['Admin', 'Manager', 'Staff'].includes(role))
+  // Handle different role formats: can be string, object with role.name, or object with role.role.name
+  const getRoleName = (role) => {
+    if (typeof role === 'string') return role
+    if (role?.role?.name) return role.role.name
+    if (role?.name) return role.name
+    return null
+  }
+
+  const isStaff = user?.roles?.some(role => ['Admin', 'Manager', 'Staff'].includes(getRoleName(role)))
 
   // Define all stat cards configuration
   const statCardsConfig = {
@@ -285,7 +299,7 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between mb-8">
             <div>
               <h1 className="text-3xl font-bold text-foreground">
-                Welcome back, {user?.firstName}!
+                Welcome back, {user?.firstName || user?.name?.split(' ')[0] || 'User'}!
               </h1>
               <p className="text-muted-foreground">
                 Here's what's happening with your support tickets today.
@@ -380,67 +394,97 @@ export default function DashboardPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                <div className="grid gap-3">
-                    <Button
-                      variant="outline"
-                      className="justify-start h-auto p-3"
-                      onClick={() => router.push('/tickets')}
-                    >
-                      <Ticket className="mr-3 h-4 w-4" />
-                      <div className="text-left">
-                        <div className="font-medium text-sm">View All Tickets</div>
-                        <div className="text-xs text-muted-foreground">
-                          Browse and manage
-                        </div>
-                      </div>
-                    </Button>
-
-                    {isStaff && (
-                      <>
-                        <Button
-                          variant="outline"
-                          className="justify-start h-auto p-3"
-                          onClick={() => router.push('/tickets?view=unassigned')}
-                        >
-                          <Users className="mr-3 h-4 w-4 text-red-600" />
-                          <div className="text-left">
-                            <div className="font-medium text-sm">Unassigned ({stats.unassigned})</div>
-                            <div className="text-xs text-muted-foreground">
-                              Need assignment
+                  <TooltipProvider delayDuration={500}>
+                    <div className="grid gap-3">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="justify-start h-auto p-3"
+                            onClick={() => router.push('/tickets')}
+                          >
+                            <Ticket className="mr-3 h-4 w-4" />
+                            <div className="text-left">
+                              <div className="font-medium text-sm">View All Tickets</div>
+                              <div className="text-xs text-muted-foreground">
+                                Browse and manage
+                              </div>
                             </div>
-                          </div>
-                        </Button>
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>View and manage all support tickets in the system</p>
+                        </TooltipContent>
+                      </Tooltip>
 
-                        <Button
-                          variant="outline"
-                          className="justify-start h-auto p-3"
-                          onClick={() => router.push('/tickets?view=personal-open')}
-                        >
-                          <Users className="mr-3 h-4 w-4 text-blue-600" />
-                          <div className="text-left">
-                            <div className="font-medium text-sm">My Assignments</div>
-                            <div className="text-xs text-muted-foreground">
-                              Assigned to you
+                      {isStaff && (
+                        <>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className="justify-start h-auto p-3"
+                                onClick={() => router.push('/tickets?view=unassigned')}
+                              >
+                                <Users className="mr-3 h-4 w-4 text-red-600" />
+                                <div className="text-left">
+                                  <div className="font-medium text-sm">Unassigned ({stats.unassigned})</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    Need assignment
+                                  </div>
+                                </div>
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>View tickets that haven't been assigned to any staff member yet</p>
+                            </TooltipContent>
+                          </Tooltip>
+
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className="justify-start h-auto p-3"
+                                onClick={() => router.push('/tickets?view=personal-open')}
+                              >
+                                <Users className="mr-3 h-4 w-4 text-blue-600" />
+                                <div className="text-left">
+                                  <div className="font-medium text-sm">My Assignments</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    Assigned to you
+                                  </div>
+                                </div>
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>View all tickets currently assigned to you</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </>
+                      )}
+
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="justify-start h-auto p-3"
+                            onClick={() => router.push('/knowledge-base')}
+                          >
+                            <TrendingUp className="mr-3 h-4 w-4 text-green-600" />
+                            <div className="text-left">
+                              <div className="font-medium text-sm">Knowledge Base</div>
+                              <div className="text-xs text-muted-foreground">
+                                Browse articles
+                              </div>
                             </div>
-                          </div>
-                        </Button>
-                      </>
-                    )}
-
-                    <Button
-                      variant="outline"
-                      className="justify-start h-auto p-3"
-                      onClick={() => router.push('/knowledge-base')}
-                    >
-                      <TrendingUp className="mr-3 h-4 w-4 text-green-600" />
-                      <div className="text-left">
-                        <div className="font-medium text-sm">Knowledge Base</div>
-                        <div className="text-xs text-muted-foreground">
-                          Browse articles
-                        </div>
-                      </div>
-                    </Button>
-                  </div>
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Browse help articles and solutions for common issues</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                  </TooltipProvider>
                 </CardContent>
               </Card>
 

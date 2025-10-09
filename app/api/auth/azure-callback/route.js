@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '../../../../lib/prisma.js'
 import { generateToken } from '../../../../lib/auth.js'
 import { getBaseUrl } from '../../../../lib/config.ts'
+import { logEvent } from '@/lib/audit'
 import axios from 'axios'
 
 export const dynamic = 'force-dynamic'
@@ -64,7 +65,26 @@ export async function GET(request) {
     })
 
     const azureUser = userResponse.data
-    
+
+    // Try to fetch profile photo from Microsoft Graph
+    let profilePhotoUrl = null
+    try {
+      const photoResponse = await axios.get('https://graph.microsoft.com/v1.0/me/photo/$value', {
+        headers: {
+          Authorization: `Bearer ${access_token}`
+        },
+        responseType: 'arraybuffer'
+      })
+
+      // Convert photo to base64 data URL
+      const photoBase64 = Buffer.from(photoResponse.data, 'binary').toString('base64')
+      const contentType = photoResponse.headers['content-type'] || 'image/jpeg'
+      profilePhotoUrl = `data:${contentType};base64,${photoBase64}`
+    } catch (photoError) {
+      // Photo might not be available, continue without it
+      console.log('Could not fetch profile photo:', photoError.message)
+    }
+
     // Find user in our database
     const user = await prisma.user.findFirst({
       where: {
@@ -91,13 +111,58 @@ export async function GET(request) {
     }
 
 
-    // Update user's Azure ID and last login
+    // Update user's Azure ID, profile info, and last login
+    const updateData = {
+      azureId: azureUser.id,
+      lastLoginAt: new Date(),
+      lastSyncAt: new Date()
+    }
+
+    // Update first name and last name from Azure AD if available
+    if (azureUser.givenName) {
+      updateData.firstName = azureUser.givenName
+    }
+    if (azureUser.surname) {
+      updateData.lastName = azureUser.surname
+    }
+
+    // Update user principal name
+    if (azureUser.userPrincipalName) {
+      updateData.userPrincipalName = azureUser.userPrincipalName
+    }
+
+    // Update job title if available
+    if (azureUser.jobTitle) {
+      updateData.jobTitle = azureUser.jobTitle
+    }
+
+    // Update office location if available
+    if (azureUser.officeLocation) {
+      updateData.officeLocation = azureUser.officeLocation
+    }
+
+    // Update phone numbers if available
+    if (azureUser.mobilePhone) {
+      updateData.mobilePhone = azureUser.mobilePhone
+      updateData.phone = azureUser.mobilePhone
+    } else if (azureUser.businessPhones?.[0]) {
+      updateData.phone = azureUser.businessPhones[0]
+    }
+
+    // Update profile photo if fetched
+    if (profilePhotoUrl) {
+      updateData.avatar = profilePhotoUrl
+    }
+
+    console.log('Updating user with Azure AD data:', {
+      email: user.email,
+      hasPhoto: !!profilePhotoUrl,
+      fields: Object.keys(updateData)
+    })
+
     await prisma.user.update({
       where: { id: user.id },
-      data: {
-        azureId: azureUser.id,
-        lastLoginAt: new Date()
-      }
+      data: updateData
     })
 
     // Generate JWT token for our auth system
@@ -109,6 +174,22 @@ export async function GET(request) {
       roles: user.roles.map(ur => ur.role.name)
     })
 
+    // Log successful Azure AD SSO login
+    await logEvent({
+      action: 'login.success',
+      actorId: user.id,
+      actorEmail: user.email,
+      actorType: 'human',
+      entityType: 'user',
+      entityId: user.email,
+      ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
+      userAgent: request.headers.get('user-agent') || null,
+      metadata: {
+        method: 'azure_sso',
+        azureId: azureUser.id,
+        timestamp: new Date().toISOString()
+      }
+    })
 
     // Redirect to sso-success page with token to set localStorage
     // This is needed because SSO callback can't directly set localStorage

@@ -34,8 +34,8 @@ model User {
   roles           UserRole[]
   preferences     UserPreference?
   departments     UserDepartment[]
-  auditLogs       AuditLog[]
   classifierFeedback ClassifierFeedback[]
+  createdKBArticles KnowledgeBase[] @relation("KBCreator")
 
   // Hierarchical relationships
   manager         User?           @relation("UserManager", fields: [managerId], references: [id])
@@ -212,6 +212,7 @@ model KnowledgeBase {
   content      String
   tags         String?   // JSON array of tags
   departmentId String?
+  createdById  String?   // User who created the article
   isActive     Boolean   @default(true)
   embedding    String?   // JSON array of embeddings
   images       String?   // JSON array of image data
@@ -219,6 +220,7 @@ model KnowledgeBase {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  createdBy    User?     @relation("KBCreator", fields: [createdById], references: [id], onDelete: SetNull)
   ticketResponses TicketKBUsage[]
 
   @@map("knowledge_base")
@@ -253,18 +255,69 @@ model AIDecision {
   @@map("ai_decisions")
 }
 
+// Production-grade audit log with hash chain integrity
 model AuditLog {
-  id         String   @id @default(uuid())
-  userId     String
-  action     String
-  entityType String
-  entityId   String?
-  oldValues  String?  // JSON string
-  newValues  String?  // JSON string
-  createdAt  DateTime @default(now())
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String   @id @default(uuid())
+  ts                DateTime @default(now())
+  action            String
+  actorId           String?  @map("actor_id")
+  actorEmail        String   @map("actor_email")
+  actorType         String   @map("actor_type") // human, system, service
+  impersonatedUser  String?  @map("impersonated_user")
+  entityType        String   @map("entity_type")
+  entityId          String   @map("entity_id")
+  targetId          String?  @map("target_id")
+  requestId         String?  @map("request_id")
+  correlationId     String?  @map("correlation_id")
+  ip                String?
+  userAgent         String?  @map("user_agent")
+  prevValues        String?  @map("prev_values") // JSON
+  newValues         String?  @map("new_values")  // JSON
+  metadata          String?  // JSON
+  redactionLevel    Int      @default(0) @map("redaction_level")
+  prevHash          String?  @map("prev_hash")
+  hash              String
 
-  @@map("audit_logs")
+  @@index([ts(sort: Desc)])
+  @@index([entityType, entityId, ts(sort: Desc)])
+  @@index([action, ts(sort: Desc)])
+  @@index([actorEmail, ts(sort: Desc)])
+  @@index([requestId])
+  @@index([correlationId])
+  @@unique([action, entityId, requestId])
+  @@map("audit_log")
+}
+
+model AuditLogDLQ {
+  id           String    @id @default(uuid())
+  failedAt     DateTime  @default(now()) @map("failed_at")
+  error        String
+  retryCount   Int       @default(0) @map("retry_count")
+  lastRetryAt  DateTime? @map("last_retry_at")
+  eventData    String    @map("event_data") // JSON
+  resolved     Boolean   @default(false)
+  resolvedAt   DateTime? @map("resolved_at")
+
+  @@index([failedAt(sort: Desc)])
+  @@index([resolved, failedAt(sort: Desc)])
+  @@map("audit_log_dlq")
+}
+
+model AuditChainVerification {
+  id               String    @id @default(uuid())
+  verifiedAt       DateTime  @default(now()) @map("verified_at")
+  rangeStart       DateTime  @map("range_start")
+  rangeEnd         DateTime  @map("range_end")
+  totalEntries     Int       @map("total_entries")
+  verifiedEntries  Int       @map("verified_entries")
+  firstFailureId   String?   @map("first_failure_id")
+  firstFailureTs   DateTime? @map("first_failure_ts")
+  status           String    // valid, invalid, partial
+  details          String?   // JSON
+
+  @@index([verifiedAt(sort: Desc)])
+  @@index([status, verifiedAt(sort: Desc)])
+  @@map("audit_chain_verification")
 }
 
 model Attachment {

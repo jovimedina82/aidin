@@ -59,7 +59,11 @@ export default function ProfilePage() {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
-  const initials = user ? `${user.firstName[0]}${user.lastName[0]}` : 'U'
+  const initials = user
+    ? (user.firstName && user.lastName
+        ? `${user.firstName[0]}${user.lastName[0]}`
+        : (user.name ? user.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'U'))
+    : 'U'
   const isSSOUser = user?.azureId ? true : false
 
   return (
@@ -213,12 +217,12 @@ export default function ProfilePage() {
                     <div className="flex items-center space-x-4">
                       <Avatar className="h-16 w-16 flex-shrink-0">
                         {user?.avatar && (
-                          <AvatarImage src={user.avatar} alt={`${user.firstName} ${user.lastName}`} />
+                          <AvatarImage src={user.avatar} alt={user.name || user.email || 'User'} />
                         )}
                         <AvatarFallback className="text-lg">{initials}</AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold">{user?.firstName} {user?.lastName}</h3>
+                        <h3 className="font-semibold">{user?.name || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'User'}</h3>
                       </div>
                     </div>
 
@@ -234,11 +238,14 @@ export default function ProfilePage() {
                         <Shield size={16} className="text-muted-foreground" />
                         <span className="text-sm">Roles:</span>
                         <div className="flex gap-1">
-                          {user?.roles?.map((role) => (
-                            <Badge key={role} variant="secondary" className="text-xs">
-                              {role}
-                            </Badge>
-                          ))}
+                          {user?.roles?.map((role, index) => {
+                            const roleName = typeof role === 'string' ? role : (role.role?.name || role.name || 'User');
+                            return (
+                              <Badge key={`${roleName}-${index}`} variant="secondary" className="text-xs">
+                                {roleName}
+                              </Badge>
+                            );
+                          })}
                         </div>
                       </div>
                       

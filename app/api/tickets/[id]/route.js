@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth"
 import { hasTicketAccess, canTakeTicket } from "@/lib/access-control"
 import { emitTicketUpdated, emitTicketDeleted } from '@/lib/socket'
+import { logEvent } from '@/lib/audit'
 
 
 export async function GET(request, { params }) {
@@ -454,6 +455,91 @@ export async function PATCH(request, { params }) {
         }
       }
     })
+
+    // Log ticket assignment/unassignment to audit trail
+    if ('assigneeId' in data && currentTicket.assigneeId !== data.assigneeId) {
+      const wasUnassigned = !currentTicket.assigneeId
+      const wasTakenBySelf = data.assigneeId === currentUser.id
+      const isUnassigning = data.assigneeId === null
+
+      if (isUnassigning) {
+        // Log unassignment
+        await logEvent({
+          action: 'ticket.unassigned',
+          actorId: currentUser.id,
+          actorEmail: currentUser.email,
+          actorType: 'human',
+          entityType: 'ticket',
+          entityId: ticket.id,
+          ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
+          userAgent: request.headers.get('user-agent') || null,
+          prevValues: {
+            assigneeId: currentTicket.assigneeId,
+            status: currentTicket.status,
+            ticketNumber: currentTicket.ticketNumber
+          },
+          newValues: {
+            assigneeId: null,
+            status: ticket.status,
+            ticketNumber: ticket.ticketNumber
+          },
+          metadata: {
+            previousAssignee: currentTicket.assignee ? `${currentTicket.assignee.firstName} ${currentTicket.assignee.lastName}` : 'unassigned'
+          }
+        })
+      } else {
+        // Log assignment or takeover
+        await logEvent({
+          action: wasUnassigned && wasTakenBySelf ? 'ticket.taken' : 'ticket.assigned',
+          actorId: currentUser.id,
+          actorEmail: currentUser.email,
+          actorType: 'human',
+          entityType: 'ticket',
+          entityId: ticket.id,
+          ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
+          userAgent: request.headers.get('user-agent') || null,
+          prevValues: {
+            assigneeId: currentTicket.assigneeId,
+            status: currentTicket.status
+          },
+          newValues: {
+            assigneeId: ticket.assigneeId,
+            status: ticket.status,
+            ticketNumber: ticket.ticketNumber
+          },
+          metadata: {
+            assignedTo: ticket.assignee ? `${ticket.assignee.firstName} ${ticket.assignee.lastName}` : null,
+            previousAssignee: currentTicket.assigneeId ? 'someone' : 'unassigned',
+            isAdminTakeover: currentTicket.assigneeId && currentTicket.assigneeId !== currentUser.id && isAdmin
+          }
+        })
+      }
+    }
+
+    // Log status changes
+    if (data.status && currentTicket.status !== data.status) {
+      await logEvent({
+        action: 'ticket.status_changed',
+        actorId: currentUser.id,
+        actorEmail: currentUser.email,
+        actorType: 'human',
+        entityType: 'ticket',
+        entityId: ticket.id,
+        ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
+        userAgent: request.headers.get('user-agent') || null,
+        prevValues: {
+          status: currentTicket.status
+        },
+        newValues: {
+          status: ticket.status,
+          ticketNumber: ticket.ticketNumber
+        },
+        metadata: {
+          fromStatus: currentTicket.status,
+          toStatus: ticket.status
+        }
+      })
+    }
 
     return NextResponse.json(ticket)
   } catch (error) {

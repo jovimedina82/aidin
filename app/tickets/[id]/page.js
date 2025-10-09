@@ -42,7 +42,8 @@ import {
   CheckCircle,
   XCircle,
   Pause,
-  Paperclip
+  Paperclip,
+  Sparkles
 } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { formatDistanceToNow } from 'date-fns'
@@ -61,8 +62,11 @@ export default function TicketDetailPage({ params }) {
   const [showAssistant, setShowAssistant] = useState(false)
   const [assistantMinimized, setAssistantMinimized] = useState(false)
 
-  const isStaff = user?.roles?.some(role => ['Admin', 'Manager', 'Staff'].includes(role))
-  const isAdmin = user?.roles?.some(role => ['Admin', 'Manager'].includes(role))
+  const userRoleNames = user?.roles?.map(role =>
+    typeof role === 'string' ? role : (role.role?.name || role.name)
+  ) || []
+  const isStaff = userRoleNames.some(role => ['Admin', 'Manager', 'Staff'].includes(role))
+  const isAdmin = userRoleNames.some(role => ['Admin', 'Manager'].includes(role))
   const canEdit = isStaff || ticket?.requesterId === user?.id
 
   // Handle back navigation to previous view
@@ -640,7 +644,44 @@ export default function TicketDetailPage({ params }) {
               </Card>
 
               {/* AI Draft Response Review */}
-              <AIDraftReview ticket={ticket} onUpdate={fetchTicket} />
+              {ticket.aiDraftResponse ? (
+                <AIDraftReview ticket={ticket} onUpdate={fetchTicket} />
+              ) : (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Sparkles className="w-5 h-5" />
+                      AI-Generated Draft Response
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      No AI draft response has been generated for this ticket yet.
+                    </p>
+                    <Button
+                      onClick={async () => {
+                        try {
+                          const response = await makeAuthenticatedRequest(`/api/tickets/${ticket.id}/generate-draft`, {
+                            method: 'POST'
+                          })
+                          if (response.ok) {
+                            toast.success('AI draft generated successfully')
+                            fetchTicket()
+                          } else {
+                            const error = await response.json()
+                            toast.error(error.error || 'Failed to generate draft')
+                          }
+                        } catch (error) {
+                          toast.error('Failed to generate draft')
+                        }
+                      }}
+                    >
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Generate AI Draft Response
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Comments */}
               <Card>

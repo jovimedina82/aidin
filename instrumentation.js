@@ -9,6 +9,7 @@ export async function register() {
     // Import and start the Azure AD sync scheduler
     const { default: azureSyncScheduler } = await import('./lib/services/AzureSyncScheduler.js')
     const { default: attachmentCleanupScheduler } = await import('./lib/services/AttachmentCleanupScheduler.js')
+    const { default: auditLogCleanupScheduler } = await import('./lib/services/AuditLogCleanupScheduler.js')
 
     // Check if scheduler should be enabled
     const isProduction = process.env.NODE_ENV === 'production'
@@ -24,5 +25,9 @@ export async function register() {
     // Start attachment cleanup scheduler (runs in all environments)
     console.log('🧹 Starting attachment cleanup scheduler...')
     attachmentCleanupScheduler.start()
+
+    // Start audit log cleanup scheduler (runs in all environments)
+    console.log('🔒 Starting audit log cleanup scheduler...')
+    auditLogCleanupScheduler.start()
   }
 }

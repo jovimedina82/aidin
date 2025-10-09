@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { verifyToken } from '../../../../lib/auth.js'
-import { getBaseUrl } from '../../../../lib/config.ts'
+import { getBaseUrl, cookieOptions } from '../../../../lib/config.ts'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,12 +23,12 @@ export async function GET(request) {
       // Set the auth cookie and redirect immediately to dashboard
       const response = NextResponse.redirect(`${BASE_URL}/dashboard`, 302)
 
-      // Set HttpOnly cookie
-      const cookieValue = process.env.NODE_ENV === 'production'
-        ? `authToken=${token}; HttpOnly; Secure; SameSite=Lax; Max-Age=${60 * 60 * 24 * 7}; Path=/; Domain=.surterreproperties.com`
-        : `authToken=${token}; HttpOnly; SameSite=Lax; Max-Age=${60 * 60 * 24 * 7}; Path=/`
-
-      response.headers.set('Set-Cookie', cookieValue)
+      // Set HttpOnly cookie using the new cookie name and options
+      const opts = cookieOptions()
+      response.cookies.set('aidin_token', token, {
+        ...opts,
+        maxAge: 60 * 60 * 24 * 7 // 7 days
+      })
 
       return response
 

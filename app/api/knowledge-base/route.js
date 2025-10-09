@@ -25,8 +25,8 @@ export async function GET(request) {
 
     if (search) {
       where.OR = [
-        { title: { contains: search, mode: 'insensitive' } },
-        { content: { contains: search, mode: 'insensitive' } }
+        { title: { contains: search } },
+        { content: { contains: search } }
       ]
     }
 
@@ -39,10 +39,18 @@ export async function GET(request) {
             name: true,
             color: true
           }
+        },
+        createdBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
         }
       },
       orderBy: {
-        updatedAt: 'desc'
+        createdAt: 'desc'
       }
     })
 

@@ -5,7 +5,7 @@
 
 import { PrismaClient } from '@/lib/generated/prisma';
 import { randomUUID } from 'crypto';
-import type { AuditEvent, ActorType, EntityType } from './types';
+import type { AuditEvent, ActorType, EntityType, RedactionLevel } from './types';
 import { SYSTEM_ACTOR, REDACTION_POLICIES } from './types';
 import { redactData, sanitizeMetadata, redactIP } from './redaction';
 import { computeEntryHash } from './hash';
@@ -62,7 +62,7 @@ export async function logEvent(event: AuditEvent): Promise<void> {
       metadata: redactedEvent.metadata
         ? JSON.stringify(redactedEvent.metadata)
         : null,
-      redactionLevel: enrichedEvent.redactionLevel || 0,
+      redactionLevel: (enrichedEvent.redactionLevel || 0) as RedactionLevel,
       prevHash,
       hash: '', // Will be computed next
     };

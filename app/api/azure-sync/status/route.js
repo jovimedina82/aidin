@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getAppOnlyAccessToken } from '@/lib/services/MicrosoftGraphService'
 
 // Force this route to be dynamic (not cached)
 export const dynamic = 'force-dynamic'
@@ -15,13 +16,13 @@ export async function GET() {
       process.env.MICROSOFT_GRAPH_SYNC_GROUP
     )
 
-    // Get the last sync information from audit logs
+    // Get the last sync information from audit logs (new system)
     const lastSyncLog = await prisma.auditLog.findFirst({
       where: {
-        action: { in: ['AZURE_SYNC_AUTO', 'AZURE_SYNC_MANUAL'] }
+        action: { in: ['azure.sync.auto', 'azure.sync.manual'] }
       },
       orderBy: {
-        createdAt: 'desc'
+        ts: 'desc'
       }
     })
 
@@ -32,15 +33,33 @@ export async function GET() {
       }
     })
 
+    // Test connection if configured
+    let connectionStatus = 'not_configured'
+    let connectionError = null
+
+    if (isConfigured) {
+      try {
+        await getAppOnlyAccessToken()
+        connectionStatus = 'connected'
+      } catch (error) {
+        connectionStatus = 'error'
+        connectionError = error.message
+        console.error('Azure AD connection test failed:', error)
+      }
+    }
+
     const status = {
       enabled: isConfigured,
       configured: isConfigured,
-      lastSync: lastSyncLog?.createdAt || null,
+      connected: connectionStatus === 'connected',
+      connectionStatus,
+      connectionError,
+      lastSync: lastSyncLog?.ts || null,
       syncStatus: isConfigured ? 'ready' : 'not_configured',
       userCount: azureUserCount,
       groupName: process.env.MICROSOFT_GRAPH_SYNC_GROUP || null,
       syncInterval: parseInt(process.env.SYNC_INTERVAL_MINUTES || '30'),
-      lastSyncDetails: lastSyncLog ? JSON.parse(lastSyncLog.newValues || '{}') : null,
+      lastSyncDetails: lastSyncLog ? JSON.parse(lastSyncLog.metadata || '{}') : null,
       missingConfig: []
     }
 

@@ -106,3 +106,4 @@ prisma/*.db
 *.cert
 **/secrets/
 credentials/
+.env.ci

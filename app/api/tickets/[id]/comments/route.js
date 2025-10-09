@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth"
+import { logEvent } from '@/lib/audit'
 
 
 export async function GET(request, { params }) {
@@ -47,6 +48,12 @@ export async function POST(request, { params }) {
 
     const data = await request.json()
 
+    // Get ticket info for audit log
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: params.id },
+      select: { ticketNumber: true }
+    })
+
     const comment = await prisma.ticketComment.create({
       data: {
         ticketId: params.id,
@@ -63,6 +70,30 @@ export async function POST(request, { params }) {
             email: true
           }
         }
+      }
+    })
+
+    // Log comment creation to audit trail
+    await logEvent({
+      action: 'comment.created',
+      actorId: user.id,
+      actorEmail: user.email,
+      actorType: 'human',
+      entityType: 'comment',
+      entityId: comment.id,
+      targetId: params.id,
+      ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
+      userAgent: request.headers.get('user-agent') || null,
+      newValues: {
+        ticketId: params.id,
+        isPublic: comment.isPublic,
+        contentLength: data.content?.length || 0,
+        contentPreview: data.content?.substring(0, 200) || ''
+      },
+      metadata: {
+        isInternal: data.isInternal || false,
+        ticketNumber: ticket?.ticketNumber || 'unknown',
+        commentSummary: data.content?.substring(0, 200) || ''
       }
     })
 

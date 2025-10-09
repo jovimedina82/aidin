@@ -31,6 +31,14 @@ export async function GET(request) {
             color: true
           }
         },
+        createdBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        },
         ticketResponses: {
           select: {
             id: true,
@@ -40,7 +48,7 @@ export async function GET(request) {
         }
       },
       orderBy: {
-        updatedAt: 'desc'
+        createdAt: 'desc'
       }
     })
 
@@ -99,6 +107,7 @@ export async function POST(request) {
         content,
         tags: tags ? JSON.stringify(tags) : null,
         departmentId: departmentId || null,
+        createdById: user.id,
         embedding: embedding ? JSON.stringify(embedding) : null,
         images: images ? JSON.stringify(images) : null
       },
@@ -107,6 +116,14 @@ export async function POST(request) {
           select: {
             name: true,
             color: true
+          }
+        },
+        createdBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
           }
         }
       }

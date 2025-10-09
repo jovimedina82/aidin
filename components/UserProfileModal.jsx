@@ -36,7 +36,11 @@ export default function UserProfileModal({ isOpen, onClose, userId }) {
 
   if (!isOpen) return null
 
-  const initials = user ? `${user.firstName[0]}${user.lastName[0]}` : '??'
+  const initials = user
+    ? (user.firstName && user.lastName
+        ? `${user.firstName[0]}${user.lastName[0]}`
+        : (user.name ? user.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : '??'))
+    : '??'
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

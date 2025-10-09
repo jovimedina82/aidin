@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../components/AuthProvider'
 import SidebarLayout from '../../components/SidebarLayout'
+import { extractRoleNames, isAdmin as checkIsAdmin } from '../../lib/role-utils'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -49,11 +50,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Settings, Users, Plus, Edit, Trash2, Shield, UserX, UserCheck, Building2, Brain, Ticket, Search, Calendar, User, MoreVertical } from 'lucide-react'
+import { Settings, Users, Plus, Edit, Trash2, Shield, UserX, UserCheck, Building2, Brain, Ticket, Search, Calendar, User, MoreVertical, FileText } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDistanceToNow } from 'date-fns'
 import DepartmentManagement from '../../components/DepartmentManagement'
 import AIAdministration from '../../components/AIAdministration'
+import AuditLogViewer from '../../components/AuditLogViewer'
 
 export default function AdminPage() {
   const { user, makeAuthenticatedRequest } = useAuth()
@@ -89,8 +91,13 @@ export default function AdminPage() {
   const [ticketToDelete, setTicketToDelete] = useState(null)
   const [selectedTickets, setSelectedTickets] = useState([])
 
+  // Settings state
+  const [settings, setSettings] = useState(null)
+  const [settingsLoading, setSettingsLoading] = useState(false)
+  const [settingsSaving, setSettingsSaving] = useState(false)
+
   // Check admin access
-  const isAdmin = user?.roles?.includes('Admin')
+  const isAdmin = checkIsAdmin(user)
 
   useEffect(() => {
     if (!isAdmin) {
@@ -160,8 +167,12 @@ export default function AdminPage() {
       if (response.ok) {
         const data = await response.json()
         setAzureSyncStatus(data)
-        if (data.configured && data.enabled && data.syncStatus === 'ready') {
+
+        // Update connection status based on the actual connection test from the API
+        if (data.connected) {
           setAzureConnectionStatus('connected')
+        } else if (data.connectionStatus === 'error') {
+          setAzureConnectionStatus('error')
         } else if (data.configured) {
           setAzureConnectionStatus('configured')
         } else {
@@ -226,10 +237,73 @@ export default function AdminPage() {
     }
   }
 
-  // Load Azure sync status on component mount
+  // Settings functions
+  const fetchSettings = async () => {
+    setSettingsLoading(true)
+    try {
+      const response = await makeAuthenticatedRequest('/api/admin/settings')
+      if (response.ok) {
+        const data = await response.json()
+        setSettings(data)
+      } else {
+        toast.error('Failed to load settings')
+      }
+    } catch (error) {
+      console.error('Failed to fetch settings:', error)
+      toast.error('Failed to load settings')
+    } finally {
+      setSettingsLoading(false)
+    }
+  }
+
+  const saveSettings = async () => {
+    setSettingsSaving(true)
+    try {
+      const response = await makeAuthenticatedRequest('/api/admin/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings)
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        toast.success(result.message)
+        if (result.requiresRestart) {
+          toast.info('Please restart the application for changes to take effect', { duration: 5000 })
+        }
+      } else {
+        const error = await response.json()
+        toast.error(`Failed to save settings: ${error.error}`)
+      }
+    } catch (error) {
+      console.error('Failed to save settings:', error)
+      toast.error('Failed to save settings')
+    } finally {
+      setSettingsSaving(false)
+    }
+  }
+
+  const updateSetting = (section, key, value) => {
+    setSettings(prev => ({
+      ...prev,
+      [section]: {
+        ...prev[section],
+        [key]: value
+      }
+    }))
+  }
+
+  // Load Azure sync status on component mount and refresh every 30 seconds
   useEffect(() => {
     if (isAdmin) {
       fetchAzureSyncStatus()
+
+      // Refresh status every 30 seconds to keep connection status up to date
+      const intervalId = setInterval(() => {
+        fetchAzureSyncStatus()
+      }, 30000) // 30 seconds
+
+      return () => clearInterval(intervalId)
     }
   }, [isAdmin])
 
@@ -652,7 +726,7 @@ export default function AdminPage() {
         </div>
 
         <Tabs defaultValue="users" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-1 h-auto p-1">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-1 h-auto p-1">
             <TabsTrigger value="users" className="text-[10px] leading-tight py-2 px-1 sm:text-sm sm:py-2 sm:px-3 whitespace-normal min-h-[44px]">
               User Management
             </TabsTrigger>
@@ -667,6 +741,9 @@ export default function AdminPage() {
             </TabsTrigger>
             <TabsTrigger value="azure-sync" className="text-[10px] leading-tight py-2 px-1 sm:text-sm sm:py-2 sm:px-3 whitespace-normal min-h-[44px]">
               Azure AD
+            </TabsTrigger>
+            <TabsTrigger value="audit" className="text-[10px] leading-tight py-2 px-1 sm:text-sm sm:py-2 sm:px-3 whitespace-normal min-h-[44px]">
+              Audit Log
             </TabsTrigger>
             <TabsTrigger value="settings" className="text-[10px] leading-tight py-2 px-1 sm:text-sm sm:py-2 sm:px-3 whitespace-normal min-h-[44px]">
               Settings
@@ -1131,29 +1208,365 @@ export default function AdminPage() {
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>System Configuration</CardTitle>
-                <CardDescription>
-                  Configure system-wide settings and preferences
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium">Organization Name</label>
-                      <Input value="Surterre Properties" />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium">Support Email</label>
-                      <Input value="helpdesk@surterreproperties.com" />
-                    </div>
+            {!settings && !settingsLoading && (
+              <Card>
+                <CardContent className="pt-6">
+                  <Button onClick={fetchSettings}>Load Environment Settings</Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {settingsLoading && (
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-center">Loading settings...</div>
+                </CardContent>
+              </Card>
+            )}
+
+            {settings && (
+              <>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h2 className="text-2xl font-bold">Environment Configuration</h2>
+                    <p className="text-sm text-muted-foreground">Manage system environment variables</p>
                   </div>
-                  <Button>Save Changes</Button>
+                  <div className="flex gap-2">
+                    <Button onClick={fetchSettings} variant="outline" size="sm">
+                      Refresh
+                    </Button>
+                    <Button onClick={saveSettings} disabled={settingsSaving} size="sm">
+                      {settingsSaving ? 'Saving...' : 'Save All Changes'}
+                    </Button>
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
+
+                {/* Authentication Settings */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Authentication & Security</CardTitle>
+                    <CardDescription>JWT and development login configuration</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium">JWT Secret</label>
+                        <Input
+                          type="password"
+                          value={settings.auth?.jwtSecret || ''}
+                          onChange={(e) => updateSetting('auth', 'jwtSecret', e.target.value)}
+                          placeholder="Enter JWT secret (min 32 chars)"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Dev Admin Email</label>
+                        <Input
+                          value={settings.auth?.devAdminEmail || ''}
+                          onChange={(e) => updateSetting('auth', 'devAdminEmail', e.target.value)}
+                          placeholder="admin@example.com"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-4">
+                      <Checkbox
+                        checked={settings.auth?.devLoginEnabled || false}
+                        onCheckedChange={(checked) => updateSetting('auth', 'devLoginEnabled', checked)}
+                      />
+                      <label className="text-sm">Enable Dev Login (Bypass)</label>
+                    </div>
+                    <div className="flex items-center space-x-4">
+                      <Checkbox
+                        checked={settings.auth?.authDevBypass || false}
+                        onCheckedChange={(checked) => updateSetting('auth', 'authDevBypass', checked)}
+                      />
+                      <label className="text-sm">Enable Auth Dev Bypass</label>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Azure AD Settings */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Microsoft Azure AD / Entra ID</CardTitle>
+                    <CardDescription>Azure Active Directory SSO configuration</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium">Tenant ID</label>
+                        <Input
+                          value={settings.azure?.tenantId || ''}
+                          onChange={(e) => updateSetting('azure', 'tenantId', e.target.value)}
+                          placeholder="a4000698-9e71-4f9a-8f4e-b64d8f8cbca7"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Client ID</label>
+                        <Input
+                          value={settings.azure?.clientId || ''}
+                          onChange={(e) => updateSetting('azure', 'clientId', e.target.value)}
+                          placeholder="5e06ba03-616f-43e2-b4e2-a97b22669e3a"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Client Secret</label>
+                        <Input
+                          type="password"
+                          value={settings.azure?.clientSecret || ''}
+                          onChange={(e) => updateSetting('azure', 'clientSecret', e.target.value)}
+                          placeholder="Enter new secret or leave masked"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Sync Group Name</label>
+                        <Input
+                          value={settings.azure?.syncGroup || ''}
+                          onChange={(e) => updateSetting('azure', 'syncGroup', e.target.value)}
+                          placeholder="IT-Helpdesk"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Sync Interval (minutes)</label>
+                        <Input
+                          type="number"
+                          value={settings.azure?.syncInterval || '30'}
+                          onChange={(e) => updateSetting('azure', 'syncInterval', e.target.value)}
+                          placeholder="30"
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Google Workspace Settings */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Google Workspace</CardTitle>
+                    <CardDescription>Google Workspace SSO configuration (coming soon)</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium">Client ID</label>
+                        <Input
+                          value={settings.google?.clientId || ''}
+                          onChange={(e) => updateSetting('google', 'clientId', e.target.value)}
+                          placeholder="Google OAuth Client ID"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Client Secret</label>
+                        <Input
+                          type="password"
+                          value={settings.google?.clientSecret || ''}
+                          onChange={(e) => updateSetting('google', 'clientSecret', e.target.value)}
+                          placeholder="Enter new secret"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Workspace Domain</label>
+                        <Input
+                          value={settings.google?.workspaceDomain || ''}
+                          onChange={(e) => updateSetting('google', 'workspaceDomain', e.target.value)}
+                          placeholder="example.com"
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Email Settings */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Email Configuration</CardTitle>
+                    <CardDescription>SMTP and email service settings</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium">Email Provider</label>
+                        <Select
+                          value={settings.email?.provider || 'smtp'}
+                          onValueChange={(value) => updateSetting('email', 'provider', value)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="smtp">SMTP</SelectItem>
+                            <SelectItem value="sendgrid">SendGrid</SelectItem>
+                            <SelectItem value="ses">AWS SES</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Helpdesk Email</label>
+                        <Input
+                          value={settings.email?.helpdeskEmail || ''}
+                          onChange={(e) => updateSetting('email', 'helpdeskEmail', e.target.value)}
+                          placeholder="helpdesk@example.com"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">SMTP Host</label>
+                        <Input
+                          value={settings.email?.smtpHost || ''}
+                          onChange={(e) => updateSetting('email', 'smtpHost', e.target.value)}
+                          placeholder="smtp.gmail.com"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">SMTP Port</label>
+                        <Input
+                          type="number"
+                          value={settings.email?.smtpPort || '587'}
+                          onChange={(e) => updateSetting('email', 'smtpPort', e.target.value)}
+                          placeholder="587"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">SMTP User</label>
+                        <Input
+                          value={settings.email?.smtpUser || ''}
+                          onChange={(e) => updateSetting('email', 'smtpUser', e.target.value)}
+                          placeholder="user@example.com"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">SMTP Password</label>
+                        <Input
+                          type="password"
+                          value={settings.email?.smtpPass || ''}
+                          onChange={(e) => updateSetting('email', 'smtpPass', e.target.value)}
+                          placeholder="Enter new password"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-4">
+                      <Checkbox
+                        checked={settings.email?.inboundEnabled || false}
+                        onCheckedChange={(checked) => updateSetting('email', 'inboundEnabled', checked)}
+                      />
+                      <label className="text-sm">Enable Inbound Email Processing</label>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* AI Configuration */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>AI Configuration</CardTitle>
+                    <CardDescription>AI provider and API key settings</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium">AI Provider</label>
+                        <Select
+                          value={settings.ai?.provider || 'anthropic'}
+                          onValueChange={(value) => updateSetting('ai', 'provider', value)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="anthropic">Anthropic (Claude)</SelectItem>
+                            <SelectItem value="openai">OpenAI (GPT)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Anthropic API Key</label>
+                        <Input
+                          type="password"
+                          value={settings.ai?.anthropicKey || ''}
+                          onChange={(e) => updateSetting('ai', 'anthropicKey', e.target.value)}
+                          placeholder="sk-ant-..."
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">OpenAI API Key</label>
+                        <Input
+                          type="password"
+                          value={settings.ai?.openaiKey || ''}
+                          onChange={(e) => updateSetting('ai', 'openaiKey', e.target.value)}
+                          placeholder="sk-..."
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Feature Flags */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Feature Flags</CardTitle>
+                    <CardDescription>Enable or disable system features</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center space-x-4">
+                      <Checkbox
+                        checked={settings.features?.autoAssignEnabled || false}
+                        onCheckedChange={(checked) => updateSetting('features', 'autoAssignEnabled', checked)}
+                      />
+                      <label className="text-sm">Enable Auto-Assign Tickets</label>
+                    </div>
+                    <div className="flex items-center space-x-4">
+                      <Checkbox
+                        checked={settings.features?.publicRegistration || false}
+                        onCheckedChange={(checked) => updateSetting('features', 'publicRegistration', checked)}
+                      />
+                      <label className="text-sm">Enable Public Registration</label>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* URL Configuration */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>URL Configuration</CardTitle>
+                    <CardDescription>Base URLs and redirect URIs</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium">Base URL</label>
+                        <Input
+                          value={settings.urls?.baseUrl || ''}
+                          onChange={(e) => updateSetting('urls', 'baseUrl', e.target.value)}
+                          placeholder="http://localhost:3000"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Public Base URL</label>
+                        <Input
+                          value={settings.urls?.publicBaseUrl || ''}
+                          onChange={(e) => updateSetting('urls', 'publicBaseUrl', e.target.value)}
+                          placeholder="http://localhost:3000"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">NextAuth URL</label>
+                        <Input
+                          value={settings.urls?.nextAuthUrl || ''}
+                          onChange={(e) => updateSetting('urls', 'nextAuthUrl', e.target.value)}
+                          placeholder="http://localhost:3000"
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div className="flex justify-end gap-2">
+                  <Button onClick={fetchSettings} variant="outline">
+                    Reset Changes
+                  </Button>
+                  <Button onClick={saveSettings} disabled={settingsSaving}>
+                    {settingsSaving ? 'Saving...' : 'Save All Changes'}
+                  </Button>
+                </div>
+              </>
+            )}
           </TabsContent>
 
           <TabsContent value="azure-sync" className="space-y-6">
@@ -1180,9 +1593,14 @@ export default function AdminPage() {
                     <Card>
                       <CardContent className="pt-4 sm:pt-6">
                         <div className="text-xl sm:text-2xl font-bold">
-                          {azureSyncStatus?.lastSync ? 'Connected' : 'Not Configured'}
+                          {azureConnectionStatus === 'connected' ? '✅ Connected' :
+                           azureConnectionStatus === 'error' ? '❌ Error' :
+                           azureConnectionStatus === 'configured' ? '⚙️ Configured' : '⚠️ Not Configured'}
                         </div>
                         <p className="text-xs sm:text-sm text-muted-foreground">Connection Status</p>
+                        {azureSyncStatus?.connectionError && (
+                          <p className="text-xs text-red-600 mt-1">{azureSyncStatus.connectionError}</p>
+                        )}
                       </CardContent>
                     </Card>
                     <Card>
@@ -1196,7 +1614,7 @@ export default function AdminPage() {
                   </div>
 
                   {/* Last Sync Information */}
-                  {azureSyncStatus?.lastSync && (
+                  {azureSyncStatus?.lastSyncDetails && (
                     <Card>
                       <CardHeader>
                         <CardTitle className="text-base sm:text-lg">Last Synchronization</CardTitle>
@@ -1204,22 +1622,22 @@ export default function AdminPage() {
                       <CardContent>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
                           <div>
-                            <strong>Performed By:</strong> {azureSyncStatus.lastSync.performedBy}
+                            <strong>Performed By:</strong> {azureSyncStatus.lastSyncDetails.triggeredBy || 'System'}
                           </div>
                           <div>
-                            <strong>Date:</strong> {new Date(azureSyncStatus.lastSync.timestamp).toLocaleString()}
+                            <strong>Date:</strong> {azureSyncStatus.lastSync ? new Date(azureSyncStatus.lastSync).toLocaleString() : 'Never'}
                           </div>
                           <div>
-                            <strong>Users Created:</strong> {azureSyncStatus.lastSync.changes?.created || 0}
+                            <strong>Users Created:</strong> {azureSyncStatus.lastSyncDetails.created || 0}
                           </div>
                           <div>
-                            <strong>Users Updated:</strong> {azureSyncStatus.lastSync.changes?.updated || 0}
+                            <strong>Users Updated:</strong> {azureSyncStatus.lastSyncDetails.updated || 0}
                           </div>
                           <div>
-                            <strong>Users Skipped:</strong> {azureSyncStatus.lastSync.changes?.skipped || 0}
+                            <strong>Users Skipped:</strong> {azureSyncStatus.lastSyncDetails.skipped || 0}
                           </div>
                           <div>
-                            <strong>Errors:</strong> {azureSyncStatus.lastSync.changes?.errors || 0}
+                            <strong>Errors:</strong> {azureSyncStatus.lastSyncDetails.errors || 0}
                           </div>
                         </div>
                       </CardContent>
@@ -1280,7 +1698,156 @@ export default function AdminPage() {
             </Card>
           </TabsContent>
 
+          <TabsContent value="audit" className="space-y-6">
+            <AuditLogViewer />
+          </TabsContent>
+
           <TabsContent value="integrations" className="space-y-6">
+            {/* Microsoft Entra ID (Azure AD) Integration */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M11.4 24H0V12.6h11.4V24zM24 24H12.6V12.6H24V24zM11.4 11.4H0V0h11.4v11.4z"/>
+                    <path d="M24 11.4H12.6V0H24v11.4z" fill="#00a4ef"/>
+                  </svg>
+                  Microsoft Entra ID (Azure AD) Integration
+                </CardTitle>
+                <CardDescription>
+                  Configure Single Sign-On with Microsoft Entra ID for your organization
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium">Tenant ID</label>
+                    <Input
+                      value={process.env.NEXT_PUBLIC_AZURE_AD_TENANT_ID || ''}
+                      placeholder="a4000698-9e71-4f9a-8f4e-b64d8f8cbca7"
+                      disabled
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Your Azure AD tenant identifier
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Client ID (Application ID)</label>
+                    <Input
+                      value={process.env.NEXT_PUBLIC_AZURE_AD_CLIENT_ID || ''}
+                      placeholder="5e06ba03-616f-43e2-b4e2-a97b22669e3a"
+                      disabled
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Application (client) ID from your app registration
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Client Secret</label>
+                    <Input
+                      type="password"
+                      value="••••••••••••••••••••••••"
+                      disabled
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Client secret configured in environment variables
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Redirect URI</label>
+                    <Input
+                      value={`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/auth/azure-callback`}
+                      disabled
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Configure this redirect URI in your Azure AD app registration
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {process.env.NEXT_PUBLIC_AZURE_AD_TENANT_ID && process.env.NEXT_PUBLIC_AZURE_AD_CLIENT_ID ? (
+                      <Badge variant="outline" className="text-green-600">
+                        ✓ Microsoft Entra ID SSO Configured
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-yellow-600">
+                        ⚠ Not Configured - Set environment variables
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm">
+                    <p className="font-medium text-blue-900 mb-2">Configuration Instructions:</p>
+                    <ol className="list-decimal list-inside space-y-1 text-blue-800">
+                      <li>Go to Azure Portal → Azure Active Directory → App registrations</li>
+                      <li>Create a new registration or use existing one</li>
+                      <li>Add the Redirect URI shown above</li>
+                      <li>Generate a client secret in Certificates & secrets</li>
+                      <li>Set environment variables in .env.local:
+                        <ul className="list-disc list-inside ml-4 mt-1 text-xs">
+                          <li>AZURE_AD_TENANT_ID</li>
+                          <li>AZURE_AD_CLIENT_ID</li>
+                          <li>AZURE_AD_CLIENT_SECRET</li>
+                        </ul>
+                      </li>
+                    </ol>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Google Workspace Integration */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                  </svg>
+                  Google Workspace Integration
+                </CardTitle>
+                <CardDescription>
+                  Configure Single Sign-On with Google Workspace (Coming Soon)
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium">Client ID</label>
+                    <Input
+                      placeholder="your-client-id.apps.googleusercontent.com"
+                      disabled
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Client Secret</label>
+                    <Input
+                      type="password"
+                      placeholder="Enter client secret"
+                      disabled
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Redirect URI</label>
+                    <Input
+                      value={`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/auth/google-callback`}
+                      disabled
+                    />
+                  </div>
+                  <Badge variant="outline" className="text-gray-600">
+                    Coming Soon
+                  </Badge>
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm">
+                    <p className="font-medium text-gray-900 mb-2">Google Workspace SSO:</p>
+                    <p className="text-gray-700">
+                      Google Workspace integration is planned for a future release.
+                      This will allow users to sign in with their Google accounts.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Email Integration */}
             <Card>
               <CardHeader>
                 <CardTitle>Email Integration</CardTitle>

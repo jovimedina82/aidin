@@ -19,24 +19,13 @@ export function AuthProvider({ children }) {
 
   const checkAuth = async () => {
     try {
-      const token = getAuthToken()
-
-      // If no token, just set loading to false and return
-      if (!token) {
-        setLoading(false)
-        return
-      }
-
-      // Try to authenticate with the token with a timeout
+      // Try to authenticate with cookie-based auth with a timeout
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 2000) // 2 second timeout
 
       try {
         const response = await fetch('/api/auth/me', {
           credentials: 'include',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          },
           signal: controller.signal
         })
 
@@ -45,12 +34,10 @@ export function AuthProvider({ children }) {
         if (response.ok) {
           const data = await response.json()
           setUser(data.user)
-          setTokenState(token)
+          setTokenState('cookie-based')
         } else {
-          // Only clear token if we get a 401 (unauthorized)
-          // Don't clear on network errors or server errors
+          // Only clear user if we get a 401 (unauthorized)
           if (response.status === 401) {
-            removeAuthToken()
             setUser(null)
             setTokenState(null)
           }
@@ -65,13 +52,11 @@ export function AuthProvider({ children }) {
             console.error('Auth check error:', fetchError)
           }
         }
-        // Don't remove token on network errors
       }
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
         console.error('Auth check error:', error)
       }
-      // Network error - don't remove token, user might be offline
     } finally {
       setLoading(false)
     }

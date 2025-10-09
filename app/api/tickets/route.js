@@ -13,6 +13,7 @@ import { QueryOptimizations, PerformanceMonitor } from '@/lib/performance'
 import { generateTicketResponse, categorizeTicket, processTicketWithAI } from '@/lib/openai'
 import { buildTicketAccessWhere } from '@/lib/access-control'
 import { emitTicketCreated, emitTicketUpdated, emitStatsUpdate } from '@/lib/socket'
+import { logEvent } from '@/lib/audit'
 
 // Utility function to strip HTML and convert to clean, well-formatted plain text
 function stripHtml(html) {
@@ -507,6 +508,33 @@ export async function POST(request) {
         }
       })
     }
+
+    // Log ticket creation to audit trail
+    await logEvent({
+      action: 'ticket.created',
+      actorId: user?.id || 'system',
+      actorEmail: user?.email || data.requesterEmail || 'system@surterreproperties.com',
+      actorType: user ? 'human' : 'system',
+      entityType: 'ticket',
+      entityId: ticket.id,
+      ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
+      userAgent: request.headers.get('user-agent') || null,
+      newValues: {
+        ticketNumber: ticket.ticketNumber,
+        title: ticket.title,
+        status: ticket.status,
+        priority: ticket.priority,
+        category: ticket.category,
+        departmentId: ticket.departmentId,
+        requesterId: ticket.requesterId,
+        assigneeId: ticket.assigneeId
+      },
+      metadata: {
+        source: isSystemRequest ? 'email' : 'web',
+        hasEmailConversationId: !!data.emailConversationId,
+        aiProcessed: !!aiDecisionData
+      }
+    })
 
     // Emit Socket.IO event for live updates
     emitTicketCreated(ticket)

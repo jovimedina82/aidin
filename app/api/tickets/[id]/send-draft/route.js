@@ -6,9 +6,16 @@ import OpenAI from 'openai'
 import { readFile } from 'fs/promises'
 import { join } from 'path'
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+// Lazy initialization of OpenAI client to avoid build errors when API key is missing
+let openai = null
+function getOpenAI() {
+  if (!openai && process.env.OPENAI_API_KEY) {
+    openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    })
+  }
+  return openai
+}
 
 /**
  * Extract image URLs from markdown content
@@ -54,7 +61,7 @@ async function analyzeImagesWithAI(imageUrls, ticketId) {
       const mimeType = mimeTypes[ext] || 'image/jpeg'
 
       // Call OpenAI Vision API
-      const response = await openai.chat.completions.create({
+      const response = await getOpenAI()?.chat.completions.create({
         model: "gpt-4o",
         messages: [
           {
@@ -121,7 +128,7 @@ async function createKBArticleFromDraft(ticket, draftContent, ticketId) {
     }
 
     // Use OpenAI to create a generic, reusable KB article
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAI()?.chat.completions.create({
       model: "gpt-4o",
       messages: [
         {
@@ -169,7 +176,7 @@ Transform this into a generic, reusable knowledge base article. Keep the markdow
     const finalContent = completion.choices[0].message.content.trim()
 
     // Generate improved title
-    const titleCompletion = await openai.chat.completions.create({
+    const titleCompletion = await getOpenAI()?.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {

@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import dynamic from 'next/dynamic'
 import { useAuth } from '../../../components/AuthProvider'
 import ProtectedRoute from '../../../components/ProtectedRoute'
 import Navbar from '../../../components/Navbar'
@@ -18,6 +19,8 @@ import {
 import { ArrowLeft, Loader2, Zap } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+
+const ImageDropPaste = dynamic(() => import('../../../components/ImageDropPaste'), { ssr: false })
 
 export default function NewTicketPage() {
   const { user, makeAuthenticatedRequest, loading: authLoading } = useAuth()
@@ -148,6 +151,10 @@ export default function NewTicketPage() {
                   
                   <div className="space-y-2">
                     <Label htmlFor="description">Description *</Label>
+                    <ImageDropPaste
+                      targetTextAreaSelector="#description"
+                      className="mb-3"
+                    />
                     <Textarea
                       id="description"
                       placeholder="Provide detailed information about your issue, including:
@@ -155,7 +162,9 @@ export default function NewTicketPage() {
 • What happened instead
 • Any error messages you saw
 • Steps to reproduce the problem
-• Your operating system and browser (if relevant)"
+• Your operating system and browser (if relevant)
+
+You can also paste or drag & drop images directly into this field!"
                       value={formData.description}
                       onChange={(e) => handleChange('description', e.target.value)}
                       className="min-h-[200px]"

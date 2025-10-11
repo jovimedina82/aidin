@@ -239,18 +239,18 @@ export default function AIDraftReview({ ticket, onUpdate }) {
     : 'Unknown'
 
   return (
-    <div className="bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-200 rounded-lg p-6 shadow-sm">
+    <div className="bg-[#E8F3EF] border-2 border-[#3d6964]/30 rounded-lg p-6 shadow-sm">
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-2">
-          <div className="p-2 bg-purple-100 rounded-lg">
-            <Sparkles className="w-5 h-5 text-purple-600" />
+          <div className="p-2 bg-[#3d6964]/10 rounded-lg">
+            <Sparkles className="w-5 h-5 text-[#3d6964]" />
           </div>
           <div>
             <h3 className="text-lg font-semibold text-gray-900">
-              AI-Generated Draft Response
+              AI-Generated Draft Response (System)
             </h3>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-700">
               Generated {generatedDate}
             </p>
           </div>
@@ -321,7 +321,7 @@ export default function AIDraftReview({ ticket, onUpdate }) {
               setDraftContent(e.target.value)
               setWasEdited(true) // Mark as edited when content changes
             }}
-            className="w-full min-h-[200px] px-4 py-3 border border-purple-300 rounded-lg text-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-200 resize-y font-mono"
+            className="w-full min-h-[200px] px-4 py-3 border border-[#3d6964]/30 rounded-lg text-sm focus:border-[#3d6964] focus:ring-2 focus:ring-[#3d6964]/20 resize-y font-mono"
             placeholder="Edit the AI-generated response..."
           />
           <div className="flex items-center justify-between gap-2">
@@ -355,7 +355,7 @@ export default function AIDraftReview({ ticket, onUpdate }) {
                 size="sm"
                 onClick={handleSendDraft}
                 disabled={sending || !draftContent.trim()}
-                className="bg-purple-600 hover:bg-purple-700 text-white"
+                className="bg-[#3d6964] hover:bg-[#2d5954] text-white"
               >
                 <Send className="w-4 h-4 mr-1" />
                 {sending ? 'Sending...' : 'Send to Requester'}
@@ -365,8 +365,8 @@ export default function AIDraftReview({ ticket, onUpdate }) {
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="bg-white border border-purple-200 rounded-lg p-4">
-            <div className="prose prose-sm max-w-none text-gray-700">
+          <div className="bg-white border border-[#3d6964]/30 rounded-lg p-4">
+            <div className="prose prose-sm max-w-none text-gray-900">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
@@ -412,7 +412,7 @@ export default function AIDraftReview({ ticket, onUpdate }) {
               type="button"
               onClick={handleSendDraft}
               disabled={sending}
-              className="bg-purple-600 hover:bg-purple-700 text-white"
+              className="bg-[#3d6964] hover:bg-[#2d5954] text-white"
             >
               <Send className="w-4 h-4 mr-1" />
               {sending ? 'Sending...' : 'Send to Requester'}
@@ -422,9 +422,9 @@ export default function AIDraftReview({ ticket, onUpdate }) {
       )}
 
       {/* Info Banner */}
-      <div className="mt-4 pt-4 border-t border-purple-200">
-        <p className="text-xs text-gray-600 flex items-center gap-2">
-          <Sparkles className="w-3 h-3 text-purple-500" />
+      <div className="mt-4 pt-4 border-t border-[#3d6964]/20">
+        <p className="text-xs text-gray-700 flex items-center gap-2">
+          <Sparkles className="w-3 h-3 text-[#3d6964]" />
           This AI-generated response uses knowledge base articles and internet research.
           Please review for accuracy before sending.
         </p>

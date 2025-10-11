@@ -16,7 +16,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Ticket, Users, BarChart3, Settings, LogOut, Book, Plus, UserCheck } from 'lucide-react'
+import { Ticket, Users, BarChart3, Settings, LogOut, Book, Plus, UserCheck, Ban } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 
@@ -66,13 +66,12 @@ export default function Navbar() {
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-20">
             <div className="flex items-center space-x-8">
-              <Link href="/dashboard" className="surterre-logo">
-                <div className="w-20 h-20 flex items-center justify-center rounded-full overflow-hidden bg-white">
-                  <Image src="/images/aidin-logo.png" alt="Aidin Logo" width={76} height={76} className="object-contain" />
+              <Link href="/dashboard" className="surterre-logo flex items-center gap-3">
+                <div className="w-20 h-20 flex items-center justify-center rounded-full overflow-hidden flex-shrink-0">
+                  <Image src="/logo.png" alt="Aidin Logo" width={80} height={80} className="object-contain" />
                 </div>
-                <div className="surterre-logo-text">
-                  <div className="surterre-logo-title text-white text-xl font-bold">AIDIN</div>
-                  <div className="surterre-logo-subtitle text-white/80 text-sm">HELPDESK</div>
+                <div className="flex items-center">
+                  <Image src="/images/AidIn helpdesk.png" alt="Aidin Helpdesk" width={120} height={48} className="object-contain" />
                 </div>
               </Link>
 
@@ -135,17 +134,31 @@ export default function Navbar() {
 
                 {/* Admin only sections */}
                 {isAdmin && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Link href="/admin" className="flex items-center space-x-2 text-white/80 hover:text-white">
-                        <Settings size={16} />
-                        <span>Admin</span>
-                      </Link>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>System settings and configuration</p>
-                    </TooltipContent>
-                  </Tooltip>
+                  <>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Link href="/admin" className="flex items-center space-x-2 text-white/80 hover:text-white">
+                          <Settings size={16} />
+                          <span>Admin</span>
+                        </Link>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>System settings and configuration</p>
+                      </TooltipContent>
+                    </Tooltip>
+
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Link href="/admin/blocked-domains" className="flex items-center space-x-2 text-white/80 hover:text-white">
+                          <Ban size={16} />
+                          <span>Blocked Senders</span>
+                        </Link>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Manage blocked email senders</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </>
                 )}
               </div>
             </div>
@@ -227,12 +240,20 @@ export default function Navbar() {
                     </DropdownMenuItem>
                   )}
                   {isAdmin && (
-                    <DropdownMenuItem asChild>
-                      <Link href="/admin" className="flex items-center">
-                        <Settings className="mr-2 h-4 w-4" />
-                        Admin
-                      </Link>
-                    </DropdownMenuItem>
+                    <>
+                      <DropdownMenuItem asChild>
+                        <Link href="/admin" className="flex items-center">
+                          <Settings className="mr-2 h-4 w-4" />
+                          Admin
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/admin/blocked-domains" className="flex items-center">
+                          <Ban className="mr-2 h-4 w-4" />
+                          Blocked Senders
+                        </Link>
+                      </DropdownMenuItem>
+                    </>
                   )}
                   <DropdownMenuSeparator />
                 </div>

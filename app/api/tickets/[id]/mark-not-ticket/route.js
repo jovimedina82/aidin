@@ -24,7 +24,7 @@ export async function POST(request, { params }) {
     }
 
     const ticketId = params.id
-    const { reason } = await request.json()
+    const { reason, blockDomain, emailDomain } = await request.json()
 
     // Get the ticket with all related data
     const ticket = await prisma.ticket.findUnique({
@@ -78,6 +78,33 @@ export async function POST(request, { params }) {
     })
 
     console.log(`✅ Classifier feedback created: ${feedback.id}`)
+
+    // If blocking domain, add to blocklist
+    if (blockDomain && emailDomain) {
+      try {
+        // Check if domain already exists in blocklist
+        const existingBlock = await prisma.blockedEmailDomain.findUnique({
+          where: { domain: emailDomain.toLowerCase() }
+        })
+
+        if (!existingBlock) {
+          await prisma.blockedEmailDomain.create({
+            data: {
+              domain: emailDomain.toLowerCase(),
+              reason: reason || 'Vendor/non-ticket emails',
+              blockedBy: user.id,
+              blockedAt: new Date()
+            }
+          })
+          console.log(`🚫 Domain blocked: ${emailDomain}`)
+        } else {
+          console.log(`ℹ️  Domain already blocked: ${emailDomain}`)
+        }
+      } catch (blockError) {
+        console.error('Failed to block domain:', blockError.message)
+        // Continue even if blocking fails
+      }
+    }
 
     // Forward the original email to help@surterreproperties.com
     try {

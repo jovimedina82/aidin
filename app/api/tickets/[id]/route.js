@@ -86,6 +86,18 @@ export async function GET(request, { params }) {
           orderBy: {
             createdAt: 'asc'
           }
+        },
+        // Include email messages (for email-based tickets)
+        ticketMessages: {
+          orderBy: {
+            createdAt: 'asc'
+          }
+        },
+        // Include inbound email messages with images
+        inboundMessages: {
+          orderBy: {
+            receivedAt: 'desc'
+          }
         }
       }
     })

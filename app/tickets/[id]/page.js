@@ -10,9 +10,8 @@ import TicketThread from '../../../components/TicketThread'
 import AIDraftReview from '../../../components/AIDraftReview'
 
 const ImageGallery = dynamic(() => import('../../../components/ImageGallery'), { ssr: false })
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { EmailMessageViewer } from '../../../components/EmailMessageViewer'
 import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
 import MentionTextarea from '../../../components/MentionTextarea'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -36,17 +35,18 @@ import {
   Clock,
   User,
   MessageCircle,
-  Send,
-  Settings,
   AlertCircle,
   CheckCircle,
   XCircle,
   Pause,
-  Paperclip,
-  Sparkles
+  Sparkles,
+  Mail,
+  Tag,
+  MoreHorizontal,
+  Paperclip
 } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { formatDistanceToNow } from 'date-fns'
+import { formatDistanceToNow, format } from 'date-fns'
 import { toast } from 'sonner'
 
 export default function TicketDetailPage({ params }) {
@@ -69,24 +69,19 @@ export default function TicketDetailPage({ params }) {
   const isAdmin = userRoleNames.some(role => ['Admin', 'Manager'].includes(role))
   const canEdit = isStaff || ticket?.requesterId === user?.id
 
-  // Handle back navigation to previous view
   const handleBackNavigation = () => {
     const returnParams = searchParams.get('return')
     if (returnParams) {
       try {
         const decodedParams = decodeURIComponent(returnParams)
         const urlParams = new URLSearchParams(decodedParams)
-
-        // Build the return URL with all the previous state
         const returnUrl = `/tickets?${urlParams.toString()}`
         router.push(returnUrl)
       } catch (error) {
         console.error('Failed to parse return parameters:', error)
-        // Fallback to basic tickets page
         router.push('/tickets')
       }
     } else {
-      // No return state, go to default tickets page
       router.push('/tickets')
     }
   }
@@ -99,6 +94,17 @@ export default function TicketDetailPage({ params }) {
       }
     }
   }, [params.id, isStaff])
+
+  // Auto-refresh comments every 5 seconds
+  useEffect(() => {
+    if (!params.id) return
+
+    const interval = setInterval(() => {
+      fetchTicket()
+    }, 5000) // Poll every 5 seconds
+
+    return () => clearInterval(interval)
+  }, [params.id])
 
   const fetchTicket = async () => {
     try {
@@ -126,7 +132,6 @@ export default function TicketDetailPage({ params }) {
       const response = await makeAuthenticatedRequest('/api/users')
       if (response.ok) {
         const data = await response.json()
-        // Filter to only show Staff, Manager, and Admin users
         const staffUsers = data.filter(user => {
           const userRoles = user.roles || []
           return userRoles.some(role => {
@@ -158,7 +163,7 @@ export default function TicketDetailPage({ params }) {
       if (response.ok) {
         setNewComment('')
         setIsInternal(false)
-        fetchTicket() // Refresh to get new comment
+        fetchTicket()
         toast.success('Comment added successfully')
       } else {
         const error = await response.json()
@@ -197,7 +202,7 @@ export default function TicketDetailPage({ params }) {
         method: 'PATCH',
         body: JSON.stringify({ status: newStatus })
       })
-      
+
       if (response.ok) {
         const updatedTicket = await response.json()
         setTicket(updatedTicket)
@@ -212,58 +217,26 @@ export default function TicketDetailPage({ params }) {
     }
   }
 
-  const getStatusIcon = (status) => {
-    const icons = {
-      NEW: <AlertCircle className="w-4 h-4 text-red-500" />,
-      OPEN: <AlertCircle className="w-4 h-4 text-red-500" />,
-      PENDING: <Clock className="w-4 h-4 text-blue-500" />,
-      ON_HOLD: <Pause className="w-4 h-4 text-orange-500" />,
-      SOLVED: <CheckCircle className="w-4 h-4 text-green-500" />
-    }
-    return icons[status] || icons.NEW
-  }
-
-  const getStatusBadge = (status) => {
-    const statusConfig = {
-      NEW: { label: 'New', className: 'bg-red-100 text-red-800 border-red-200' },
-      OPEN: { label: 'Open', className: 'bg-red-100 text-red-800 border-red-200' },
-      PENDING: { label: 'Pending', className: 'bg-blue-100 text-blue-800 border-blue-200' },
-      ON_HOLD: { label: 'On Hold', className: 'bg-orange-100 text-orange-800 border-orange-200' },
-      SOLVED: { label: 'Solved', className: 'bg-green-100 text-green-800 border-green-200' }
-    }
-    
-    const config = statusConfig[status] || statusConfig.NEW
-    return (
-      <Badge variant="outline" className={config.className}>
-        <div className="flex items-center space-x-1">
-          {getStatusIcon(status)}
-          <span>{config.label}</span>
-        </div>
-      </Badge>
-    )
-  }
-
   const assignToSelf = async () => {
     try {
       const isAdminTakeover = ticket.assignee && ticket.assigneeId !== user.id && isAdmin
       const previousAssignee = ticket.assignee
-      
+
       const response = await makeAuthenticatedRequest(`/api/tickets/${params.id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           assigneeId: user.id,
-          status: 'OPEN' // Change status to OPEN when taking the ticket
+          status: 'OPEN'
         })
       })
-      
+
       if (response.ok) {
         const updatedTicket = await response.json()
         setTicket(updatedTicket)
-        
+
         if (isAdminTakeover) {
           toast.success('Ticket reassigned to you (Admin takeover)! User will be notified.')
-          
-          // Add admin takeover comment
+
           await makeAuthenticatedRequest(`/api/tickets/${params.id}/comments`, {
             method: 'POST',
             body: JSON.stringify({
@@ -274,8 +247,7 @@ export default function TicketDetailPage({ params }) {
           })
         } else {
           toast.success('Ticket assigned to you successfully! User will be notified.')
-          
-          // Add regular assignment comment
+
           await makeAuthenticatedRequest(`/api/tickets/${params.id}/comments`, {
             method: 'POST',
             body: JSON.stringify({
@@ -285,8 +257,7 @@ export default function TicketDetailPage({ params }) {
             })
           })
         }
-        
-        // Refresh ticket data
+
         fetchTicket()
       } else {
         const error = await response.json()
@@ -300,7 +271,6 @@ export default function TicketDetailPage({ params }) {
 
   const escalateToAdmin = async () => {
     try {
-      // Find an admin user to escalate to
       const usersResponse = await makeAuthenticatedRequest('/api/users')
       if (!usersResponse.ok) {
         toast.error('Failed to load users for escalation')
@@ -308,23 +278,15 @@ export default function TicketDetailPage({ params }) {
       }
 
       const usersData = await usersResponse.json()
-      // Handle both array format and object with users property
       const users = Array.isArray(usersData) ? usersData : usersData.users || []
-
-      console.log('Users data for escalation:', users)
 
       const adminUser = users.find(u => {
         const roles = u.roles || []
-        const hasAdminRole = roles.some(role => {
-          // Handle both role.name and role.role.name formats
+        return roles.some(role => {
           const roleName = role.name || role.role?.name
           return roleName === 'Admin'
         })
-        console.log(`User ${u.firstName} ${u.lastName} has admin role:`, hasAdminRole, 'roles:', roles)
-        return hasAdminRole
       })
-
-      console.log('Found admin user:', adminUser)
 
       if (!adminUser) {
         toast.error('No admin users found for escalation')
@@ -336,7 +298,7 @@ export default function TicketDetailPage({ params }) {
         body: JSON.stringify({
           assigneeId: adminUser.id,
           status: 'OPEN',
-          priority: 'HIGH' // Escalated tickets get high priority
+          priority: 'HIGH'
         })
       })
 
@@ -345,7 +307,6 @@ export default function TicketDetailPage({ params }) {
         setTicket(updatedTicket)
         toast.success(`Ticket escalated to admin: ${adminUser.firstName} ${adminUser.lastName}`)
 
-        // Add escalation comment
         await makeAuthenticatedRequest(`/api/tickets/${params.id}/comments`, {
           method: 'POST',
           body: JSON.stringify({
@@ -355,7 +316,6 @@ export default function TicketDetailPage({ params }) {
           })
         })
 
-        // Refresh ticket data
         fetchTicket()
       } else {
         const error = await response.json()
@@ -367,40 +327,101 @@ export default function TicketDetailPage({ params }) {
     }
   }
 
+  const markAsSolved = async () => {
+    try {
+      const response = await makeAuthenticatedRequest(`/api/tickets/${params.id}/mark-solved`, {
+        method: 'POST'
+      })
+
+      if (response.ok) {
+        toast.success('✅ Ticket marked as solved! Thank you for confirming.')
+        fetchTicket()
+      } else {
+        const error = await response.json()
+        toast.error(error.error || 'Failed to mark ticket as solved')
+      }
+    } catch (error) {
+      console.error('Failed to mark ticket as solved:', error)
+      toast.error('Failed to mark ticket as solved')
+    }
+  }
+
   const markAsNotATicket = async () => {
+    // Extract email domain from requester
+    const requesterEmail = ticket.requester?.email || ''
+    const emailDomain = requesterEmail.includes('@') ? requesterEmail.split('@')[1] : ''
+
+    console.log('🚫 Not a ticket clicked:', { requesterEmail, emailDomain })
+
+    // Ask if user wants to block this sender
+    let blockDomain = false
+    if (emailDomain) {
+      blockDomain = confirm(
+        `⛔ BLOCK SENDER: "${emailDomain}"?\n\n` +
+        `Click OK to permanently block this sender:\n` +
+        `✓ Future emails from ${emailDomain} will be AUTOMATICALLY REJECTED\n` +
+        `✓ No tickets will be created for this sender\n` +
+        `✓ This ticket will be deleted\n` +
+        `✓ You can unblock them later in Admin > Blocked Senders\n\n` +
+        `Click CANCEL to just delete this ticket without blocking the sender.`
+      )
+      console.log('Block sender decision:', blockDomain)
+    }
+
     const reason = prompt(
       'Why is this not a ticket? (Optional - helps AI learn)',
       'This email should not have been classified as a helpdesk ticket'
     )
 
     if (reason === null) {
-      return // User cancelled
+      console.log('User cancelled - no reason provided')
+      return
     }
 
     const confirmed = confirm(
-      `Are you sure this is NOT a ticket?\n\n` +
+      `⚠️ FINAL CONFIRMATION\n\n` +
+      `Delete ticket #${ticket.ticketNumber}?\n\n` +
       `This will:\n` +
-      `• Delete ticket #${ticket.ticketNumber}\n` +
+      `• Delete this ticket permanently\n` +
       `• Forward original email to help@surterreproperties.com\n` +
-      `• Help train AI to avoid similar classifications\n\n` +
-      `This action cannot be undone.`
+      `• Help train AI to avoid similar classifications\n` +
+      (blockDomain ? `• ⛔ BLOCK ALL FUTURE EMAILS from ${emailDomain}\n` : '') +
+      `\n❌ This action CANNOT be undone!`
     )
 
     if (!confirmed) {
+      console.log('User cancelled final confirmation')
       return
     }
 
     try {
+      console.log('Sending mark-not-ticket request:', {
+        reason,
+        blockDomain,
+        emailDomain: blockDomain ? emailDomain : null
+      })
+
       const response = await makeAuthenticatedRequest(`/api/tickets/${params.id}/mark-not-ticket`, {
         method: 'POST',
-        body: JSON.stringify({ reason })
+        body: JSON.stringify({
+          reason,
+          blockDomain: blockDomain,
+          emailDomain: blockDomain ? emailDomain : null
+        })
       })
 
       if (response.ok) {
-        toast.success('Ticket marked as "not a ticket" and removed')
+        if (blockDomain) {
+          toast.success(`✅ Ticket removed and sender "${emailDomain}" has been blocked!`)
+          console.log('✅ Sender blocked successfully:', emailDomain)
+        } else {
+          toast.success('✅ Ticket marked as "not a ticket" and removed')
+          console.log('✅ Ticket removed (sender not blocked)')
+        }
         router.push('/tickets')
       } else {
         const error = await response.json()
+        console.error('API error:', error)
         toast.error(error.error || 'Failed to mark as not a ticket')
       }
     } catch (error) {
@@ -409,37 +430,64 @@ export default function TicketDetailPage({ params }) {
     }
   }
 
-  const getPriorityColor = (priority) => {
-    const colors = {
-      LOW: 'bg-green-100 text-green-800',
-      NORMAL: 'bg-blue-100 text-blue-800',
-      HIGH: 'bg-orange-100 text-orange-800',
-      URGENT: 'bg-red-100 text-red-800'
+  const getStatusBadgeStyle = (status) => {
+    const styles = {
+      NEW: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+      OPEN: 'bg-red-50 text-red-700 border-red-200',
+      PENDING: 'bg-blue-50 text-blue-700 border-blue-200',
+      ON_HOLD: 'bg-orange-50 text-orange-700 border-orange-200',
+      SOLVED: 'bg-green-50 text-green-700 border-green-200'
     }
-    return colors[priority] || 'bg-gray-100 text-gray-800'
+    return styles[status] || styles.NEW
   }
 
-  const getStatusColor = (status) => {
-    const colors = {
-      NEW: 'bg-gray-100 text-gray-800',
-      OPEN: 'bg-blue-100 text-blue-800',
-      PENDING: 'bg-yellow-100 text-yellow-800',
-      ON_HOLD: 'bg-orange-100 text-orange-800',
-      SOLVED: 'bg-green-100 text-green-800'
+  const getPriorityBadgeStyle = (priority) => {
+    const styles = {
+      LOW: 'bg-gray-50 text-gray-600 border-gray-200',
+      NORMAL: 'bg-blue-50 text-blue-600 border-blue-200',
+      HIGH: 'bg-orange-50 text-orange-600 border-orange-200',
+      URGENT: 'bg-red-50 text-red-600 border-red-200'
     }
-    return colors[status] || 'bg-gray-100 text-gray-800'
+    return styles[priority] || styles.NORMAL
+  }
+
+  // Strip quoted email content from HTML
+  const stripQuotedContent = (html) => {
+    if (!html) return html
+
+    // Create a temporary div to parse HTML
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(html, 'text/html')
+
+    // Remove blockquote elements (quoted content)
+    const blockquotes = doc.querySelectorAll('blockquote')
+    blockquotes.forEach(bq => bq.remove())
+
+    // Remove elements with common quote indicators
+    const quoteIndicators = [
+      '[id*="lineBreakAtBeginningOfMessage"]',
+      '[class*="gmail_quote"]',
+      '[class*="quoted"]',
+      '[class*="Apple-interchange-newline"]'
+    ]
+    quoteIndicators.forEach(selector => {
+      const elements = doc.querySelectorAll(selector)
+      elements.forEach(el => el.remove())
+    })
+
+    // Return cleaned HTML
+    return doc.body.innerHTML
   }
 
   if (loading) {
     return (
       <ProtectedRoute>
-        <div className="min-h-screen bg-background">
+        <div className="min-h-screen bg-gray-50">
           <Navbar />
-          <main className="container mx-auto px-4 py-8">
-            <div className="animate-pulse space-y-6">
-              <div className="h-8 bg-muted rounded w-1/3"></div>
-              <div className="h-64 bg-muted rounded"></div>
-              <div className="h-32 bg-muted rounded"></div>
+          <main className="pt-20">
+            <div className="animate-pulse p-8">
+              <div className="h-8 bg-gray-200 rounded w-1/3 mb-6"></div>
+              <div className="h-64 bg-gray-200 rounded"></div>
             </div>
           </main>
         </div>
@@ -450,17 +498,14 @@ export default function TicketDetailPage({ params }) {
   if (!ticket) {
     return (
       <ProtectedRoute>
-        <div className="min-h-screen bg-background">
+        <div className="min-h-screen bg-gray-50">
           <Navbar />
-          <main className="container mx-auto px-4 py-8">
+          <main className="pt-20 p-8">
             <div className="text-center py-12">
-              <h1 className="text-2xl font-bold mb-6">Ticket not found</h1>
-              <Button
-                onClick={handleBackNavigation}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 text-base shadow-lg border-0"
-              >
-                <ArrowLeft className="mr-3 h-5 w-5" />
-                {searchParams.get('return') ? '← Back to Previous View' : '← Back to Tickets'}
+              <h1 className="text-2xl font-semibold mb-6">Ticket not found</h1>
+              <Button onClick={handleBackNavigation} variant="outline">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Tickets
               </Button>
             </div>
           </main>
@@ -471,461 +516,663 @@ export default function TicketDetailPage({ params }) {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-gray-50">
         <Navbar />
 
-        {/* Back Button Header - positioned below navbar */}
-        <div className="pt-20">
-          <div className="bg-gray-50 border-b border-gray-200 py-3">
-            <div className="container mx-auto px-4">
-              <button
-                onClick={handleBackNavigation}
-                className="inline-flex items-center text-gray-600 hover:text-gray-800 font-medium text-sm transition-colors"
-              >
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                {searchParams.get('return') ? 'Back to Previous View' : 'Back to Tickets'}
-              </button>
+        {/* Zendesk-style Header */}
+        <div className="pt-20 bg-white border-b border-gray-200">
+          <div className="max-w-[1600px] mx-auto px-6 py-4">
+            <div className="flex items-center justify-between">
+              {/* Back button and ticket number */}
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={handleBackNavigation}
+                  className="text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </button>
+                <div className="flex items-center space-x-3">
+                  <h1 className="text-xl font-semibold text-gray-900">
+                    #{ticket.ticketNumber}
+                  </h1>
+                  <Badge variant="outline" className={`${getStatusBadgeStyle(ticket.status)} text-xs font-medium`}>
+                    {ticket.status.replace('_', ' ')}
+                  </Badge>
+                  <Badge variant="outline" className={`${getPriorityBadgeStyle(ticket.priority)} text-xs font-medium`}>
+                    {ticket.priority}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Action buttons */}
+              {isStaff && (
+                <div className="flex items-center space-x-2">
+                  {!ticket.assignee && !(isStaff && !isAdmin && ticket.requesterId === user?.id) && (
+                    <Button
+                      onClick={assignToSelf}
+                      size="sm"
+                      className="bg-[#3d6964] hover:bg-[#2d5954] text-white"
+                    >
+                      Take it
+                    </Button>
+                  )}
+
+                  {isAdmin && ticket.assignee && ticket.assigneeId !== user?.id && (
+                    <Button
+                      onClick={assignToSelf}
+                      size="sm"
+                      className="bg-purple-600 hover:bg-purple-700 text-white"
+                    >
+                      Take Over
+                    </Button>
+                  )}
+
+                  {!isAdmin && ticket.assignee && ticket.assigneeId === user?.id && (
+                    <Button
+                      onClick={escalateToAdmin}
+                      size="sm"
+                      variant="outline"
+                      className="border-orange-300 text-orange-600 hover:bg-orange-50"
+                    >
+                      Escalate
+                    </Button>
+                  )}
+
+                  {/* Not a Ticket Button - Prominent */}
+                  <Button
+                    onClick={markAsNotATicket}
+                    size="sm"
+                    variant="outline"
+                    className="border-red-300 text-red-600 hover:bg-red-50"
+                  >
+                    <XCircle className="h-4 w-4 mr-1.5" />
+                    Not a ticket?
+                  </Button>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="sm" variant="outline">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => updateTicketStatus('OPEN')}>
+                        Mark as Open
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => updateTicketStatus('PENDING')}>
+                        Mark as Pending
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => updateTicketStatus('ON_HOLD')}>
+                        Put On Hold
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => updateTicketStatus('SOLVED')}>
+                        Mark as Solved
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        <main className="container mx-auto px-4 py-8">
+        {/* Zendesk-style Three Column Layout */}
+        <div className="max-w-[1600px] mx-auto px-6 py-6">
+          <div className="grid grid-cols-12 gap-6">
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Main Content */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Ticket Header */}
-              <Card>
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground">
-                          #{ticket.ticketNumber}
-                        </span>
-                        <Badge className={getPriorityColor(ticket.priority)}>
-                          {ticket.priority}
-                        </Badge>
-                        {getStatusBadge(ticket.status)}
-                      </div>
-                      <h1 className="text-2xl font-bold">{ticket.title}</h1>
-                      {ticket.category && (
-                        <Badge variant="outline">{ticket.category}</Badge>
-                      )}
-                    </div>
-                    
-                    {/* Staff Actions */}
-                    {isStaff && (
-                      <div className="flex items-center space-x-3">
-                        {/* Take it Button (for unassigned tickets) */}
-                        {!ticket.assignee && !(isStaff && !isAdmin && ticket.requesterId === user?.id) && (
-                          <Button
-                            onClick={() => assignToSelf()}
-                            className="bg-green-600 hover:bg-green-700 text-white"
-                          >
-                            <User className="w-4 h-4 mr-2" />
-                            Take it!
-                          </Button>
-                        )}
+            {/* Left Sidebar - Ticket Properties (Zendesk style) - STICKY */}
+            <div className="col-span-3">
+              <div className="sticky top-24 bg-white rounded-lg border border-gray-200 p-5 space-y-5 max-h-[calc(100vh-7rem)] overflow-y-auto">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Ticket Properties</h3>
 
-                        {/* Message for staff who can't take their own tickets */}
-                        {!ticket.assignee && isStaff && !isAdmin && ticket.requesterId === user?.id && (
-                          <div className="text-sm text-amber-600 bg-amber-50 px-3 py-2 rounded border border-amber-200">
-                            Staff members cannot take tickets they created themselves. Please wait for another staff member, manager, or admin to assign this ticket.
-                          </div>
-                        )}
-                        
-                        {/* Admin Take Over Button (for tickets assigned to others) */}
-                        {isAdmin && ticket.assignee && ticket.assigneeId !== user?.id && (
-                          <Button 
-                            onClick={() => assignToSelf()}
-                            className="bg-purple-600 hover:bg-purple-700 text-white"
-                          >
-                            <User className="w-4 h-4 mr-2" />
-                            Take Over (Admin)
-                          </Button>
-                        )}
-                        
-                        {/* Escalate Button (for assigned tickets - agents only) */}
-                        {!isAdmin && ticket.assignee && ticket.assigneeId === user?.id && (
-                          <Button
-                            onClick={() => escalateToAdmin()}
-                            variant="outline"
-                            className="border-orange-500 text-orange-600 hover:bg-orange-50"
-                          >
-                            <AlertCircle className="w-4 h-4 mr-2" />
-                            Escalate to Admin
-                          </Button>
-                        )}
-
-                        {/* Not a Ticket Button */}
-                        <Button
-                          onClick={() => markAsNotATicket()}
-                          variant="outline"
-                          className="border-red-500 text-red-600 hover:bg-red-50"
-                        >
-                          <XCircle className="w-4 h-4 mr-2" />
-                          Not a ticket?
-                        </Button>
-
-                        {/* Status Management Dropdown */}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="outline">
-                              <Settings className="w-4 h-4 mr-2" />
-                              Change Status
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => updateTicketStatus('OPEN')}>
-                              <AlertCircle className="w-4 h-4 mr-2 text-red-500" />
-                              Mark as Open
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => updateTicketStatus('PENDING')}>
-                              <Clock className="w-4 h-4 mr-2 text-blue-500" />
-                              Mark as Pending
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => updateTicketStatus('ON_HOLD')}>
-                              <Pause className="w-4 h-4 mr-2 text-orange-500" />
-                              Put On Hold
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => updateTicketStatus('SOLVED')}>
-                              <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
-                              Mark as Solved
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="prose max-w-none ticket-content">
-                    <p className="whitespace-pre-wrap">{ticket.description}</p>
-                  </div>
-
-                  {/* Image Gallery for inline attachments */}
-                  {ticket.attachments && Array.isArray(ticket.attachments) && ticket.attachments.length > 0 && (
-                    <ImageGallery images={ticket.attachments.map((url) => ({
-                      url,
-                      thumb: url.includes('.webp') ? url.replace('.webp', '_thumb.webp') : url
-                    }))} />
-                  )}
-
-                  <div className="flex items-center gap-4 mt-6 pt-6 border-t text-sm text-muted-foreground">
-                    <div className="flex items-center gap-2">
-                      <User size={16} />
-                      <span>Created by {ticket.requester?.firstName && ticket.requester?.lastName ? `${ticket.requester.firstName} ${ticket.requester.lastName}` : 'Unknown User'}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Clock size={16} />
-                      <span>{formatDistanceToNow(new Date(ticket.createdAt), { addSuffix: true })}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Attachments */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Paperclip size={20} />
-                    Attachments
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <AttachmentUpload
-                    ticketId={params.id}
-                    existingAttachments={ticket.attachments || []}
-                    onUploadComplete={() => fetchTicket()}
-                    readOnly={!canEdit}
-                  />
-                </CardContent>
-              </Card>
-
-              {/* AI Draft Response Review */}
-              {ticket.aiDraftResponse ? (
-                <AIDraftReview ticket={ticket} onUpdate={fetchTicket} />
-              ) : (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Sparkles className="w-5 h-5" />
-                      AI-Generated Draft Response
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      No AI draft response has been generated for this ticket yet.
-                    </p>
-                    <Button
-                      onClick={async () => {
-                        try {
-                          const response = await makeAuthenticatedRequest(`/api/tickets/${ticket.id}/generate-draft`, {
-                            method: 'POST'
-                          })
-                          if (response.ok) {
-                            toast.success('AI draft generated successfully')
-                            fetchTicket()
-                          } else {
-                            const error = await response.json()
-                            toast.error(error.error || 'Failed to generate draft')
-                          }
-                        } catch (error) {
-                          toast.error('Failed to generate draft')
-                        }
-                      }}
-                    >
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      Generate AI Draft Response
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Comments */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <MessageCircle size={20} />
-                    Comments ({ticket.comments?.length || 0})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {ticket.comments?.map((comment) => (
-                    <div key={comment.id} className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Avatar className="h-8 w-8">
-                            <AvatarFallback className="text-xs">
-                              {comment.user.firstName[0]}{comment.user.lastName[0]}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <span className="font-medium">
-                              {comment.user.firstName} {comment.user.lastName}
-                            </span>
-                            {comment.isInternal && (
-                              <Badge variant="secondary" className="ml-2 text-xs">
-                                Internal
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                        <span className="text-xs text-muted-foreground">
-                          {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
-                        </span>
-                      </div>
-                      <div className="ml-10 prose prose-sm max-w-none">
-                        <MentionTextarea
-                          value={comment.content}
-                          renderMentions={true}
-                          ticketId={params.id}
-                          className="bg-transparent border-none p-0 resize-none min-h-0 shadow-none focus-visible:ring-0"
-                          readOnly
-                        />
-                      </div>
-                    </div>
-                  ))}
-
-                  {/* Add Comment Form */}
-                  <div className="border-t pt-6">
-                    <form onSubmit={handleAddComment} className="space-y-4">
-                      <MentionTextarea
-                        placeholder="Add a comment... (type @ to mention users)"
-                        value={newComment}
-                        onChange={setNewComment}
-                        ticketId={params.id}
-                        className="min-h-[100px]"
-                      />
-                      
-                      <div className="flex items-center justify-between">
-                        {isStaff && ticket?.requesterId !== user?.id && (
-                          <div className="flex items-center space-x-2">
-                            <Switch
-                              id="internal"
-                              checked={isInternal}
-                              onCheckedChange={setIsInternal}
-                            />
-                            <Label htmlFor="internal" className="text-sm">
-                              Internal note (not visible to requester)
-                            </Label>
-                          </div>
-                        )}
-                        
-                        <Button type="submit" disabled={submittingComment || !newComment.trim()}>
-                          {submittingComment ? (
-                            'Adding...'
-                          ) : (
-                            <>
-                              <Send className="mr-2 h-4 w-4" />
-                              Add Comment
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </form>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Sidebar */}
-            <div className="space-y-6">
-              {/* Ticket Details */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Ticket Details</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium">Status</label>
-                    {isStaff ? (
-                      <Select
-                        value={ticket.status}
-                        onValueChange={(value) => handleUpdateTicket('status', value)}
-                      >
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="NEW">New</SelectItem>
-                          <SelectItem value="OPEN">Open</SelectItem>
-                          <SelectItem value="PENDING">Pending</SelectItem>
-                          <SelectItem value="ON_HOLD">On Hold</SelectItem>
-                          <SelectItem value="SOLVED">Solved</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <div className="mt-1">
-                        <Badge className={getStatusColor(ticket.status)}>
-                          {ticket.status}
-                        </Badge>
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium">Priority</label>
-                    {isStaff ? (
-                      <Select
-                        value={ticket.priority}
-                        onValueChange={(value) => handleUpdateTicket('priority', value)}
-                      >
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="LOW">Low</SelectItem>
-                          <SelectItem value="NORMAL">Normal</SelectItem>
-                          <SelectItem value="HIGH">High</SelectItem>
-                          <SelectItem value="URGENT">Urgent</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <div className="mt-1">
-                        <Badge className={getPriorityColor(ticket.priority)}>
-                          {ticket.priority}
-                        </Badge>
-                      </div>
-                    )}
-                  </div>
-
-                  {isStaff && (
-                    <div>
-                      <label className="text-sm font-medium">Assignee</label>
-                      <Select
-                        value={ticket.assigneeId || 'unassigned'}
-                        onValueChange={(value) => 
-                          handleUpdateTicket('assigneeId', value === 'unassigned' ? null : value)
-                        }
-                      >
-                        <SelectTrigger className="mt-1">
-                          <SelectValue placeholder="Unassigned" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="unassigned">Unassigned</SelectItem>
-                          {users.map((u) => (
-                            <SelectItem key={u.id} value={u.id}>
-                              {u.firstName} {u.lastName}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="text-sm font-medium">Requester</label>
-                    <div className="mt-1 flex items-center gap-2">
-                      <Avatar className="h-6 w-6">
-                        <AvatarFallback className="text-xs">
-                          {ticket.requester?.firstName?.[0] || '?'}{ticket.requester?.lastName?.[0] || '?'}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="text-sm">
-                        {ticket.requester?.firstName && ticket.requester?.lastName 
+                {/* Requester */}
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-2">REQUESTER</label>
+                  <div className="flex items-center space-x-2">
+                    <Avatar className="h-7 w-7">
+                      <AvatarFallback className="text-xs bg-gray-200 text-gray-600">
+                        {ticket.requester?.firstName?.[0] || '?'}{ticket.requester?.lastName?.[0] || '?'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {ticket.requester?.firstName && ticket.requester?.lastName
                           ? `${ticket.requester.firstName} ${ticket.requester.lastName}`
                           : 'Unknown User'
                         }
-                      </span>
+                      </p>
+                      <p className="text-xs text-gray-500 truncate">
+                        {ticket.requester?.email || 'No email'}
+                      </p>
                     </div>
                   </div>
+                </div>
 
-                  {ticket.assignee && (
-                    <div>
-                      <label className="text-sm font-medium">Assigned to</label>
-                      <div className="mt-1 flex items-center gap-2">
-                        <Avatar className="h-6 w-6">
-                          <AvatarFallback className="text-xs">
-                            {ticket.assignee?.firstName?.[0] || '?'}{ticket.assignee?.lastName?.[0] || '?'}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="text-sm">
-                          {ticket.assignee?.firstName && ticket.assignee?.lastName 
-                            ? `${ticket.assignee.firstName} ${ticket.assignee.lastName}`
-                            : 'Unassigned'
+                {/* Assignee */}
+                {isStaff && (
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 block mb-2">ASSIGNEE</label>
+                    <Select
+                      value={ticket.assigneeId || 'unassigned'}
+                      onValueChange={(value) =>
+                        handleUpdateTicket('assigneeId', value === 'unassigned' ? null : value)
+                      }
+                    >
+                      <SelectTrigger className="h-9 text-sm border-gray-300">
+                        <SelectValue placeholder="Unassigned" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unassigned">Unassigned</SelectItem>
+                        {users.map((u) => (
+                          <SelectItem key={u.id} value={u.id}>
+                            {u.firstName} {u.lastName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* Status */}
+                {isStaff && (
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 block mb-2">STATUS</label>
+                    <Select
+                      value={ticket.status}
+                      onValueChange={(value) => handleUpdateTicket('status', value)}
+                    >
+                      <SelectTrigger className="h-9 text-sm border-gray-300">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="NEW">New</SelectItem>
+                        <SelectItem value="OPEN">Open</SelectItem>
+                        <SelectItem value="PENDING">Pending</SelectItem>
+                        <SelectItem value="ON_HOLD">On Hold</SelectItem>
+                        <SelectItem value="SOLVED">Solved</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* Priority */}
+                {isStaff && (
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 block mb-2">PRIORITY</label>
+                    <Select
+                      value={ticket.priority}
+                      onValueChange={(value) => handleUpdateTicket('priority', value)}
+                    >
+                      <SelectTrigger className="h-9 text-sm border-gray-300">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="LOW">Low</SelectItem>
+                        <SelectItem value="NORMAL">Normal</SelectItem>
+                        <SelectItem value="HIGH">High</SelectItem>
+                        <SelectItem value="URGENT">Urgent</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* Category */}
+                {ticket.category && (
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 block mb-2">TYPE</label>
+                    <div className="flex items-center space-x-2 text-sm text-gray-900">
+                      <Tag className="h-3.5 w-3.5 text-gray-400" />
+                      <span>{ticket.category}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Created */}
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-2">CREATED</label>
+                  <p className="text-sm text-gray-900">
+                    {format(new Date(ticket.createdAt), 'MMM d, yyyy h:mm a')}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {formatDistanceToNow(new Date(ticket.createdAt), { addSuffix: true })}
+                  </p>
+                </div>
+
+                {/* Updated */}
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-2">UPDATED</label>
+                  <p className="text-sm text-gray-900">
+                    {format(new Date(ticket.updatedAt), 'MMM d, yyyy h:mm a')}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {formatDistanceToNow(new Date(ticket.updatedAt), { addSuffix: true })}
+                  </p>
+                </div>
+
+                {/* Linked Tickets */}
+                <div className="mt-5 pt-5 border-t border-gray-200">
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Linked Tickets</h3>
+                  <TicketThread ticket={ticket} onUpdate={fetchTicket} />
+                </div>
+              </div>
+            </div>
+
+            {/* Center - Main Content Area (Messages) */}
+            <div className="col-span-6 space-y-6">
+              {/* Ticket Title - Blue Header for Requester */}
+              <div className="bg-[#61B7D1] rounded-lg p-5 shadow-sm">
+                <h2 className="text-lg font-semibold text-gray-900 mb-1">{ticket.title}</h2>
+                <div className="flex items-center text-xs text-gray-700 space-x-3">
+                  <span>Ticket #{ticket.ticketNumber}</span>
+                  <span>•</span>
+                  <span>Created {formatDistanceToNow(new Date(ticket.createdAt), { addSuffix: true })}</span>
+                </div>
+              </div>
+
+              {/* Original Requester Message - Blue Background */}
+              <div className="bg-[#A5D8E6] rounded-lg p-6 shadow-sm">
+                <div className="mb-3">
+                  <p className="text-sm font-semibold text-gray-900">
+                    {ticket.requester?.firstName && ticket.requester?.lastName
+                      ? `${ticket.requester.firstName} ${ticket.requester.lastName}`
+                      : 'Unknown User'
+                    } (Requester)
+                  </p>
+                  <p className="text-xs text-gray-700">
+                    {format(new Date(ticket.createdAt), 'MMM d, yyyy h:mm a')}
+                  </p>
+                </div>
+
+                <div className="text-sm text-gray-900">
+                  {ticket.inboundMessages && ticket.inboundMessages.length > 0 ? (
+                    <EmailMessageViewer
+                      message={ticket.inboundMessages[0]}
+                      ticketId={ticket.id}
+                    />
+                  ) : (
+                    <div className="prose prose-sm max-w-none">
+                      {ticket.ticketMessages && ticket.ticketMessages.length > 0 && ticket.ticketMessages[0].html ? (
+                        <div
+                          className="text-sm text-gray-900 leading-relaxed"
+                          dangerouslySetInnerHTML={{ __html: ticket.ticketMessages[0].html }}
+                        />
+                      ) : (
+                        <p className="text-sm text-gray-900 leading-relaxed whitespace-pre-wrap">{ticket.description}</p>
+                      )}
+
+                      {ticket.attachments && Array.isArray(ticket.attachments) && ticket.attachments.length > 0 && (
+                        <div className="mt-4">
+                          <ImageGallery images={ticket.attachments.map((url) => ({
+                            url,
+                            thumb: url.includes('.webp') ? url.replace('.webp', '_thumb.webp') : url
+                          }))} />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* AI Draft Response */}
+              {ticket.aiDraftResponse ? (
+                <AIDraftReview ticket={ticket} onUpdate={fetchTicket} />
+              ) : isStaff && (
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200 p-5">
+                  <div className="flex items-start space-x-3">
+                    <Sparkles className="w-5 h-5 text-blue-600 mt-0.5" />
+                    <div className="flex-1">
+                      <h4 className="text-sm font-semibold text-gray-900 mb-1">AI-Powered Draft Response</h4>
+                      <p className="text-xs text-gray-600 mb-3">
+                        Let AI analyze this ticket and generate a professional draft response to help you respond faster.
+                      </p>
+                      <Button
+                        onClick={async () => {
+                          try {
+                            const response = await makeAuthenticatedRequest(`/api/tickets/${ticket.id}/generate-draft`, {
+                              method: 'POST'
+                            })
+                            if (response.ok) {
+                              toast.success('AI draft generated successfully')
+                              fetchTicket()
+                            } else {
+                              const error = await response.json()
+                              toast.error(error.error || 'Failed to generate draft')
+                            }
+                          } catch (error) {
+                            toast.error('Failed to generate draft')
                           }
-                        </span>
+                        }}
+                        size="sm"
+                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                        Generate AI Draft
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Conversation Thread - Color Coded by Role */}
+              {(() => {
+                // Merge comments and ticketMessages into a single sorted array
+                const allMessages = []
+
+                // Add ticket comments
+                if (ticket.comments) {
+                  ticket.comments.forEach(comment => {
+                    allMessages.push({
+                      id: comment.id,
+                      type: 'comment',
+                      createdAt: comment.createdAt,
+                      isInternal: !comment.isPublic, // Convert isPublic to isInternal
+                      isPublic: comment.isPublic,
+                      user: comment.user,
+                      content: comment.content
+                    })
+                  })
+                }
+
+                // Add ticket messages (email replies)
+                if (ticket.ticketMessages) {
+                  ticket.ticketMessages.forEach(msg => {
+                    // Skip the first message if it's the original email (shown above)
+                    const isFirstMessage = ticket.ticketMessages.indexOf(msg) === 0 && msg.kind === 'email'
+                    if (!isFirstMessage) {
+                      allMessages.push({
+                        id: msg.id,
+                        type: 'email',
+                        createdAt: msg.createdAt,
+                        authorEmail: msg.authorEmail,
+                        authorName: msg.authorName,
+                        html: msg.html,
+                        text: msg.text,
+                        subject: msg.subject
+                      })
+                    }
+                  })
+                }
+
+                // Sort by created date
+                allMessages.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+
+                return allMessages.length > 0 && (
+                  <div className="space-y-4">
+                    {allMessages.map((message) => {
+                      // Determine if this is from the requester
+                      const isRequester = message.type === 'comment'
+                        ? message.user.id === ticket.requesterId
+                        : message.authorEmail === ticket.requester?.email
+
+                      const bgColor = message.isInternal
+                        ? 'bg-yellow-50'
+                        : isRequester
+                          ? 'bg-[#A5D8E6]'  // Light blue for requester
+                          : 'bg-[#C8DDD7]'  // Very light green for staff/system
+
+                      return (
+                        <div key={message.id} className={`${bgColor} rounded-lg p-6 shadow-sm`}>
+                          <div className="mb-3">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <div className="flex items-center space-x-2">
+                                  <p className="text-sm font-semibold text-gray-900">
+                                    {message.type === 'comment'
+                                      ? `${message.user.firstName} ${message.user.lastName}`
+                                      : message.authorName
+                                    }
+                                    {isRequester ? ' (Requester)' : ' (Staff)'}
+                                  </p>
+                                  {message.isInternal && (
+                                    <Badge variant="outline" className="text-xs bg-yellow-100 text-yellow-800 border-yellow-300">
+                                      Internal Note
+                                    </Badge>
+                                  )}
+                                  {message.type === 'email' && (
+                                    <Badge variant="outline" className="text-xs bg-blue-100 text-blue-800 border-blue-300">
+                                      Email Reply
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-xs text-gray-700">
+                                  {format(new Date(message.createdAt), 'MMM d, yyyy h:mm a')}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="prose prose-sm max-w-none text-sm text-gray-900 leading-relaxed">
+                            {message.type === 'comment' ? (
+                              <MentionTextarea
+                                value={message.content}
+                                renderMentions={true}
+                                ticketId={params.id}
+                                className="bg-transparent border-none p-0 resize-none min-h-0 shadow-none focus-visible:ring-0 text-gray-900"
+                                readOnly
+                              />
+                            ) : message.html ? (
+                              <div dangerouslySetInnerHTML={{ __html: stripQuotedContent(message.html) }} />
+                            ) : (
+                              <p className="whitespace-pre-wrap">{message.text}</p>
+                            )}
+                          </div>
+
+                          {/* Show "Mark as Solved" button for requesters after staff responses */}
+                          {!isRequester && !message.isInternal && ticket.requesterId === user?.id && ticket.status !== 'SOLVED' && (
+                            <div className="mt-4 pt-4 border-t border-gray-300">
+                              <div className="flex items-center justify-between">
+                                <p className="text-sm text-gray-700">Did this resolve your issue?</p>
+                                <Button
+                                  onClick={markAsSolved}
+                                  size="sm"
+                                  className="bg-green-600 hover:bg-green-700 text-white"
+                                >
+                                  <CheckCircle className="h-4 w-4 mr-1.5" />
+                                  Mark as Solved
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              })()}
+
+              {/* Add Comment - Zendesk Style */}
+              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                <form onSubmit={handleAddComment}>
+                  {/* Zendesk-style tabs */}
+                  {isStaff && ticket?.requesterId !== user?.id ? (
+                    <div className="flex border-b border-gray-200">
+                      <button
+                        type="button"
+                        onClick={() => setIsInternal(false)}
+                        className={`flex items-center space-x-2 px-4 py-3 text-sm font-medium transition-colors ${
+                          !isInternal
+                            ? 'bg-white text-gray-900 border-b-2 border-[#3d6964]'
+                            : 'bg-gray-50 text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        <ArrowLeft className="h-4 w-4 rotate-180" />
+                        <span>Public reply</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsInternal(true)}
+                        className={`flex items-center space-x-2 px-4 py-3 text-sm font-medium transition-colors ${
+                          isInternal
+                            ? 'bg-yellow-50 text-gray-900 border-b-2 border-yellow-500'
+                            : 'bg-gray-50 text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        <span>Internal note</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex border-b border-gray-200">
+                      <div className="flex items-center space-x-2 px-4 py-3 text-sm font-medium bg-white text-gray-900 border-b-2 border-[#3d6964]">
+                        <ArrowLeft className="h-4 w-4 rotate-180" />
+                        <span>Public reply</span>
                       </div>
                     </div>
                   )}
 
-                  <div>
-                    <label className="text-sm font-medium">Created</label>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {formatDistanceToNow(new Date(ticket.createdAt), { addSuffix: true })}
-                    </p>
+                  {/* Comment textarea */}
+                  <div className="p-6">
+                    <MentionTextarea
+                      placeholder={isInternal ? "Add an internal note... (use @ to mention users)" : "Type your public reply... (use @ to mention users)"}
+                      value={newComment}
+                      onChange={setNewComment}
+                      ticketId={params.id}
+                      className="min-h-[150px] text-sm border-gray-300 focus:border-[#3d6964] focus:ring-[#3d6964]"
+                    />
                   </div>
 
-                  {ticket.resolvedAt && (
-                    <div>
-                      <label className="text-sm font-medium">Resolved</label>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {formatDistanceToNow(new Date(ticket.resolvedAt), { addSuffix: true })}
+                  {/* Submit button */}
+                  <div className="px-6 pb-6 flex items-center justify-between">
+                    <div className="text-xs text-gray-500">
+                      {isInternal ? (
+                        <span className="flex items-center space-x-1">
+                          <span className="inline-block w-2 h-2 bg-yellow-500 rounded-full"></span>
+                          <span>This note will only be visible to staff members</span>
+                        </span>
+                      ) : (
+                        <span>This reply will be sent to the requester</span>
+                      )}
+                    </div>
+                    <Button
+                      type="submit"
+                      disabled={submittingComment || !newComment.trim()}
+                      className="bg-[#3d6964] hover:bg-[#2d5954] text-white"
+                    >
+                      {submittingComment ? 'Submitting...' : 'Submit'}
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            {/* Right Sidebar - User Info & History - STICKY */}
+            <div className="col-span-3">
+              <div className="sticky top-24 space-y-4 max-h-[calc(100vh-7rem)] overflow-y-auto">
+              {/* Requester Details */}
+              <div className="bg-white rounded-lg border border-gray-200 p-5">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Requester Details</h3>
+                <div className="flex items-start space-x-3">
+                  <Avatar className="h-12 w-12">
+                    <AvatarFallback className="text-base bg-[#3d6964] text-white">
+                      {ticket.requester?.firstName?.[0] || '?'}{ticket.requester?.lastName?.[0] || '?'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-semibold text-gray-900 mb-0.5">
+                      {ticket.requester?.firstName && ticket.requester?.lastName
+                        ? `${ticket.requester.firstName} ${ticket.requester.lastName}`
+                        : 'Unknown User'
+                      }
+                    </h4>
+                    <p className="text-xs text-gray-600 break-all">
+                      {ticket.requester?.email || 'No email'}
+                    </p>
+                    {ticket.requester?.roles && ticket.requester.roles.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {ticket.requester.roles.map((role, idx) => {
+                          const roleName = typeof role === 'string' ? role : (role.role?.name || role.name)
+                          return (
+                            <Badge key={idx} variant="outline" className="text-xs">
+                              {roleName}
+                            </Badge>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Assignee Details */}
+              {ticket.assignee && (
+                <div className="bg-white rounded-lg border border-gray-200 p-5">
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Assignee Details</h3>
+                  <div className="flex items-start space-x-3">
+                    <Avatar className="h-12 w-12">
+                      <AvatarFallback className="text-base bg-[#3d6964] text-white">
+                        {ticket.assignee?.firstName?.[0] || '?'}{ticket.assignee?.lastName?.[0] || '?'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm font-semibold text-gray-900 mb-0.5">
+                        {ticket.assignee?.firstName && ticket.assignee?.lastName
+                          ? `${ticket.assignee.firstName} ${ticket.assignee.lastName}`
+                          : 'Unassigned'
+                        }
+                      </h4>
+                      <p className="text-xs text-gray-600 break-all">
+                        {ticket.assignee?.email || ''}
                       </p>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
+                  </div>
+                </div>
+              )}
 
-              {/* Ticket Thread */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Ticket Thread</CardTitle>
-                  <CardDescription>
-                    Link related tickets together to keep conversations organized
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <TicketThread ticket={ticket} onUpdate={fetchTicket} />
-                </CardContent>
-              </Card>
+              {/* Attachments */}
+              <div className="bg-white rounded-lg border border-gray-200 p-5">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Attachments</h3>
+                <AttachmentUpload
+                  ticketId={params.id}
+                  existingAttachments={ticket.attachments || []}
+                  onUploadComplete={() => fetchTicket()}
+                  readOnly={!canEdit}
+                />
+              </div>
+
+              {/* Interaction History */}
+              <div className="bg-white rounded-lg border border-gray-200 p-5">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Activity</h3>
+                <div className="space-y-3 text-xs text-gray-600">
+                  <div className="flex items-start space-x-2">
+                    <Clock className="h-3.5 w-3.5 mt-0.5 text-gray-400" />
+                    <div>
+                      <p className="font-medium text-gray-900">Created</p>
+                      <p>{formatDistanceToNow(new Date(ticket.createdAt), { addSuffix: true })}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <Clock className="h-3.5 w-3.5 mt-0.5 text-gray-400" />
+                    <div>
+                      <p className="font-medium text-gray-900">Last Updated</p>
+                      <p>{formatDistanceToNow(new Date(ticket.updatedAt), { addSuffix: true })}</p>
+                    </div>
+                  </div>
+                  {ticket.resolvedAt && (
+                    <div className="flex items-start space-x-2">
+                      <CheckCircle className="h-3.5 w-3.5 mt-0.5 text-green-500" />
+                      <div>
+                        <p className="font-medium text-gray-900">Resolved</p>
+                        <p>{formatDistanceToNow(new Date(ticket.resolvedAt), { addSuffix: true })}</p>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-start space-x-2">
+                    <MessageCircle className="h-3.5 w-3.5 mt-0.5 text-gray-400" />
+                    <div>
+                      <p className="font-medium text-gray-900">Comments</p>
+                      <p>{ticket.comments?.length || 0} total</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              </div>
             </div>
           </div>
-        </main>
+        </div>
 
-        {/* Virtual Assistant - Available for All Users */}
+        {/* Virtual Assistant */}
         {showAssistant && (
           <VirtualAssistant
             ticket={ticket}
@@ -935,13 +1182,12 @@ export default function TicketDetailPage({ params }) {
           />
         )}
 
-        {/* Virtual Assistant Trigger Button - Available for All Users */}
         {!showAssistant && ticket && (
-          <div className="fixed bottom-4 right-4 z-50">
+          <div className="fixed bottom-6 right-6 z-50">
             <Button
               onClick={() => setShowAssistant(true)}
-              className="h-12 w-12 rounded-full shadow-lg bg-blue-600 hover:bg-blue-700"
-              title={`Get help with ticket #${ticket.ticketNumber}`}
+              className="h-14 w-14 rounded-full shadow-lg bg-[#3d6964] hover:bg-[#2d5954]"
+              title={`Get AI help with ticket #${ticket.ticketNumber}`}
             >
               <MessageCircle className="h-6 w-6 text-white" />
             </Button>

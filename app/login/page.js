@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Building2, Mail, Shield, ArrowRight, Sparkles } from 'lucide-react';
+import Image from 'next/image';
 
 export default function LoginPage() {
   const [busy, setBusy] = useState(false);
@@ -27,12 +28,12 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-900 via-[#3d6964] to-slate-900">
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob"></div>
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-[#3d6964] rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob"></div>
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-emerald-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-teal-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
       </div>
 
       {/* Grid pattern overlay */}
@@ -48,7 +49,7 @@ export default function LoginPage() {
           {/* Main card */}
           <div className="bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
             {/* Header with gradient */}
-            <div className="relative bg-gradient-to-r from-purple-600/50 to-emerald-600/50 p-8 pb-12">
+            <div className="relative bg-gradient-to-r from-[#3d6964]/80 to-emerald-600/60 p-8 pb-12">
               <div className="absolute inset-0 bg-black/20"></div>
               <div className="relative">
                 {/* Logo */}
@@ -58,18 +59,11 @@ export default function LoginPage() {
                   transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
                   className="flex items-center justify-center mb-6"
                 >
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-white/20 rounded-2xl blur-xl"></div>
-                    <div className="relative bg-white/90 backdrop-blur-sm rounded-2xl p-4 shadow-xl">
-                      <img
-                        src="/images/aidin-logo.png"
-                        width={64}
-                        height={64}
-                        alt="AIDIN"
-                        className="w-16 h-16"
-                      />
-                    </div>
-                  </div>
+                  <img
+                    src="/images/logo-transparent.png"
+                    alt="AIDIN Helpdesk"
+                    className="h-32 drop-shadow-2xl"
+                  />
                 </motion.div>
 
                 {/* Title */}
@@ -83,7 +77,7 @@ export default function LoginPage() {
                     Welcome Back
                   </h1>
                   <p className="text-white/80 text-sm font-medium">
-                    AIDIN Helpdesk System
+                    Surterre Properties Inc.
                   </p>
                 </motion.div>
               </div>
@@ -100,7 +94,7 @@ export default function LoginPage() {
                 {/* SSO Button */}
                 <button
                   onClick={handleAzure}
-                  className="group relative w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-4 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5"
+                  className="group relative w-full bg-gradient-to-r from-[#3d6964] to-emerald-600 hover:from-[#2d5954] hover:to-emerald-700 text-white font-semibold py-4 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5"
                 >
                   <div className="flex items-center justify-center space-x-3">
                     <Building2 className="w-5 h-5" />
@@ -161,10 +155,10 @@ export default function LoginPage() {
             transition={{ delay: 0.7 }}
             className="mt-8 text-center"
           >
-            <p className="text-white/50 text-xs">
+            <p className="text-white text-sm font-medium">
               Protected by enterprise-grade security
             </p>
-            <p className="text-white/30 text-xs mt-1">
+            <p className="text-white/80 text-xs mt-1">
               © 2025 Surterre Properties. All rights reserved.
             </p>
           </motion.div>

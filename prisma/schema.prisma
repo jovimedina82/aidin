@@ -83,6 +83,8 @@ model Ticket {
   aiDraftResponse       String?         // AI-generated draft response awaiting staff review
   aiDraftGeneratedAt    DateTime?       // When the AI draft was generated
   aiDraftGeneratedBy    String?         // User ID who triggered draft generation
+  satisfactionRating    Int?            // Customer satisfaction rating (1-5)
+  satisfactionFeedback  String?         // Optional customer feedback text
   createdAt             DateTime        @default(now())
   updatedAt             DateTime        @updatedAt
   resolvedAt            DateTime?
@@ -93,6 +95,9 @@ model Ticket {
   aiDecision            AIDecision?
   kbUsage               TicketKBUsage[]
   attachments           Attachment[]
+  ticketMessages        TicketMessage[]
+  inboundMessages       InboundMessage[]
+  messageAssets         MessageAsset[]  @relation("TicketAssets")
 
   // Parent-child threading relationships
   parentTicket          Ticket?         @relation("TicketThread", fields: [parentTicketId], references: [id], onDelete: SetNull)
@@ -372,3 +377,300 @@ model ClassifierFeedback {
   @@index([createdAt])
   @@map("classifier_feedback")
 }
+// ============================================================================
+// EMAIL-TO-TICKET SYSTEM MODELS
+// Enterprise-grade email ingestion with threading, deduplication, and storage
+// ============================================================================
+
+// Email ingestion log - stores raw email metadata for threading and deduplication
+model EmailIngest {
+  id              String    @id @default(uuid())
+  messageId       String    @unique @map("message_id") // RFC822 Message-ID (globally unique)
+  inReplyTo       String?   @map("in_reply_to")        // RFC822 In-Reply-To header
+  references      String?                               // RFC822 References header (JSON array)
+  conversationId  String?   @map("conversation_id")    // Microsoft Graph conversationId
+  threadId        String?   @map("thread_id")          // Gmail threadId (if applicable)
+  
+  // Email metadata
+  from            String                                // Sender email address
+  to              String                                // Recipient email address
+  cc              String?                               // CC recipients (JSON array)
+  bcc             String?                               // BCC recipients (JSON array)
+  subject         String                                // Original subject line
+  
+  // Body content
+  html            String?                               // HTML body
+  text            String?                               // Plain text body
+  snippet         String?                               // First 200 chars preview
+  
+  // Raw data (for debugging/replay)
+  rawHeaders      String?   @map("raw_headers")        // JSON object of all headers
+  parsedJson      String?   @map("parsed_json")        // Full parsed email as JSON
+  
+  // Deduplication and processing
+  dedupeHash      String    @map("dedupe_hash")        // SHA-256 of (messageId + from + subject)
+  receivedAt      DateTime  @default(now()) @map("received_at")
+  processedAt     DateTime? @map("processed_at")
+  processingError String?   @map("processing_error")
+  
+  // Relationships
+  ticketId        String?   @map("ticket_id")          // Linked ticket (if created)
+  attachments     EmailAttachment[]
+  
+  @@index([messageId])
+  @@index([inReplyTo])
+  @@index([conversationId])
+  @@index([receivedAt(sort: Desc)])
+  @@index([dedupeHash])
+  @@index([from, receivedAt(sort: Desc)])
+  @@map("email_ingest")
+}
+
+// Email attachments - separate from Ticket attachments for pre-processing
+model EmailAttachment {
+  id              String       @id @default(uuid())
+  emailIngestId   String       @map("email_ingest_id")
+  
+  // File metadata
+  filename        String
+  contentType     String       @map("content_type")
+  size            Int                                   // Bytes
+  
+  // Storage
+  storageKey      String?      @map("storage_key")     // S3/Spaces object key
+  storageUrl      String?      @map("storage_url")     // Signed URL (temporary)
+  
+  // Inline image support
+  isInline        Boolean      @default(false) @map("is_inline")
+  cid             String?                               // Content-ID for inline images
+  
+  // Processing
+  uploadedAt      DateTime     @default(now()) @map("uploaded_at")
+  virusScanStatus String?      @map("virus_scan_status") // clean, infected, pending, failed
+  virusScanAt     DateTime?    @map("virus_scan_at")
+  
+  emailIngest     EmailIngest  @relation(fields: [emailIngestId], references: [id], onDelete: Cascade)
+  
+  @@index([emailIngestId])
+  @@index([cid])
+  @@index([storageKey])
+  @@map("email_attachments")
+}
+
+// Unified message history for tickets (emails + comments + system messages)
+model TicketMessage {
+  id              String    @id @default(uuid())
+  ticketId        String    @map("ticket_id")
+
+  // Message type
+  kind            String                                // email, comment, system, ai_draft
+
+  // Author info
+  authorId        String?   @map("author_id")          // User ID (if internal)
+  authorEmail     String?   @map("author_email")       // Email address (if external)
+  authorName      String?   @map("author_name")        // Display name
+
+  // Content
+  html            String?                               // HTML content
+  text            String?                               // Plain text content
+  subject         String?                               // Email subject (for kind=email)
+
+  // Metadata
+  metadata        String?                               // JSON (e.g., emailIngestId, attachmentIds, cids)
+  isPublic        Boolean   @default(true) @map("is_public")
+
+  // Timestamps
+  createdAt       DateTime  @default(now()) @map("created_at")
+  editedAt        DateTime? @map("edited_at")
+
+  // Relationships
+  ticket          Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt(sort: Asc)])
+  @@index([authorEmail])
+  @@map("ticket_messages")
+}
+
+// Per-department ticket ID sequences (atomic increments)
+model DepartmentSequence {
+  id              String    @id @default(uuid())
+  departmentCode  String    @unique @map("department_code") // IT, HR, FIN, MKT, etc.
+  departmentName  String    @map("department_name")
+  nextNumber      Int       @default(1) @map("next_number")  // Next available number
+  lastReservedAt  DateTime  @default(now()) @map("last_reserved_at")
+  
+  @@map("department_sequences")
+}
+
+// Tags for flexible ticket categorization
+model Tag {
+  id          String       @id @default(uuid())
+  name        String       @unique                      // kebab-case tag name
+  displayName String       @map("display_name")        // Human-readable name
+  color       String?                                   // Hex color for UI
+  category    String?                                   // Tag category (e.g., "priority", "topic")
+  isActive    Boolean      @default(true) @map("is_active")
+  usageCount  Int          @default(0) @map("usage_count")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  
+  tickets     TicketTag[]
+  
+  @@index([name])
+  @@index([category])
+  @@map("tags")
+}
+
+model TicketTag {
+  id        String   @id @default(uuid())
+  ticketId  String   @map("ticket_id")
+  tagId     String   @map("tag_id")
+  addedAt   DateTime @default(now()) @map("added_at")
+  addedBy   String?  @map("added_by")                  // User ID who added tag
+  
+  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  
+  @@unique([ticketId, tagId])
+  @@index([ticketId])
+  @@index([tagId])
+  @@map("ticket_tags")
+}
+
+// Rate limiting tracking (simple in-database approach)
+model RateLimitEntry {
+  id          String   @id @default(uuid())
+  identifier  String                                    // IP address or email
+  endpoint    String                                    // /api/inbound/email, etc.
+  requestAt   DateTime @default(now()) @map("request_at")
+  expiresAt   DateTime @map("expires_at")              // Auto-cleanup after window
+  
+  @@index([identifier, endpoint, requestAt(sort: Desc)])
+  @@index([expiresAt])
+  @@map("rate_limit_entries")
+}
+
+// Dead Letter Queue for failed email processing
+model EmailDLQ {
+  id             String    @id @default(uuid())
+  failedAt       DateTime  @default(now()) @map("failed_at")
+  error          String
+  stackTrace     String?   @map("stack_trace")
+  retryCount     Int       @default(0) @map("retry_count")
+  lastRetryAt    DateTime? @map("last_retry_at")
+
+  // Email data for replay
+  messageId      String?   @map("message_id")
+  from           String?
+  subject        String?
+  rawPayload     String    @map("raw_payload")          // Full JSON payload from n8n
+
+  // Resolution
+  resolved       Boolean   @default(false)
+  resolvedAt     DateTime? @map("resolved_at")
+  resolvedBy     String?   @map("resolved_by")
+  resolutionNote String?   @map("resolution_note")
+
+  @@index([failedAt(sort: Desc)])
+  @@index([resolved, failedAt(sort: Desc)])
+  @@index([messageId])
+  @@map("email_dlq")
+}
+
+// ============================================================================
+// IMAGE RENDERING SYSTEM
+// Enterprise-grade email image processing with CID resolution and asset serving
+// ============================================================================
+
+// Inbound email messages with parsed and sanitized content
+model InboundMessage {
+  id              String          @id @default(uuid())
+  ticketId        String          @map("ticket_id")
+  messageId       String          @unique @map("message_id")  // RFC822 Message-ID
+  from            String
+  subject         String
+  receivedAt      DateTime        @default(now()) @map("received_at")
+
+  // Content variants
+  htmlRaw         String?         @map("html_raw")            // Original HTML from email
+  htmlSanitized   String?         @map("html_sanitized")      // Sanitized + CID-resolved HTML
+  textPlain       String?         @map("text_plain")          // Plain text body
+
+  // Processing metadata
+  createdAt       DateTime        @default(now()) @map("created_at")
+
+  // Relationships
+  ticket          Ticket          @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  assets          MessageAsset[]
+
+  @@index([ticketId])
+  @@index([messageId])
+  @@index([receivedAt(sort: Desc)])
+  @@map("inbound_messages")
+}
+
+// Email assets (inline images, attachments, and derived variants)
+model MessageAsset {
+  id              String          @id @default(uuid())
+  messageId       String          @map("message_id")
+  ticketId        String          @map("ticket_id")
+
+  // Asset classification
+  kind            AssetKind                               // inline, attachment, derived
+  contentId       String?         @map("content_id")      // CID for inline images
+
+  // File metadata
+  filename        String
+  mime            String
+  size            Int                                     // Bytes
+  sha256          String                                  // Hash for deduplication
+  width           Int?
+  height          Int?
+
+  // Storage
+  storageKey      String          @map("storage_key")     // Path in S3 or disk
+  variant         AssetVariant                            // original, web, thumb
+
+  // Timestamps
+  createdAt       DateTime        @default(now()) @map("created_at")
+
+  // Relationships
+  message         InboundMessage  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  ticket          Ticket          @relation("TicketAssets", fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([ticketId])
+  @@index([sha256])
+  @@index([contentId])
+  @@unique([messageId, contentId, variant])
+  @@map("message_assets")
+}
+
+enum AssetKind {
+  inline
+  attachment
+  derived
+}
+
+enum AssetVariant {
+  original
+  web
+  thumb
+}
+
+// ============================================================================
+// BLOCKED EMAIL DOMAINS
+// Prevents vendor/non-ticket emails from creating tickets
+// ============================================================================
+
+model BlockedEmailDomain {
+  id          String   @id @default(uuid())
+  domain      String   @unique                     // Email domain (e.g., "vendor.com")
+  reason      String?                              // Why this domain was blocked
+  blockedBy   String                               // User ID who blocked the domain
+  blockedAt   DateTime @default(now())             // When domain was blocked
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([domain])
+  @@map("blocked_email_domains")
+}
+

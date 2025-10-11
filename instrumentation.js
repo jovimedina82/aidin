@@ -29,5 +29,15 @@ export async function register() {
     // Start audit log cleanup scheduler (runs in all environments)
     console.log('🔒 Starting audit log cleanup scheduler...')
     auditLogCleanupScheduler.start()
+
+    // Start email polling service (if enabled)
+    const emailPollingEnabled = process.env.EMAIL_POLLING_ENABLED === 'true'
+    if (emailPollingEnabled) {
+      console.log('📬 Starting email polling service...')
+      const { startEmailPolling } = await import('./modules/email-polling/job.ts')
+      startEmailPolling()
+    } else {
+      console.log('⏸️  Email polling disabled (EMAIL_POLLING_ENABLED not set to true)')
+    }
   }
 }

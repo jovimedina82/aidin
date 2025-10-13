@@ -134,7 +134,7 @@ export function getBaseUrl(req?: Request): string {
   }
 
   // 3) Fallback
-  return 'http://localhost:3000'
+  return `http://localhost:${process.env.PORT || 3011}`
 }
 
 export function cookieOptions() {

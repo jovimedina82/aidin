@@ -232,10 +232,19 @@ export async function POST(request: NextRequest) {
           filename: att.filename,
           contentType: att.contentType,
           inline: att.inline,
-          cid: att.cid
+          cid: att.cid,
+          storageUrl: result.cdnUrl // CID resolver expects 'storageUrl'
         });
       } catch (error: any) {
-        console.error(`Failed to upload attachment ${att.filename}:`, error.message);
+        console.error(`❌ Failed to upload attachment ${att.filename}:`, {
+          message: error.message,
+          name: error.name,
+          code: error.code,
+          stack: error.stack,
+          filename: att.filename,
+          contentType: att.contentType,
+          size: att.size
+        });
       }
     }
 
@@ -250,6 +259,24 @@ export async function POST(request: NextRequest) {
 
     // 11. Reserve ticket ID
     const ticketNumber = await reserveTicketId(classification.departmentCode);
+    console.log(`🎫 Reserved ticket number: ${ticketNumber} for department: ${classification.departmentCode}`);
+
+    // Check if ticket number already exists (shouldn't happen with atomic reservation)
+    const existingTicket = await prisma.ticket.findUnique({
+      where: { ticketNumber }
+    });
+
+    if (existingTicket) {
+      console.error(`❌ CRITICAL: Ticket number ${ticketNumber} already exists!`, {
+        existingTicketId: existingTicket.id,
+        existingCreatedAt: existingTicket.createdAt,
+        department: classification.departmentCode,
+        messageId,
+        from,
+        subject
+      });
+      throw new Error(`Duplicate ticket number ${ticketNumber} - atomic reservation failed`);
+    }
 
     // 12. Find or create user
     let requester = await prisma.user.findFirst({
@@ -338,6 +365,7 @@ export async function POST(request: NextRequest) {
 
     // 17. Save attachments
     for (const att of uploadedAttachments) {
+      // Create EmailAttachment record (for tracking)
       await prisma.emailAttachment.create({
         data: {
           emailIngestId: emailIngest.id,
@@ -349,6 +377,20 @@ export async function POST(request: NextRequest) {
           isInline: att.inline || false,
           cid: att.cid,
           virusScanStatus: 'pending'
+        }
+      });
+
+      // Also create Attachment record so it appears in the ticket's Attachments section
+      await prisma.attachment.create({
+        data: {
+          ticketId: ticket.id,
+          userId: requester.id,
+          fileName: att.filename,
+          fileSize: att.size,
+          mimeType: att.contentType,
+          filePath: att.cdnUrl, // Use CDN URL as the file path
+          expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year expiry
+          sentInEmail: true // Email attachments came FROM an email, don't send them back
         }
       });
     }
@@ -404,7 +446,16 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('Email ingestion error:', error);
+    console.error('❌ Email ingestion error:', {
+      message: error.message,
+      name: error.name,
+      code: error.code,
+      stack: error.stack,
+      prismaError: error.meta ? {
+        target: error.meta.target,
+        modelName: error.meta.modelName
+      } : undefined
+    });
 
     // Log to DLQ (note: request body already consumed, so we can't log raw payload)
     try {
@@ -415,7 +466,13 @@ export async function POST(request: NextRequest) {
           messageId: null,
           from: null,
           subject: null,
-          rawPayload: JSON.stringify({ error: 'Request body already consumed', message: error.message })
+          rawPayload: JSON.stringify({
+            error: 'Request body already consumed',
+            message: error.message,
+            name: error.name,
+            code: error.code,
+            prismaError: error.meta
+          })
         }
       });
     } catch (dlqError) {

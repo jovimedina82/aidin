@@ -46,7 +46,7 @@ export default function BlockedDomainsPage() {
         toast.error(error.error || 'Failed to fetch blocked domains')
       }
     } catch (error) {
-      console.error('Failed to fetch blocked domains:', error)
+      // console.error('Failed to fetch blocked domains:', error)
       toast.error('Failed to fetch blocked domains')
     } finally {
       setLoading(false)
@@ -82,7 +82,7 @@ export default function BlockedDomainsPage() {
         toast.error(error.error || 'Failed to block domain')
       }
     } catch (error) {
-      console.error('Failed to block domain:', error)
+      // console.error('Failed to block domain:', error)
       toast.error('Failed to block domain')
     } finally {
       setSubmitting(false)
@@ -107,7 +107,7 @@ export default function BlockedDomainsPage() {
         toast.error(error.error || 'Failed to unblock domain')
       }
     } catch (error) {
-      console.error('Failed to unblock domain:', error)
+      // console.error('Failed to unblock domain:', error)
       toast.error('Failed to unblock domain')
     }
   }
@@ -116,7 +116,7 @@ export default function BlockedDomainsPage() {
     return (
       <>
         <Navbar />
-        <div className="container mx-auto px-4 py-8 pt-24">
+        <div className="container mx-auto px-4 py-8 pt-4">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
@@ -136,7 +136,7 @@ export default function BlockedDomainsPage() {
   return (
     <>
       <Navbar />
-      <div className="container mx-auto px-4 py-8 pt-24 max-w-6xl">
+      <div className="container mx-auto px-4 py-8 pt-4 max-w-6xl">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">

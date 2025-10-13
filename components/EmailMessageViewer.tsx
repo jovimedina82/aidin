@@ -5,8 +5,9 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Download, ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
 
 interface EmailMessage {
   id: string;
@@ -37,8 +38,16 @@ interface EmailMessageViewerProps {
 
 export function EmailMessageViewer({ message, ticketId }: EmailMessageViewerProps) {
   const [attachmentImages, setAttachmentImages] = useState<MessageAsset[]>([]);
+  const [inlineImages, setInlineImages] = useState<string[]>([]);
+  const [allImages, setAllImages] = useState<Array<{ url: string; filename: string }>>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<MessageAsset | null>(null);
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
+  const [zoom, setZoom] = useState(100);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const imageContainerRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [scrollStart, setScrollStart] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     // Fetch attachment images (non-inline images)
@@ -51,7 +60,7 @@ export function EmailMessageViewer({ message, ticketId }: EmailMessageViewerProp
         const data = await response.json();
         setAttachmentImages(data.assets || []);
       } catch (error) {
-        console.error('Failed to fetch attachment images:', error);
+        // console.error('Failed to fetch attachment images:', error);
       } finally {
         setLoading(false);
       }
@@ -60,13 +69,164 @@ export function EmailMessageViewer({ message, ticketId }: EmailMessageViewerProp
     fetchAttachments();
   }, [ticketId, message.id]);
 
-  const handleImageClick = (asset: MessageAsset) => {
-    setSelectedImage(asset);
+  // Extract inline images from HTML content
+  useEffect(() => {
+    // Small delay to ensure DOM is fully rendered
+    const timer = setTimeout(() => {
+      if (contentRef.current) {
+        const imgElements = contentRef.current.querySelectorAll('img');
+        const imageUrls: string[] = [];
+
+        imgElements.forEach((img, index) => {
+          const src = img.getAttribute('src');
+          if (src) {
+            imageUrls.push(src);
+
+            // Make inline images clickable
+            img.style.cursor = 'pointer';
+            img.onclick = (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              console.log('Image clicked! Index:', index);
+              setSelectedImageIndex(index);
+            };
+          }
+        });
+
+        setInlineImages(imageUrls);
+        console.log('Found', imageUrls.length, 'inline images');
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [message.htmlSanitized, message.id]);
+
+  // Combine inline and attachment images
+  useEffect(() => {
+    const combined: Array<{ url: string; filename: string }> = [];
+
+    // Add inline images first
+    inlineImages.forEach((url, index) => {
+      const filename = url.split('/').pop() || `inline-image-${index + 1}.png`;
+      combined.push({ url, filename });
+    });
+
+    // Add attachment images
+    attachmentImages.forEach((asset) => {
+      combined.push({
+        url: asset.url.replace('variant=web', 'variant=original'),
+        filename: asset.filename
+      });
+    });
+
+    setAllImages(combined);
+  }, [inlineImages, attachmentImages]);
+
+  const openGallery = (index: number) => {
+    setSelectedImageIndex(index);
+    setZoom(100);
   };
 
-  const closeModal = () => {
-    setSelectedImage(null);
+  const closeGallery = () => {
+    setSelectedImageIndex(null);
+    setZoom(100);
   };
+
+  const goToNext = () => {
+    if (selectedImageIndex !== null && selectedImageIndex < allImages.length - 1) {
+      setSelectedImageIndex(selectedImageIndex + 1);
+      setZoom(100);
+    }
+  };
+
+  const goToPrevious = () => {
+    if (selectedImageIndex !== null && selectedImageIndex > 0) {
+      setSelectedImageIndex(selectedImageIndex - 1);
+      setZoom(100);
+    }
+  };
+
+  const zoomIn = () => {
+    setZoom(prev => Math.min(prev + 25, 300));
+  };
+
+  const zoomOut = () => {
+    setZoom(prev => Math.max(prev - 25, 25));
+  };
+
+  const resetZoom = () => {
+    setZoom(100);
+  };
+
+  // Drag-to-pan handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (zoom > 100 && imageContainerRef.current) {
+      setIsDragging(true);
+      setDragStart({ x: e.clientX, y: e.clientY });
+      setScrollStart({
+        x: imageContainerRef.current.scrollLeft,
+        y: imageContainerRef.current.scrollTop
+      });
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isDragging && imageContainerRef.current) {
+      const dx = e.clientX - dragStart.x;
+      const dy = e.clientY - dragStart.y;
+      imageContainerRef.current.scrollLeft = scrollStart.x - dx;
+      imageContainerRef.current.scrollTop = scrollStart.y - dy;
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const downloadImage = async (url: string, filename: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error('Failed to download image:', error);
+    }
+  };
+
+  const downloadAllImages = async () => {
+    for (const image of allImages) {
+      await downloadImage(image.url, image.filename);
+      // Small delay to avoid overwhelming the browser
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  };
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (selectedImageIndex === null) return;
+
+      if (e.key === 'ArrowLeft') {
+        goToPrevious();
+      } else if (e.key === 'ArrowRight') {
+        goToNext();
+      } else if (e.key === 'Escape') {
+        closeGallery();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedImageIndex, allImages.length]);
+
+  const selectedImage = selectedImageIndex !== null ? allImages[selectedImageIndex] : null;
 
   return (
     <div className="email-message-viewer">
@@ -78,8 +238,9 @@ export function EmailMessageViewer({ message, ticketId }: EmailMessageViewerProp
       </div>
 
       {/* Email body with inline images */}
+      {/* @ts-ignore */}
       <CardContent>
-        <div className="prose max-w-none email-content">
+        <div className="prose max-w-none email-content" ref={contentRef}>
           {message.htmlSanitized ? (
             <div
               className="email-html-body"
@@ -97,14 +258,24 @@ export function EmailMessageViewer({ message, ticketId }: EmailMessageViewerProp
 
       {/* Attachment images gallery */}
       {attachmentImages.length > 0 && (
+        // @ts-ignore
         <CardContent className="mt-6">
-          <h3 className="text-lg font-semibold mb-3">Message Images</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-semibold">Attachments ({attachmentImages.length})</h3>
+            <button
+              onClick={downloadAllImages}
+              className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+            >
+              <Download className="w-4 h-4" />
+              Download All
+            </button>
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {attachmentImages.map((asset) => (
+            {attachmentImages.map((asset, index) => (
               <div
                 key={asset.id}
                 className="relative cursor-pointer hover:opacity-80 transition-opacity"
-                onClick={() => handleImageClick(asset)}
+                onClick={() => openGallery(inlineImages.length + index)}
               >
                 <img
                   src={asset.url}
@@ -121,26 +292,157 @@ export function EmailMessageViewer({ message, ticketId }: EmailMessageViewerProp
         </CardContent>
       )}
 
-      {/* Full-size image modal */}
-      {selectedImage && (
+      {/* Image Gallery Modal */}
+      {selectedImage && selectedImageIndex !== null && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4"
-          onClick={closeModal}
+          className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center"
+          onClick={closeGallery}
         >
-          <div className="relative max-w-7xl max-h-full">
-            <button
-              className="absolute top-4 right-4 text-white bg-black bg-opacity-50 rounded-full w-10 h-10 flex items-center justify-center hover:bg-opacity-75"
-              onClick={closeModal}
-            >
-              ✕
-            </button>
+          {/* Top toolbar */}
+          <div className="absolute top-0 left-0 right-0 bg-black bg-opacity-50 p-4 flex items-center justify-between">
+            <div className="text-white text-sm">
+              {selectedImageIndex + 1} / {allImages.length}
+            </div>
+            <div className="flex items-center gap-2">
+              {/* Zoom controls */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  zoomOut();
+                }}
+                className="text-white hover:text-gray-300 p-2 rounded-lg hover:bg-white hover:bg-opacity-10 transition-colors"
+                title="Zoom out"
+                disabled={zoom <= 25}
+              >
+                <ZoomOut className="w-5 h-5" />
+              </button>
+              <span className="text-white text-sm min-w-[4rem] text-center">
+                {zoom}%
+              </span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  zoomIn();
+                }}
+                className="text-white hover:text-gray-300 p-2 rounded-lg hover:bg-white hover:bg-opacity-10 transition-colors"
+                title="Zoom in"
+                disabled={zoom >= 300}
+              >
+                <ZoomIn className="w-5 h-5" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  resetZoom();
+                }}
+                className="text-white hover:text-gray-300 p-2 rounded-lg hover:bg-white hover:bg-opacity-10 transition-colors"
+                title="Reset zoom (100%)"
+              >
+                <Maximize2 className="w-5 h-5" />
+              </button>
+
+              {/* Divider */}
+              <div className="w-px h-6 bg-white bg-opacity-30 mx-1"></div>
+
+              {/* Download buttons */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  downloadImage(selectedImage.url, selectedImage.filename);
+                }}
+                className="text-white hover:text-gray-300 p-2 rounded-lg hover:bg-white hover:bg-opacity-10 transition-colors"
+                title="Download this image"
+              >
+                <Download className="w-5 h-5" />
+              </button>
+              {allImages.length > 1 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    downloadAllImages();
+                  }}
+                  className="text-white hover:text-gray-300 px-3 py-2 rounded-lg hover:bg-white hover:bg-opacity-10 transition-colors text-sm flex items-center gap-1"
+                  title="Download all images"
+                >
+                  <Download className="w-4 h-4" />
+                  All
+                </button>
+              )}
+
+              {/* Close button */}
+              <button
+                onClick={closeGallery}
+                className="text-white hover:text-gray-300 p-2 rounded-lg hover:bg-white hover:bg-opacity-10 transition-colors"
+                title="Close (Esc)"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Image container */}
+          <div
+            ref={imageContainerRef}
+            className="relative max-w-7xl max-h-[80vh] mx-4 overflow-auto"
+            style={{
+              cursor: zoom > 100 ? (isDragging ? 'grabbing' : 'grab') : 'default',
+              scrollbarWidth: 'none', // Firefox
+              msOverflowStyle: 'none', // IE/Edge
+            }}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            onClick={(e) => e.stopPropagation()}
+          >
             <img
-              src={selectedImage.url.replace('variant=web', 'variant=original')}
+              src={selectedImage.url}
               alt={selectedImage.filename}
-              className="max-w-full max-h-screen object-contain"
-              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: zoom === 100 ? 'auto' : `${zoom}%`,
+                maxWidth: zoom === 100 ? '100%' : 'none',
+                maxHeight: zoom === 100 ? '80vh' : 'none',
+                transform: zoom === 100 ? 'none' : 'scale(1)',
+                transition: 'all 0.2s ease-in-out',
+                pointerEvents: isDragging ? 'none' : 'auto',
+              }}
+              className="object-contain mx-auto"
             />
-            <div className="text-white text-center mt-4">
+          </div>
+
+          {/* Navigation arrows */}
+          {allImages.length > 1 && (
+            <>
+              {selectedImageIndex > 0 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    goToPrevious();
+                  }}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-white bg-black bg-opacity-50 rounded-full p-3 hover:bg-opacity-75 transition-all"
+                  title="Previous (←)"
+                >
+                  <ChevronLeft className="w-8 h-8" />
+                </button>
+              )}
+              {selectedImageIndex < allImages.length - 1 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    goToNext();
+                  }}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white bg-black bg-opacity-50 rounded-full p-3 hover:bg-opacity-75 transition-all"
+                  title="Next (→)"
+                >
+                  <ChevronRight className="w-8 h-8" />
+                </button>
+              )}
+            </>
+          )}
+
+          {/* Bottom filename */}
+          <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 p-4 text-center">
+            <div className="text-white text-sm truncate">
               {selectedImage.filename}
             </div>
           </div>
@@ -154,6 +456,14 @@ export function EmailMessageViewer({ message, ticketId }: EmailMessageViewerProp
           height: auto;
           display: block;
           margin: 1rem 0;
+          cursor: pointer;
+          transition: transform 0.2s, box-shadow 0.2s;
+          border-radius: 4px;
+        }
+
+        .email-html-body img:hover {
+          transform: scale(1.02);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         }
 
         .email-html-body {

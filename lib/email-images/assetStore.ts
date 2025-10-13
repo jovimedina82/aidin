@@ -118,7 +118,7 @@ export async function getAssetUrl(storageKey: string, ttl: number = 900): Promis
     return await getSignedUrl(client, command, { expiresIn: ttl });
   } else {
     // For disk storage, we'll return a relative path that will be served through our API
-    const appBaseUrl = process.env.APP_BASE_URL || 'http://localhost:3000';
+    const appBaseUrl = process.env.BASE_URL || process.env.APP_BASE_URL || `http://localhost:${process.env.PORT || 3011}`;
     return `${appBaseUrl}/api/assets/serve?key=${encodeURIComponent(storageKey)}`;
   }
 }

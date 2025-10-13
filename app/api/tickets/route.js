@@ -265,11 +265,8 @@ export async function POST(request) {
 
       if (existingTicket) {
         // This is a reply - add as comment instead of creating new ticket
-        const requester = await prisma.user.findFirst({
-          where: {
-            email: data.requesterEmail?.toLowerCase()
-          }
-        })
+        const { findUserByAnyEmail } = await import('@/lib/user-email-utils')
+        const requester = await findUserByAnyEmail(data.requesterEmail)
 
         if (requester) {
           await prisma.ticketComment.create({
@@ -296,12 +293,20 @@ export async function POST(request) {
     let requesterId = data.requesterId || user?.id
 
     if (data.requesterEmail && !requesterId) {
-      // Find user by email (case-insensitive)
-      const requester = await prisma.user.findFirst({
-        where: {
-          email: data.requesterEmail.toLowerCase()
+      const { findUserByAnyEmail, linkExternalEmailToUser } = await import('@/lib/user-email-utils')
+
+      // Find user by ANY email (primary or alternate)
+      let requester = await findUserByAnyEmail(data.requesterEmail)
+
+      if (!requester) {
+        // Try to link external email to existing @surterreproperties.com user
+        const linkResult = await linkExternalEmailToUser(data.requesterEmail, 'system')
+        requester = linkResult.user
+
+        if (linkResult.linked && linkResult.newEmail) {
+          console.log(`✅ Linked external email ${data.requesterEmail} to existing user ${requester.email}`)
         }
-      })
+      }
 
       if (requester) {
         requesterId = requester.id
@@ -324,6 +329,7 @@ export async function POST(request) {
         })
 
         requesterId = newUser.id
+        console.log(`✅ Created new user for external email: ${normalizedEmail}`)
       }
     }
 

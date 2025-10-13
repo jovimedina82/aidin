@@ -1,0 +1,2 @@
+docs/POSTGRESQL_MIGRATION_GUIDE.md
+scripts/deploy-postgresql-production.sh

@@ -4,54 +4,73 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
-  id              String          @id @default(uuid())
-  email           String          @unique
-  password        String?
-  firstName       String
-  lastName        String
-  phone           String?
-  userType        String          @default("Client")
-  managerId       String?         // Reference to manager/supervisor
-  isActive        Boolean         @default(true)
-  lastLoginAt     DateTime?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  azureId         String?         @unique
-  userPrincipalName String?       @unique
-  jobTitle        String?
-  officeLocation  String?
-  mobilePhone     String?
-  avatar          String?
-  lastSyncAt      DateTime?
-  comments        TicketComment[]
-  assignedTickets Ticket[]        @relation("TicketAssignee")
-  createdTickets  Ticket[]        @relation("TicketRequester")
-  roles           UserRole[]
-  preferences     UserPreference?
-  departments     UserDepartment[]
+  id                 String               @id @default(uuid())
+  email              String               @unique
+  password           String?
+  firstName          String
+  lastName           String
+  phone              String?
+  userType           String               @default("Client")
+  managerId          String?
+  isActive           Boolean              @default(true)
+  lastLoginAt        DateTime?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  azureId            String?              @unique
+  userPrincipalName  String?              @unique
+  jobTitle           String?
+  officeLocation     String?
+  mobilePhone        String?
+  avatar             String?
+  lastSyncAt         DateTime?
   classifierFeedback ClassifierFeedback[]
-  createdKBArticles KnowledgeBase[] @relation("KBCreator")
-
-  // Hierarchical relationships
-  manager         User?           @relation("UserManager", fields: [managerId], references: [id])
-  directReports   User[]          @relation("UserManager")
+  createdKBArticles  KnowledgeBase[]      @relation("KBCreator")
+  comments           TicketComment[]
+  assignedTickets    Ticket[]             @relation("TicketAssignee")
+  createdTickets     Ticket[]             @relation("TicketRequester")
+  departments        UserDepartment[]
+  alternateEmails    UserEmail[]
+  preferences        UserPreference?
+  roles              UserRole[]
+  moduleAccess       UserModuleAccess[]
+  attachments        Attachment[]         @relation("AttachmentUploader")
+  manager            User?                @relation("UserManager", fields: [managerId], references: [id])
+  directReports      User[]               @relation("UserManager")
 
   @@map("users")
 }
 
+model UserEmail {
+  id         String    @id @default(uuid())
+  userId     String    @map("user_id")
+  email      String    @unique
+  emailType  String    @default("alternate") @map("email_type")
+  isPrimary  Boolean   @default(false) @map("is_primary")
+  isVerified Boolean   @default(false) @map("is_verified")
+  addedAt    DateTime  @default(now()) @map("added_at")
+  addedBy    String?   @map("added_by")
+  verifiedAt DateTime? @map("verified_at")
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([email])
+  @@map("user_emails")
+}
+
 model Role {
-  id          String     @id @default(uuid())
-  name        String     @unique
-  description String?
-  permissions Json
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  users       UserRole[]
+  id           String             @id @default(uuid())
+  name         String             @unique
+  description  String?
+  permissions  Json
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  users        UserRole[]
+  moduleAccess RoleModuleAccess[]
 
   @@map("roles")
 }
@@ -68,40 +87,38 @@ model UserRole {
 }
 
 model Ticket {
-  id                    String          @id @default(uuid())
-  ticketNumber          String          @unique
-  title                 String
-  description           String
-  status                TicketStatus    @default(NEW)
-  priority              TicketPriority  @default(NORMAL)
-  category              String?
-  requesterId           String?
-  assigneeId            String?
-  departmentId          String?
-  emailConversationId   String?         // Microsoft Graph conversationId for email threading
-  parentTicketId        String?         // Parent ticket for threading
-  aiDraftResponse       String?         // AI-generated draft response awaiting staff review
-  aiDraftGeneratedAt    DateTime?       // When the AI draft was generated
-  aiDraftGeneratedBy    String?         // User ID who triggered draft generation
-  satisfactionRating    Int?            // Customer satisfaction rating (1-5)
-  satisfactionFeedback  String?         // Optional customer feedback text
-  createdAt             DateTime        @default(now())
-  updatedAt             DateTime        @updatedAt
-  resolvedAt            DateTime?
-  closedAt              DateTime?
-  comments              TicketComment[]
-  assignee              User?           @relation("TicketAssignee", fields: [assigneeId], references: [id])
-  requester             User?           @relation("TicketRequester", fields: [requesterId], references: [id])
-  aiDecision            AIDecision?
-  kbUsage               TicketKBUsage[]
-  attachments           Attachment[]
-  ticketMessages        TicketMessage[]
-  inboundMessages       InboundMessage[]
-  messageAssets         MessageAsset[]  @relation("TicketAssets")
-
-  // Parent-child threading relationships
-  parentTicket          Ticket?         @relation("TicketThread", fields: [parentTicketId], references: [id], onDelete: SetNull)
-  childTickets          Ticket[]        @relation("TicketThread")
+  id                   String           @id @default(uuid())
+  ticketNumber         String           @unique
+  title                String
+  description          String
+  status               TicketStatus     @default(NEW)
+  priority             TicketPriority   @default(NORMAL)
+  category             String?
+  requesterId          String?
+  assigneeId           String?
+  departmentId         String?
+  emailConversationId  String?
+  parentTicketId       String?
+  aiDraftResponse      String?
+  aiDraftGeneratedAt   DateTime?
+  aiDraftGeneratedBy   String?
+  satisfactionRating   Int?
+  satisfactionFeedback String?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  resolvedAt           DateTime?
+  closedAt             DateTime?
+  aiDecision           AIDecision?
+  attachments          Attachment[]
+  inboundMessages      InboundMessage[]
+  messageAssets        MessageAsset[]   @relation("TicketAssets")
+  comments             TicketComment[]
+  kbUsage              TicketKBUsage[]
+  ticketMessages       TicketMessage[]
+  assignee             User?            @relation("TicketAssignee", fields: [assigneeId], references: [id])
+  parentTicket         Ticket?          @relation("TicketThread", fields: [parentTicketId], references: [id])
+  childTickets         Ticket[]         @relation("TicketThread")
+  requester            User?            @relation("TicketRequester", fields: [requesterId], references: [id])
 
   @@index([parentTicketId])
   @@map("tickets")
@@ -115,33 +132,18 @@ model TicketComment {
   isPublic  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  user      User     @relation(fields: [userId], references: [id])
   ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
 
   @@map("ticket_comments")
 }
 
-enum TicketStatus {
-  NEW
-  OPEN
-  PENDING
-  ON_HOLD
-  SOLVED
-}
-
-enum TicketPriority {
-  LOW
-  NORMAL
-  HIGH
-  URGENT
-}
-
 model WeeklyTicketStats {
   id                String   @id @default(uuid())
-  weekStartDate     DateTime // Monday of the week
-  weekEndDate       DateTime // Sunday of the week
-  year              Int      // Year of the week
-  weekNumber        Int      // Week number (1-53)
+  weekStartDate     DateTime
+  weekEndDate       DateTime
+  year              Int
+  weekNumber        Int
   totalTickets      Int      @default(0)
   newTickets        Int      @default(0)
   openTickets       Int      @default(0)
@@ -150,7 +152,7 @@ model WeeklyTicketStats {
   solvedTickets     Int      @default(0)
   closedTickets     Int      @default(0)
   unassignedTickets Int      @default(0)
-  effectiveness     Float    @default(0) // percentage (solvedTickets / totalTickets * 100)
+  effectiveness     Float    @default(0)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -159,29 +161,29 @@ model WeeklyTicketStats {
 }
 
 model UserPreference {
-  id                   String   @id @default(uuid())
-  userId               String   @unique
-  personalViewOrder    String?  // JSON array of view IDs
-  companyViewOrder     String?  // JSON array of view IDs
-  dashboardCardOrder   String?  // JSON array of card IDs for dashboard
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
-  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                 String   @id @default(uuid())
+  userId             String   @unique
+  personalViewOrder  String?
+  companyViewOrder   String?
+  dashboardCardOrder String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_preferences")
 }
 
 model Department {
-  id          String             @id @default(uuid())
-  name        String             @unique
-  description String?
-  color       String             @default("gray")
-  isActive    Boolean            @default(true)
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-  users       UserDepartment[]
-  keywords    DepartmentKeyword[]
+  id            String              @id @default(uuid())
+  name          String              @unique
+  description   String?
+  color         String              @default("gray")
+  isActive      Boolean             @default(true)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  keywords      DepartmentKeyword[]
   knowledgeBase KnowledgeBase[]
+  users         UserDepartment[]
 
   @@map("departments")
 }
@@ -190,8 +192,8 @@ model UserDepartment {
   id           String     @id @default(uuid())
   userId       String
   departmentId String
-  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, departmentId])
   @@map("user_departments")
@@ -212,96 +214,95 @@ model DepartmentKeyword {
 }
 
 model KnowledgeBase {
-  id           String    @id @default(uuid())
-  title        String
-  content      String
-  tags         String?   // JSON array of tags
-  departmentId String?
-  createdById  String?   // User who created the article
-  isActive     Boolean   @default(true)
-  embedding    String?   // JSON array of embeddings
-  images       String?   // JSON array of image data
-  usageCount   Int       @default(0)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  createdBy    User?     @relation("KBCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  id              String          @id @default(uuid())
+  title           String
+  content         String
+  tags            String?
+  departmentId    String?
+  createdById     String?
+  isActive        Boolean         @default(true)
+  embedding       String?
+  images          String?
+  usageCount      Int             @default(0)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  createdBy       User?           @relation("KBCreator", fields: [createdById], references: [id])
+  department      Department?     @relation(fields: [departmentId], references: [id])
   ticketResponses TicketKBUsage[]
 
   @@map("knowledge_base")
 }
 
 model TicketKBUsage {
-  id          String        @id @default(uuid())
-  ticketId    String
-  kbId        String
-  relevance   Float         @default(0.0)
-  usedInResponse Boolean    @default(false)
-  createdAt   DateTime      @default(now())
-  ticket      Ticket        @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  knowledgeBase KnowledgeBase @relation(fields: [kbId], references: [id], onDelete: Cascade)
+  id             String        @id @default(uuid())
+  ticketId       String
+  kbId           String
+  relevance      Float         @default(0.0)
+  usedInResponse Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  knowledgeBase  KnowledgeBase @relation(fields: [kbId], references: [id], onDelete: Cascade)
+  ticket         Ticket        @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
   @@unique([ticketId, kbId])
   @@map("ticket_kb_usage")
 }
 
 model AIDecision {
-  id                String    @id @default(uuid())
-  ticketId          String    @unique
-  suggestedDepartment String?
-  departmentConfidence Float? @default(0.0)
-  keywordMatches    String?   // JSON array of matched keywords
-  aiReasoning       String?
-  finalDepartment   String?
-  wasOverridden     Boolean   @default(false)
-  createdAt         DateTime  @default(now())
-  ticket            Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  id                   String   @id @default(uuid())
+  ticketId             String   @unique
+  suggestedDepartment  String?
+  departmentConfidence Float?   @default(0.0)
+  keywordMatches       String?
+  aiReasoning          String?
+  finalDepartment      String?
+  wasOverridden        Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  ticket               Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
   @@map("ai_decisions")
 }
 
-// Production-grade audit log with hash chain integrity
 model AuditLog {
-  id                String   @id @default(uuid())
-  ts                DateTime @default(now())
-  action            String
-  actorId           String?  @map("actor_id")
-  actorEmail        String   @map("actor_email")
-  actorType         String   @map("actor_type") // human, system, service
-  impersonatedUser  String?  @map("impersonated_user")
-  entityType        String   @map("entity_type")
-  entityId          String   @map("entity_id")
-  targetId          String?  @map("target_id")
-  requestId         String?  @map("request_id")
-  correlationId     String?  @map("correlation_id")
-  ip                String?
-  userAgent         String?  @map("user_agent")
-  prevValues        String?  @map("prev_values") // JSON
-  newValues         String?  @map("new_values")  // JSON
-  metadata          String?  // JSON
-  redactionLevel    Int      @default(0) @map("redaction_level")
-  prevHash          String?  @map("prev_hash")
-  hash              String
+  id               String   @id @default(uuid())
+  ts               DateTime @default(now())
+  action           String
+  actorId          String?  @map("actor_id")
+  actorEmail       String   @map("actor_email")
+  actorType        String   @map("actor_type")
+  impersonatedUser String?  @map("impersonated_user")
+  entityType       String   @map("entity_type")
+  entityId         String   @map("entity_id")
+  targetId         String?  @map("target_id")
+  requestId        String?  @map("request_id")
+  correlationId    String?  @map("correlation_id")
+  ip               String?
+  userAgent        String?  @map("user_agent")
+  prevValues       String?  @map("prev_values")
+  newValues        String?  @map("new_values")
+  metadata         String?
+  redactionLevel   Int      @default(0) @map("redaction_level")
+  prevHash         String?  @map("prev_hash")
+  hash             String
 
+  @@unique([action, entityId, requestId])
   @@index([ts(sort: Desc)])
   @@index([entityType, entityId, ts(sort: Desc)])
   @@index([action, ts(sort: Desc)])
   @@index([actorEmail, ts(sort: Desc)])
   @@index([requestId])
   @@index([correlationId])
-  @@unique([action, entityId, requestId])
   @@map("audit_log")
 }
 
 model AuditLogDLQ {
-  id           String    @id @default(uuid())
-  failedAt     DateTime  @default(now()) @map("failed_at")
-  error        String
-  retryCount   Int       @default(0) @map("retry_count")
-  lastRetryAt  DateTime? @map("last_retry_at")
-  eventData    String    @map("event_data") // JSON
-  resolved     Boolean   @default(false)
-  resolvedAt   DateTime? @map("resolved_at")
+  id          String    @id @default(uuid())
+  failedAt    DateTime  @default(now()) @map("failed_at")
+  error       String
+  retryCount  Int       @default(0) @map("retry_count")
+  lastRetryAt DateTime? @map("last_retry_at")
+  eventData   String    @map("event_data")
+  resolved    Boolean   @default(false)
+  resolvedAt  DateTime? @map("resolved_at")
 
   @@index([failedAt(sort: Desc)])
   @@index([resolved, failedAt(sort: Desc)])
@@ -309,16 +310,16 @@ model AuditLogDLQ {
 }
 
 model AuditChainVerification {
-  id               String    @id @default(uuid())
-  verifiedAt       DateTime  @default(now()) @map("verified_at")
-  rangeStart       DateTime  @map("range_start")
-  rangeEnd         DateTime  @map("range_end")
-  totalEntries     Int       @map("total_entries")
-  verifiedEntries  Int       @map("verified_entries")
-  firstFailureId   String?   @map("first_failure_id")
-  firstFailureTs   DateTime? @map("first_failure_ts")
-  status           String    // valid, invalid, partial
-  details          String?   // JSON
+  id              String    @id @default(uuid())
+  verifiedAt      DateTime  @default(now()) @map("verified_at")
+  rangeStart      DateTime  @map("range_start")
+  rangeEnd        DateTime  @map("range_end")
+  totalEntries    Int       @map("total_entries")
+  verifiedEntries Int       @map("verified_entries")
+  firstFailureId  String?   @map("first_failure_id")
+  firstFailureTs  DateTime? @map("first_failure_ts")
+  status          String
+  details         String?
 
   @@index([verifiedAt(sort: Desc)])
   @@index([status, verifiedAt(sort: Desc)])
@@ -326,16 +327,18 @@ model AuditChainVerification {
 }
 
 model Attachment {
-  id           String   @id @default(uuid())
-  ticketId     String
-  userId       String   // User who uploaded the file
-  fileName     String   // Original file name
-  fileSize     Int      // File size in bytes
-  mimeType     String   // MIME type (image/png, application/pdf, etc.)
-  filePath     String   // Relative path to the file on disk
-  uploadedAt   DateTime @default(now())
-  expiresAt    DateTime // Auto-calculated: uploadedAt + 6 months
-  ticket       Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  id          String   @id @default(uuid())
+  ticketId    String
+  userId      String
+  fileName    String
+  fileSize    Int
+  mimeType    String
+  filePath    String
+  uploadedAt  DateTime @default(now())
+  expiresAt   DateTime
+  sentInEmail Boolean  @default(false) // Track if attachment was already sent in an email
+  ticket      Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user        User     @relation("AttachmentUploader", fields: [userId], references: [id])
 
   @@index([userId])
   @@index([ticketId])
@@ -344,14 +347,14 @@ model Attachment {
 }
 
 model AttachmentDeletionLog {
-  id           String   @id @default(uuid())
-  userId       String   // User whose folder the file was in
-  fileName     String
-  fileSize     Int
-  filePath     String
-  deletedAt    DateTime @default(now())
-  deletedBy    String?  // 'system' for auto-cleanup, userId for manual deletion
-  reason       String   // 'expired', 'manual', 'ticket_deleted'
+  id        String   @id @default(uuid())
+  userId    String
+  fileName  String
+  fileSize  Int
+  filePath  String
+  deletedAt DateTime @default(now())
+  deletedBy String?
+  reason    String
 
   @@index([userId])
   @@index([deletedAt])
@@ -365,58 +368,43 @@ model ClassifierFeedback {
   emailSubject     String?
   emailBody        String?
   originalCategory String?
-  feedbackType     String   // 'NOT_TICKET', 'WRONG_CATEGORY', 'CORRECT'
+  feedbackType     String
   correctCategory  String?
   reason           String?
   userId           String
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt        DateTime @default(now())
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([ticketId])
   @@index([feedbackType])
   @@index([createdAt])
   @@map("classifier_feedback")
 }
-// ============================================================================
-// EMAIL-TO-TICKET SYSTEM MODELS
-// Enterprise-grade email ingestion with threading, deduplication, and storage
-// ============================================================================
 
-// Email ingestion log - stores raw email metadata for threading and deduplication
 model EmailIngest {
-  id              String    @id @default(uuid())
-  messageId       String    @unique @map("message_id") // RFC822 Message-ID (globally unique)
-  inReplyTo       String?   @map("in_reply_to")        // RFC822 In-Reply-To header
-  references      String?                               // RFC822 References header (JSON array)
-  conversationId  String?   @map("conversation_id")    // Microsoft Graph conversationId
-  threadId        String?   @map("thread_id")          // Gmail threadId (if applicable)
-  
-  // Email metadata
-  from            String                                // Sender email address
-  to              String                                // Recipient email address
-  cc              String?                               // CC recipients (JSON array)
-  bcc             String?                               // BCC recipients (JSON array)
-  subject         String                                // Original subject line
-  
-  // Body content
-  html            String?                               // HTML body
-  text            String?                               // Plain text body
-  snippet         String?                               // First 200 chars preview
-  
-  // Raw data (for debugging/replay)
-  rawHeaders      String?   @map("raw_headers")        // JSON object of all headers
-  parsedJson      String?   @map("parsed_json")        // Full parsed email as JSON
-  
-  // Deduplication and processing
-  dedupeHash      String    @map("dedupe_hash")        // SHA-256 of (messageId + from + subject)
-  receivedAt      DateTime  @default(now()) @map("received_at")
-  processedAt     DateTime? @map("processed_at")
-  processingError String?   @map("processing_error")
-  
-  // Relationships
-  ticketId        String?   @map("ticket_id")          // Linked ticket (if created)
+  id              String            @id @default(uuid())
+  messageId       String            @unique @map("message_id")
+  inReplyTo       String?           @map("in_reply_to")
+  references      String?
+  conversationId  String?           @map("conversation_id")
+  threadId        String?           @map("thread_id")
+  from            String
+  to              String
+  cc              String?
+  bcc             String?
+  subject         String
+  html            String?
+  text            String?
+  snippet         String?
+  rawHeaders      String?           @map("raw_headers")
+  parsedJson      String?           @map("parsed_json")
+  dedupeHash      String            @map("dedupe_hash")
+  receivedAt      DateTime          @default(now()) @map("received_at")
+  processedAt     DateTime?         @map("processed_at")
+  processingError String?           @map("processing_error")
+  ticketId        String?           @map("ticket_id")
   attachments     EmailAttachment[]
-  
+
   @@index([messageId])
   @@index([inReplyTo])
   @@index([conversationId])
@@ -426,129 +414,100 @@ model EmailIngest {
   @@map("email_ingest")
 }
 
-// Email attachments - separate from Ticket attachments for pre-processing
 model EmailAttachment {
-  id              String       @id @default(uuid())
-  emailIngestId   String       @map("email_ingest_id")
-  
-  // File metadata
+  id              String      @id @default(uuid())
+  emailIngestId   String      @map("email_ingest_id")
   filename        String
-  contentType     String       @map("content_type")
-  size            Int                                   // Bytes
-  
-  // Storage
-  storageKey      String?      @map("storage_key")     // S3/Spaces object key
-  storageUrl      String?      @map("storage_url")     // Signed URL (temporary)
-  
-  // Inline image support
-  isInline        Boolean      @default(false) @map("is_inline")
-  cid             String?                               // Content-ID for inline images
-  
-  // Processing
-  uploadedAt      DateTime     @default(now()) @map("uploaded_at")
-  virusScanStatus String?      @map("virus_scan_status") // clean, infected, pending, failed
-  virusScanAt     DateTime?    @map("virus_scan_at")
-  
-  emailIngest     EmailIngest  @relation(fields: [emailIngestId], references: [id], onDelete: Cascade)
-  
+  contentType     String      @map("content_type")
+  size            Int
+  storageKey      String?     @map("storage_key")
+  storageUrl      String?     @map("storage_url")
+  isInline        Boolean     @default(false) @map("is_inline")
+  cid             String?
+  uploadedAt      DateTime    @default(now()) @map("uploaded_at")
+  virusScanStatus String?     @map("virus_scan_status")
+  virusScanAt     DateTime?   @map("virus_scan_at")
+  emailIngest     EmailIngest @relation(fields: [emailIngestId], references: [id], onDelete: Cascade)
+
   @@index([emailIngestId])
   @@index([cid])
   @@index([storageKey])
   @@map("email_attachments")
 }
 
-// Unified message history for tickets (emails + comments + system messages)
 model TicketMessage {
-  id              String    @id @default(uuid())
-  ticketId        String    @map("ticket_id")
+  id          String    @id @default(uuid())
+  ticketId    String    @map("ticket_id")
+  kind        String
+  authorId    String?   @map("author_id")
+  authorEmail String?   @map("author_email")
+  authorName  String?   @map("author_name")
+  html        String?
+  text        String?
+  subject     String?
+  metadata    String?
+  isPublic    Boolean   @default(true) @map("is_public")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  editedAt    DateTime? @map("edited_at")
+  ticket      Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
-  // Message type
-  kind            String                                // email, comment, system, ai_draft
-
-  // Author info
-  authorId        String?   @map("author_id")          // User ID (if internal)
-  authorEmail     String?   @map("author_email")       // Email address (if external)
-  authorName      String?   @map("author_name")        // Display name
-
-  // Content
-  html            String?                               // HTML content
-  text            String?                               // Plain text content
-  subject         String?                               // Email subject (for kind=email)
-
-  // Metadata
-  metadata        String?                               // JSON (e.g., emailIngestId, attachmentIds, cids)
-  isPublic        Boolean   @default(true) @map("is_public")
-
-  // Timestamps
-  createdAt       DateTime  @default(now()) @map("created_at")
-  editedAt        DateTime? @map("edited_at")
-
-  // Relationships
-  ticket          Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-
-  @@index([ticketId, createdAt(sort: Asc)])
+  @@index([ticketId, createdAt])
   @@index([authorEmail])
   @@map("ticket_messages")
 }
 
-// Per-department ticket ID sequences (atomic increments)
 model DepartmentSequence {
-  id              String    @id @default(uuid())
-  departmentCode  String    @unique @map("department_code") // IT, HR, FIN, MKT, etc.
-  departmentName  String    @map("department_name")
-  nextNumber      Int       @default(1) @map("next_number")  // Next available number
-  lastReservedAt  DateTime  @default(now()) @map("last_reserved_at")
-  
+  id             String   @id @default(uuid())
+  departmentCode String   @unique @map("department_code")
+  departmentName String   @map("department_name")
+  nextNumber     Int      @default(1) @map("next_number")
+  lastReservedAt DateTime @default(now()) @map("last_reserved_at")
+
   @@map("department_sequences")
 }
 
-// Tags for flexible ticket categorization
 model Tag {
-  id          String       @id @default(uuid())
-  name        String       @unique                      // kebab-case tag name
-  displayName String       @map("display_name")        // Human-readable name
-  color       String?                                   // Hex color for UI
-  category    String?                                   // Tag category (e.g., "priority", "topic")
-  isActive    Boolean      @default(true) @map("is_active")
-  usageCount  Int          @default(0) @map("usage_count")
-  createdAt   DateTime     @default(now()) @map("created_at")
-  
+  id          String      @id @default(uuid())
+  name        String      @unique
+  displayName String      @map("display_name")
+  color       String?
+  category    String?
+  isActive    Boolean     @default(true) @map("is_active")
+  usageCount  Int         @default(0) @map("usage_count")
+  createdAt   DateTime    @default(now()) @map("created_at")
   tickets     TicketTag[]
-  
+
   @@index([name])
   @@index([category])
   @@map("tags")
 }
 
 model TicketTag {
-  id        String   @id @default(uuid())
-  ticketId  String   @map("ticket_id")
-  tagId     String   @map("tag_id")
-  addedAt   DateTime @default(now()) @map("added_at")
-  addedBy   String?  @map("added_by")                  // User ID who added tag
-  
-  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
-  
+  id       String   @id @default(uuid())
+  ticketId String   @map("ticket_id")
+  tagId    String   @map("tag_id")
+  addedAt  DateTime @default(now()) @map("added_at")
+  addedBy  String?  @map("added_by")
+  tag      Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
   @@unique([ticketId, tagId])
   @@index([ticketId])
   @@index([tagId])
   @@map("ticket_tags")
 }
 
-// Rate limiting tracking (simple in-database approach)
 model RateLimitEntry {
-  id          String   @id @default(uuid())
-  identifier  String                                    // IP address or email
-  endpoint    String                                    // /api/inbound/email, etc.
-  requestAt   DateTime @default(now()) @map("request_at")
-  expiresAt   DateTime @map("expires_at")              // Auto-cleanup after window
-  
+  id         String   @id @default(uuid())
+  identifier String
+  endpoint   String
+  requestAt  DateTime @default(now()) @map("request_at")
+  expiresAt  DateTime @map("expires_at")
+
   @@index([identifier, endpoint, requestAt(sort: Desc)])
   @@index([expiresAt])
   @@map("rate_limit_entries")
 }
 
-// Dead Letter Queue for failed email processing
 model EmailDLQ {
   id             String    @id @default(uuid())
   failedAt       DateTime  @default(now()) @map("failed_at")
@@ -556,14 +515,10 @@ model EmailDLQ {
   stackTrace     String?   @map("stack_trace")
   retryCount     Int       @default(0) @map("retry_count")
   lastRetryAt    DateTime? @map("last_retry_at")
-
-  // Email data for replay
   messageId      String?   @map("message_id")
   from           String?
   subject        String?
-  rawPayload     String    @map("raw_payload")          // Full JSON payload from n8n
-
-  // Resolution
+  rawPayload     String    @map("raw_payload")
   resolved       Boolean   @default(false)
   resolvedAt     DateTime? @map("resolved_at")
   resolvedBy     String?   @map("resolved_by")
@@ -575,31 +530,19 @@ model EmailDLQ {
   @@map("email_dlq")
 }
 
-// ============================================================================
-// IMAGE RENDERING SYSTEM
-// Enterprise-grade email image processing with CID resolution and asset serving
-// ============================================================================
-
-// Inbound email messages with parsed and sanitized content
 model InboundMessage {
-  id              String          @id @default(uuid())
-  ticketId        String          @map("ticket_id")
-  messageId       String          @unique @map("message_id")  // RFC822 Message-ID
-  from            String
-  subject         String
-  receivedAt      DateTime        @default(now()) @map("received_at")
-
-  // Content variants
-  htmlRaw         String?         @map("html_raw")            // Original HTML from email
-  htmlSanitized   String?         @map("html_sanitized")      // Sanitized + CID-resolved HTML
-  textPlain       String?         @map("text_plain")          // Plain text body
-
-  // Processing metadata
-  createdAt       DateTime        @default(now()) @map("created_at")
-
-  // Relationships
-  ticket          Ticket          @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  assets          MessageAsset[]
+  id            String         @id @default(uuid())
+  ticketId      String         @map("ticket_id")
+  messageId     String         @unique @map("message_id")
+  from          String
+  subject       String
+  receivedAt    DateTime       @default(now()) @map("received_at")
+  htmlRaw       String?        @map("html_raw")
+  htmlSanitized String?        @map("html_sanitized")
+  textPlain     String?        @map("text_plain")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  ticket        Ticket         @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  assets        MessageAsset[]
 
   @@index([ticketId])
   @@index([messageId])
@@ -607,41 +550,118 @@ model InboundMessage {
   @@map("inbound_messages")
 }
 
-// Email assets (inline images, attachments, and derived variants)
 model MessageAsset {
-  id              String          @id @default(uuid())
-  messageId       String          @map("message_id")
-  ticketId        String          @map("ticket_id")
+  id         String         @id @default(uuid())
+  messageId  String         @map("message_id")
+  ticketId   String         @map("ticket_id")
+  kind       AssetKind
+  contentId  String?        @map("content_id")
+  filename   String
+  mime       String
+  size       Int
+  sha256     String
+  width      Int?
+  height     Int?
+  storageKey String         @map("storage_key")
+  variant    AssetVariant
+  createdAt  DateTime       @default(now()) @map("created_at")
+  message    InboundMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  ticket     Ticket         @relation("TicketAssets", fields: [ticketId], references: [id], onDelete: Cascade)
 
-  // Asset classification
-  kind            AssetKind                               // inline, attachment, derived
-  contentId       String?         @map("content_id")      // CID for inline images
-
-  // File metadata
-  filename        String
-  mime            String
-  size            Int                                     // Bytes
-  sha256          String                                  // Hash for deduplication
-  width           Int?
-  height          Int?
-
-  // Storage
-  storageKey      String          @map("storage_key")     // Path in S3 or disk
-  variant         AssetVariant                            // original, web, thumb
-
-  // Timestamps
-  createdAt       DateTime        @default(now()) @map("created_at")
-
-  // Relationships
-  message         InboundMessage  @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  ticket          Ticket          @relation("TicketAssets", fields: [ticketId], references: [id], onDelete: Cascade)
-
+  @@unique([messageId, contentId, variant])
   @@index([messageId])
   @@index([ticketId])
   @@index([sha256])
   @@index([contentId])
-  @@unique([messageId, contentId, variant])
   @@map("message_assets")
+}
+
+model BlockedEmailDomain {
+  id        String   @id @default(uuid())
+  domain    String   @unique
+  reason    String?
+  blockedBy String
+  blockedAt DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([domain])
+  @@map("blocked_email_domains")
+}
+
+// System modules (features/sections of the application)
+model Module {
+  id          String   @id @default(uuid())
+  name        String   @unique                     // Human-readable name (e.g., "Tickets", "Reports")
+  key         String   @unique                     // Unique key (e.g., "tickets", "reports")
+  description String?                              // Description of the module
+  icon        String?                              // Icon name for UI (e.g., "Ticket", "BarChart3")
+  route       String?                              // Primary route path (e.g., "/tickets", "/reports")
+  category    String?                              // Module category (e.g., "core", "admin", "features")
+  isCore      Boolean  @default(false)            // Core modules can't be disabled (Dashboard, Profile)
+  isActive    Boolean  @default(true)             // Module is active and available
+  sortOrder   Int      @default(0)                // Display order in UI
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userModuleAccess UserModuleAccess[]
+  roleModuleAccess RoleModuleAccess[]
+
+  @@index([key])
+  @@index([isActive])
+  @@map("modules")
+}
+
+// Per-user module access (overrides role-based access)
+model UserModuleAccess {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  moduleId  String   @map("module_id")
+  hasAccess Boolean  @default(true)              // Grant or deny access
+  grantedBy String?  @map("granted_by")          // Admin who granted/revoked access
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, moduleId])
+  @@index([userId])
+  @@index([moduleId])
+  @@map("user_module_access")
+}
+
+// Per-role module access (default access for users with this role)
+model RoleModuleAccess {
+  id        String   @id @default(uuid())
+  roleId    String   @map("role_id")
+  moduleId  String   @map("module_id")
+  hasAccess Boolean  @default(true)              // Grant or deny access
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, moduleId])
+  @@index([roleId])
+  @@index([moduleId])
+  @@map("role_module_access")
+}
+
+enum TicketStatus {
+  NEW
+  OPEN
+  PENDING
+  ON_HOLD
+  SOLVED
+}
+
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
 }
 
 enum AssetKind {
@@ -655,22 +675,3 @@ enum AssetVariant {
   web
   thumb
 }
-
-// ============================================================================
-// BLOCKED EMAIL DOMAINS
-// Prevents vendor/non-ticket emails from creating tickets
-// ============================================================================
-
-model BlockedEmailDomain {
-  id          String   @id @default(uuid())
-  domain      String   @unique                     // Email domain (e.g., "vendor.com")
-  reason      String?                              // Why this domain was blocked
-  blockedBy   String                               // User ID who blocked the domain
-  blockedAt   DateTime @default(now())             // When domain was blocked
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@index([domain])
-  @@map("blocked_email_domains")
-}
-

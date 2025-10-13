@@ -46,7 +46,7 @@ export const POST = withErrorHandler(async (request) => {
     })
 
     if (!requesterRole) {
-      return ApiError.internalServerError('Requester role not found in database')
+      return ApiError.internal('Requester role not found in database')
     }
 
     for (const azureUser of users) {
@@ -227,6 +227,6 @@ export const POST = withErrorHandler(async (request) => {
       console.error('Failed to create error audit log:', logError)
     }
 
-    return ApiError.internalServerError(`Sync failed: ${error.message}`)
+    return ApiError.internal(`Sync failed: ${error.message}`)
   }
 })

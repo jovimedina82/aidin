@@ -23,7 +23,7 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, rectSortingStr
 import { toast } from 'sonner'
 
 export default function DashboardPage() {
-  const { makeAuthenticatedRequest, user } = useAuth()
+  const { makeAuthenticatedRequest, user, loading: authLoading } = useAuth()
   const router = useRouter()
   const { isConnected, isEnabled, on, off } = useSocket()
   const [stats, setStats] = useState({
@@ -62,24 +62,38 @@ export default function DashboardPage() {
         setLoading(true)
       }
 
-      // Fetch stats and recent NEW tickets in parallel
-      const [statsResponse, ticketsResponse] = await Promise.all([
-        makeAuthenticatedRequest('/api/stats'),
-        makeAuthenticatedRequest('/api/tickets?limit=8&status=NEW')
-      ])
+      // Fetch stats immediately (don't wait for tickets)
+      makeAuthenticatedRequest('/api/stats')
+        .then(async (statsResponse) => {
+          if (statsResponse.ok) {
+            const statsData = await statsResponse.json()
+            setStats(statsData)
+            // Hide loading as soon as we have stats
+            if (showLoadingState) {
+              setLoading(false)
+            }
+          }
+        })
+        .catch((error) => {
+          if (showLoadingState) {
+            setLoading(false)
+          }
+        })
 
-      if (statsResponse.ok) {
-        const statsData = await statsResponse.json()
-        setStats(statsData)
-      }
+      // Fetch tickets in parallel (doesn't block stats)
+      makeAuthenticatedRequest('/api/tickets?limit=8&status=NEW')
+        .then(async (ticketsResponse) => {
+          if (ticketsResponse.ok) {
+            const ticketsData = await ticketsResponse.json()
+            setRecentTickets(ticketsData.tickets || ticketsData || [])
+          }
+        })
+        .catch((error) => {
+          // console.error('Failed to fetch tickets:', error)
+        })
 
-      if (ticketsResponse.ok) {
-        const ticketsData = await ticketsResponse.json()
-        setRecentTickets(ticketsData.tickets || ticketsData || [])
-      }
     } catch (error) {
-      console.error('Failed to fetch dashboard data:', error)
-    } finally {
+      // console.error('Failed to fetch dashboard data:', error)
       if (showLoadingState) {
         setLoading(false)
       }
@@ -97,7 +111,7 @@ export default function DashboardPage() {
         }
       }
     } catch (error) {
-      console.error('Failed to load card order preference:', error)
+      // console.error('Failed to load card order preference:', error)
     }
   }, [makeAuthenticatedRequest])
 
@@ -110,7 +124,7 @@ export default function DashboardPage() {
         body: JSON.stringify({ dashboardCardOrder: newOrder })
       })
     } catch (error) {
-      console.error('Failed to save card order preference:', error)
+      // console.error('Failed to save card order preference:', error)
       toast.error('Failed to save card layout')
     }
   }, [makeAuthenticatedRequest])
@@ -134,11 +148,19 @@ export default function DashboardPage() {
     }
   }
 
-  // Initial data fetch and load preferences
+  // Initial data fetch and load preferences - wait for auth to complete
   useEffect(() => {
-    fetchDashboardData(true)
-    loadCardOrderPreference()
-  }, [fetchDashboardData, loadCardOrderPreference])
+    // Don't fetch data until auth check is complete
+    if (authLoading) {
+      return
+    }
+
+    // Only fetch if we have a user (authenticated)
+    if (user) {
+      fetchDashboardData(true)
+      loadCardOrderPreference()
+    }
+  }, [authLoading, user, fetchDashboardData, loadCardOrderPreference])
 
   // Socket.IO event handlers
   useEffect(() => {
@@ -146,25 +168,19 @@ export default function DashboardPage() {
       return
     }
 
-    console.log('📡 Setting up Socket.IO event listeners')
-
     const handleTicketCreated = (data) => {
-      console.log('🎫 Ticket created:', data.ticket.ticketNumber)
       fetchDashboardData(false) // Refresh without loading state
     }
 
     const handleTicketUpdated = (data) => {
-      console.log('🔄 Ticket updated:', data.ticket.ticketNumber)
       fetchDashboardData(false) // Refresh without loading state
     }
 
     const handleTicketDeleted = (data) => {
-      console.log('🗑️ Ticket deleted:', data.ticketId)
       fetchDashboardData(false) // Refresh without loading state
     }
 
     const handleStatsUpdate = (data) => {
-      console.log('📊 Stats updated')
       setStats(data.stats)
     }
 
@@ -187,11 +203,8 @@ export default function DashboardPage() {
   useEffect(() => {
     // If live updates are enabled and connected, skip polling
     if (isEnabled && isConnected) {
-      console.log('📡 Using WebSocket updates, polling disabled')
       return
     }
-
-    console.log('🔄 Using polling fallback (every 30 seconds)')
 
     // Set up polling interval (every 30 seconds)
     const interval = setInterval(() => {
@@ -272,31 +285,27 @@ export default function DashboardPage() {
     }
   }
 
-  // Debug logging for SSO users
-  React.useEffect(() => {
-    if (user) {
-      console.log('Dashboard user data:', user)
-      console.log('User roles:', user.roles)
-      console.log('Is staff?', isStaff)
-    }
-  }, [user, isStaff])
-
-  // Debug logging for Virtual Assistant
-  React.useEffect(() => {
-    console.log('Virtual Assistant state:', {
-      showAssistant,
-      assistantMinimized,
-      user: !!user,
-      roles: user?.roles,
-      shouldShowButton: !showAssistant
-    })
-  }, [showAssistant, assistantMinimized, user])
+  // Show loading state while auth is checking
+  if (authLoading) {
+    return (
+      <DashboardLayout>
+        <div className="container mx-auto px-4 pt-4 pb-8">
+          <div className="flex items-center justify-center h-[60vh]">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Loading dashboard...</p>
+            </div>
+          </div>
+        </div>
+      </DashboardLayout>
+    )
+  }
 
   return (
     <DashboardLayout>
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 pt-4 pb-8">
           {/* Header */}
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-6">
             <div>
               <h1 className="text-3xl font-bold text-foreground">
                 Welcome back, {user?.firstName || user?.name?.split(' ')[0] || 'User'}!
@@ -541,10 +550,7 @@ export default function DashboardPage() {
       {!showAssistant && (
         <div className="fixed bottom-4 right-4 z-50">
           <Button
-            onClick={() => {
-              console.log('Assistant button clicked!')
-              setShowAssistant(true)
-            }}
+            onClick={() => setShowAssistant(true)}
             className="h-14 w-14 rounded-full shadow-lg bg-blue-600 hover:bg-blue-700"
             title="Open AidIN Virtual Assistant"
           >

@@ -38,7 +38,7 @@ export default function MentionTextarea({
           setUsers(data)
         }
       } catch (error) {
-        console.error('Failed to fetch users for mentions:', error)
+        // console.error('Failed to fetch users for mentions:', error)
       }
     }
     fetchUsers()

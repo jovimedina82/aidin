@@ -12,6 +12,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { User, Mail, Shield, Building, Calendar, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDistanceToNow } from 'date-fns'
+import UserEmailsManager from '../../components/UserEmailsManager'
 
 export default function ProfilePage() {
   const { user, makeAuthenticatedRequest } = useAuth()
@@ -181,7 +182,7 @@ export default function ProfilePage() {
                           Change Password
                         </Button>
                       </div>
-                      
+
                       <div className="flex items-center justify-between">
                         <div>
                           <h4 className="font-medium">Two-Factor Authentication</h4>
@@ -204,6 +205,9 @@ export default function ProfilePage() {
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Email Addresses Management */}
+                <UserEmailsManager />
               </div>
 
               {/* Sidebar */}

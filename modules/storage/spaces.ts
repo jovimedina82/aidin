@@ -339,8 +339,16 @@ export async function uploadEmailAttachment(params: {
   const prefix = params.inline ? 'inline-images' : 'attachments';
   const key = generateStorageKey(params.filename, prefix);
 
+  // Sanitize metadata values for HTTP headers (no spaces, special chars, or non-ASCII)
+  const sanitizeMetadata = (value: string): string => {
+    return value
+      .replace(/[^\x20-\x7E]/g, '') // Remove non-ASCII characters
+      .replace(/\s+/g, '_')          // Replace spaces with underscores
+      .substring(0, 200);            // Limit length
+  };
+
   const metadata: Record<string, string> = {
-    originalFilename: params.filename,
+    originalFilename: sanitizeMetadata(params.filename),
   };
 
   if (params.inline) {
@@ -348,7 +356,7 @@ export async function uploadEmailAttachment(params: {
   }
 
   if (params.cid) {
-    metadata.cid = params.cid;
+    metadata.cid = sanitizeMetadata(params.cid);
   }
 
   let result;

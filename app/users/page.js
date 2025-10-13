@@ -77,6 +77,7 @@ import { useRouter } from 'next/navigation'
 import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
 import HierarchicalOrgChart from '../../components/HierarchicalOrgChart'
+import AdminUserEmailsManager from '../../components/AdminUserEmailsManager'
 
 export default function UsersPage() {
   const { makeAuthenticatedRequest, user } = useAuth()
@@ -117,10 +118,21 @@ export default function UsersPage() {
     isActive: true
   })
 
-  // Role-based permissions
-  const isAdmin = user?.roles?.includes('Admin')
-  const isManager = user?.roles?.includes('Manager')
-  const isStaff = user?.roles?.includes('Staff') || isManager || isAdmin
+  // Role-based permissions - Handle different role formats
+  const getUserRoleNames = () => {
+    if (!user?.roles) return []
+    return user.roles.map(role => {
+      if (typeof role === 'string') return role
+      if (role?.role?.name) return role.role.name
+      if (role?.name) return role.name
+      return null
+    }).filter(Boolean)
+  }
+
+  const userRoleNames = getUserRoleNames()
+  const isAdmin = userRoleNames.includes('Admin')
+  const isManager = userRoleNames.includes('Manager')
+  const isStaff = userRoleNames.includes('Staff') || isManager || isAdmin
 
   useEffect(() => {
     if (isStaff) {
@@ -138,37 +150,37 @@ export default function UsersPage() {
         // Handle both array format and object with users property
         const usersArray = Array.isArray(data) ? data : data.users || []
         setUsers(usersArray)
-        console.log('Fetched users:', usersArray)
+        // console.log('Fetched users:', usersArray)
       }
     } catch (error) {
-      console.error('Failed to fetch users:', error)
+      // console.error('Failed to fetch users:', error)
     } finally {
       setLoading(false)
     }
   }
 
   const handleSelectUser = (userId, checked) => {
-    console.log(`User selection changed: ${userId}, checked: ${checked}`)
+    // console.log(`User selection changed: ${userId}, checked: ${checked}`)
     if (checked) {
       const newSelection = [...selectedUsers, userId]
       setSelectedUsers(newSelection)
-      console.log('Updated selected users:', newSelection)
+      // console.log('Updated selected users:', newSelection)
     } else {
       const newSelection = selectedUsers.filter(id => id !== userId)
       setSelectedUsers(newSelection)
-      console.log('Updated selected users:', newSelection)
+      // console.log('Updated selected users:', newSelection)
     }
   }
 
   const handleSelectAll = (checked) => {
-    console.log(`Select all changed: ${checked}`)
+    // console.log(`Select all changed: ${checked}`)
     if (checked) {
       const allUserIds = filteredUsers.map(u => u.id)
       setSelectedUsers(allUserIds)
-      console.log('Selected all users:', allUserIds)
+      // console.log('Selected all users:', allUserIds)
     } else {
       setSelectedUsers([])
-      console.log('Cleared all selections')
+      // console.log('Cleared all selections')
     }
   }
 
@@ -221,7 +233,7 @@ export default function UsersPage() {
 
     try {
       // First check if user has direct reports
-      console.log('Checking deletion requirements for user:', userId)
+      // console.log('Checking deletion requirements for user:', userId)
       const checkResponse = await makeAuthenticatedRequest(`/api/users/${userId}/check-deletion`)
 
       if (!checkResponse.ok) {
@@ -243,14 +255,14 @@ export default function UsersPage() {
       await performUserDeletion(userId)
 
     } catch (error) {
-      console.error('Delete user error:', error)
+      // console.error('Delete user error:', error)
       toast.error(`Failed to delete user: ${error.message}`)
     }
   }
 
   const performUserDeletion = async (userId, newManagerId = null) => {
     try {
-      console.log('Performing user deletion:', userId, 'New manager:', newManagerId)
+      // console.log('Performing user deletion:', userId, 'New manager:', newManagerId)
 
       const deleteData = newManagerId ? { newManagerId } : {}
 
@@ -262,7 +274,7 @@ export default function UsersPage() {
         body: JSON.stringify(deleteData)
       })
 
-      console.log('Delete response:', response.status, response.statusText)
+      // console.log('Delete response:', response.status, response.statusText)
 
       if (response.ok) {
         const result = await response.json()
@@ -274,7 +286,7 @@ export default function UsersPage() {
           : 'User deleted successfully'
 
         toast.success(message)
-        console.log('User deleted successfully')
+        // console.log('User deleted successfully')
 
         // Close modal if open
         setIsManagerReassignmentOpen(false)
@@ -282,11 +294,11 @@ export default function UsersPage() {
         setSelectedNewManager('')
       } else {
         const error = await response.json()
-        console.log('Delete error:', error)
+        // console.log('Delete error:', error)
         toast.error(error.error || `Failed to delete user (${response.status})`)
       }
     } catch (error) {
-      console.error('Delete user error:', error)
+      // console.error('Delete user error:', error)
       toast.error(`Failed to delete user: ${error.message}`)
     }
   }
@@ -307,7 +319,7 @@ export default function UsersPage() {
     }
 
     try {
-      console.log('Attempting to bulk delete selected users:', selectedUsers)
+      // console.log('Attempting to bulk delete selected users:', selectedUsers)
 
       const response = await makeAuthenticatedRequest('/api/users/bulk-delete', {
         method: 'DELETE',
@@ -337,7 +349,7 @@ export default function UsersPage() {
       }
 
     } catch (error) {
-      console.error('Error in bulk delete:', error)
+      // console.error('Error in bulk delete:', error)
       toast.error('Failed to delete users')
       // Clear selection even on error
       setSelectedUsers([])
@@ -404,7 +416,7 @@ export default function UsersPage() {
 
   const handleCreateUser = async () => {
     try {
-      console.log('Creating new user:', newUser)
+      // console.log('Creating new user:', newUser)
       
       // Validate required fields
       if (!newUser.firstName || !newUser.lastName || !newUser.email || !newUser.password) {
@@ -460,7 +472,7 @@ export default function UsersPage() {
 
       if (response.ok) {
         const createdUser = await response.json()
-        console.log('User created successfully:', createdUser)
+        // console.log('User created successfully:', createdUser)
         
         // Refresh the users list
         fetchUsers()
@@ -481,11 +493,11 @@ export default function UsersPage() {
         toast.success('User created successfully')
       } else {
         const error = await response.json()
-        console.log('Create user error:', error)
+        // console.log('Create user error:', error)
         toast.error(error.error || `Failed to create user (${response.status})`)
       }
     } catch (error) {
-      console.error('Create user error:', error)
+      // console.error('Create user error:', error)
       toast.error(`Failed to create user: ${error.message}`)
     }
   }
@@ -557,7 +569,7 @@ export default function UsersPage() {
         setDepartments(data.departments || [])
       }
     } catch (error) {
-      console.error('Failed to fetch departments:', error)
+      // console.error('Failed to fetch departments:', error)
     } finally {
       setDepartmentsLoading(false)
     }
@@ -594,7 +606,7 @@ export default function UsersPage() {
         alert(error.error || 'Failed to create department')
       }
     } catch (error) {
-      console.error('Failed to create department:', error)
+      // console.error('Failed to create department:', error)
       alert('Failed to create department')
     }
   }
@@ -626,7 +638,7 @@ export default function UsersPage() {
         alert(error.error || 'Failed to update department')
       }
     } catch (error) {
-      console.error('Failed to update department:', error)
+      // console.error('Failed to update department:', error)
       alert('Failed to update department')
     }
   }
@@ -646,7 +658,7 @@ export default function UsersPage() {
         alert(error.error || 'Failed to delete department')
       }
     } catch (error) {
-      console.error('Failed to delete department:', error)
+      // console.error('Failed to delete department:', error)
       alert('Failed to delete department')
     }
   }
@@ -661,11 +673,11 @@ export default function UsersPage() {
         const data = await response.json()
         setOrgChartData(data)
       } else {
-        console.error('Failed to fetch org chart:', response.statusText)
+        // console.error('Failed to fetch org chart:', response.statusText)
         toast.error('Failed to load organizational chart')
       }
     } catch (error) {
-      console.error('Error fetching org chart:', error)
+      // console.error('Error fetching org chart:', error)
       toast.error('Failed to load organizational chart')
     } finally {
       setOrgChartLoading(false)
@@ -691,7 +703,7 @@ export default function UsersPage() {
       <ProtectedRoute>
         <div className="min-h-screen bg-background">
           <Navbar />
-          <main className="container mx-auto px-4 py-8 pt-28">
+          <main className="container mx-auto px-4 pt-4 pb-8">
             <div className="text-center">
               <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
               <p className="text-muted-foreground">You don't have permission to manage users.</p>
@@ -706,7 +718,7 @@ export default function UsersPage() {
     <ProtectedRoute>
       <div className="min-h-screen bg-background">
         <Navbar />
-        <main className="container mx-auto px-4 py-8 pt-28">
+        <main className="container mx-auto px-4 pt-4 pb-8">
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div>
@@ -1205,7 +1217,7 @@ export default function UsersPage() {
 
           {/* Edit User Dialog */}
           <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-            <DialogContent>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Edit User</DialogTitle>
                 <DialogDescription>
@@ -1213,90 +1225,107 @@ export default function UsersPage() {
                 </DialogDescription>
               </DialogHeader>
               {editingUser && (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium">First Name</label>
-                      <Input
-                        defaultValue={editingUser.firstName}
-                        onChange={(e) => setEditingUser({...editingUser, firstName: e.target.value})}
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium">Last Name</label>
-                      <Input
-                        defaultValue={editingUser.lastName}
-                        onChange={(e) => setEditingUser({...editingUser, lastName: e.target.value})}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">Email</label>
-                    <Input
-                      type="email"
-                      defaultValue={editingUser.email}
-                      onChange={(e) => setEditingUser({...editingUser, email: e.target.value})}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">Phone</label>
-                    <Input
-                      defaultValue={editingUser.phone || ''}
-                      onChange={(e) => setEditingUser({...editingUser, phone: e.target.value})}
-                    />
-                  </div>
-
-                  {/* User Type Selection */}
-                  <div>
-                    <label className="text-sm font-medium">User Type</label>
-                    <Select
-                      value={editingUser.userType || 'Client'}
-                      onValueChange={(value) => setEditingUser({...editingUser, userType: value})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select user type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Client">Client</SelectItem>
-                        <SelectItem value="Employee">Employee</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Department Selection - Only show for Employees */}
-                  {editingUser.userType === 'Employee' && (
-                    <div>
-                      <label className="text-sm font-medium">Departments</label>
-                      <div className="space-y-2 max-h-40 overflow-y-auto border rounded-md p-3">
-                        {departments.map((dept) => (
-                          <div key={dept.id} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`edit-dept-${dept.id}`}
-                              checked={editingUser.departmentIds?.includes(dept.id) || false}
-                              onCheckedChange={(checked) => {
-                                const currentDepts = editingUser.departmentIds || []
-                                if (checked) {
-                                  setEditingUser({
-                                    ...editingUser,
-                                    departmentIds: [...currentDepts, dept.id]
-                                  })
-                                } else {
-                                  setEditingUser({
-                                    ...editingUser,
-                                    departmentIds: currentDepts.filter(id => id !== dept.id)
-                                  })
-                                }
-                              }}
-                            />
-                            <label
-                              htmlFor={`edit-dept-${dept.id}`}
-                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                            >
-                              {dept.name}
-                            </label>
-                          </div>
-                        ))}
+                <div className="space-y-6">
+                  {/* Basic Information */}
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-semibold text-muted-foreground">Basic Information</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium">First Name</label>
+                        <Input
+                          defaultValue={editingUser.firstName}
+                          onChange={(e) => setEditingUser({...editingUser, firstName: e.target.value})}
+                        />
                       </div>
+                      <div>
+                        <label className="text-sm font-medium">Last Name</label>
+                        <Input
+                          defaultValue={editingUser.lastName}
+                          onChange={(e) => setEditingUser({...editingUser, lastName: e.target.value})}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Email</label>
+                      <Input
+                        type="email"
+                        defaultValue={editingUser.email}
+                        onChange={(e) => setEditingUser({...editingUser, email: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Phone</label>
+                      <Input
+                        defaultValue={editingUser.phone || ''}
+                        onChange={(e) => setEditingUser({...editingUser, phone: e.target.value})}
+                      />
+                    </div>
+
+                    {/* User Type Selection */}
+                    <div>
+                      <label className="text-sm font-medium">User Type</label>
+                      <Select
+                        value={editingUser.userType || 'Client'}
+                        onValueChange={(value) => setEditingUser({...editingUser, userType: value})}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select user type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Client">Client</SelectItem>
+                          <SelectItem value="Employee">Employee</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Department Selection - Only show for Employees */}
+                    {editingUser.userType === 'Employee' && (
+                      <div>
+                        <label className="text-sm font-medium">Departments</label>
+                        <div className="space-y-2 max-h-40 overflow-y-auto border rounded-md p-3">
+                          {departments.map((dept) => (
+                            <div key={dept.id} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`edit-dept-${dept.id}`}
+                                checked={editingUser.departmentIds?.includes(dept.id) || false}
+                                onCheckedChange={(checked) => {
+                                  const currentDepts = editingUser.departmentIds || []
+                                  if (checked) {
+                                    setEditingUser({
+                                      ...editingUser,
+                                      departmentIds: [...currentDepts, dept.id]
+                                    })
+                                  } else {
+                                    setEditingUser({
+                                      ...editingUser,
+                                      departmentIds: currentDepts.filter(id => id !== dept.id)
+                                    })
+                                  }
+                                }}
+                              />
+                              <label
+                                htmlFor={`edit-dept-${dept.id}`}
+                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                              >
+                                {dept.name}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Email Addresses Management */}
+                  {isAdmin && editingUser && (
+                    <div className="border-t pt-6">
+                      <AdminUserEmailsManager
+                        targetUser={editingUser}
+                        onUpdate={() => {
+                          // Refresh user list when emails are updated
+                          fetchUsers()
+                        }}
+                      />
                     </div>
                   )}
                 </div>

@@ -56,6 +56,7 @@ import { formatDistanceToNow } from 'date-fns'
 import DepartmentManagement from '../../components/DepartmentManagement'
 import AIAdministration from '../../components/AIAdministration'
 import AuditLogViewer from '../../components/AuditLogViewer'
+import ModulePermissions from '../../components/admin/ModulePermissions'
 
 export default function AdminPage() {
   const { user, makeAuthenticatedRequest } = useAuth()
@@ -116,10 +117,10 @@ export default function AdminPage() {
         // Handle both array format and object with users property
         const usersArray = Array.isArray(data) ? data : data.users || []
         setUsers(usersArray)
-        console.log('Fetched users:', usersArray)
+        // console.log('Fetched users:', usersArray)
       }
     } catch (error) {
-      console.error('Failed to fetch users:', error)
+      // console.error('Failed to fetch users:', error)
     } finally {
       setLoading(false)
     }
@@ -133,7 +134,7 @@ export default function AdminPage() {
         setDepartments(data.departments || [])
       }
     } catch (error) {
-      console.error('Failed to fetch departments:', error)
+      // console.error('Failed to fetch departments:', error)
     }
   }
 
@@ -154,7 +155,7 @@ export default function AdminPage() {
         setTickets(lastMonthTickets)
       }
     } catch (error) {
-      console.error('Failed to fetch tickets:', error)
+      // console.error('Failed to fetch tickets:', error)
     } finally {
       setTicketsLoading(false)
     }
@@ -180,7 +181,7 @@ export default function AdminPage() {
         }
       }
     } catch (error) {
-      console.error('Failed to fetch Azure sync status:', error)
+      // console.error('Failed to fetch Azure sync status:', error)
       setAzureConnectionStatus('error')
     }
   }
@@ -203,7 +204,7 @@ export default function AdminPage() {
         setAzureConnectionStatus('error')
       }
     } catch (error) {
-      console.error('Test connection error:', error)
+      // console.error('Test connection error:', error)
       toast.error('Failed to test Azure AD connection')
       setAzureConnectionStatus('error')
     } finally {
@@ -230,7 +231,7 @@ export default function AdminPage() {
         toast.error(`Sync failed: ${errorData.error}`)
       }
     } catch (error) {
-      console.error('Manual sync error:', error)
+      // console.error('Manual sync error:', error)
       toast.error('Failed to perform manual sync')
     } finally {
       setAzureSyncLoading(false)
@@ -249,7 +250,7 @@ export default function AdminPage() {
         toast.error('Failed to load settings')
       }
     } catch (error) {
-      console.error('Failed to fetch settings:', error)
+      // console.error('Failed to fetch settings:', error)
       toast.error('Failed to load settings')
     } finally {
       setSettingsLoading(false)
@@ -276,7 +277,7 @@ export default function AdminPage() {
         toast.error(`Failed to save settings: ${error.error}`)
       }
     } catch (error) {
-      console.error('Failed to save settings:', error)
+      // console.error('Failed to save settings:', error)
       toast.error('Failed to save settings')
     } finally {
       setSettingsSaving(false)
@@ -308,51 +309,51 @@ export default function AdminPage() {
   }, [isAdmin])
 
   const handleSelectUser = (userId, checked) => {
-    console.log(`User selection changed: ${userId}, checked: ${checked}`)
+    // console.log(`User selection changed: ${userId}, checked: ${checked}`)
     if (checked) {
       const newSelection = [...selectedUsers, userId]
       setSelectedUsers(newSelection)
-      console.log('Updated selected users:', newSelection)
+      // console.log('Updated selected users:', newSelection)
     } else {
       const newSelection = selectedUsers.filter(id => id !== userId)
       setSelectedUsers(newSelection)
-      console.log('Updated selected users:', newSelection)
+      // console.log('Updated selected users:', newSelection)
     }
   }
 
   const handleSelectAll = (checked) => {
-    console.log(`Select all changed: ${checked}`)
+    // console.log(`Select all changed: ${checked}`)
     if (checked) {
       const allUserIds = filteredUsers.map(u => u.id)
       setSelectedUsers(allUserIds)
-      console.log('Selected all users:', allUserIds)
+      // console.log('Selected all users:', allUserIds)
     } else {
       setSelectedUsers([])
-      console.log('Cleared all selections')
+      // console.log('Cleared all selections')
     }
   }
 
   const handleDeleteUser = async (userId) => {
     try {
-      console.log('Attempting to delete user:', userId)
+      // console.log('Attempting to delete user:', userId)
       const response = await makeAuthenticatedRequest(`/api/users/${userId}`, {
         method: 'DELETE'
       })
 
-      console.log('Delete response:', response.status, response.statusText)
+      // console.log('Delete response:', response.status, response.statusText)
 
       if (response.ok) {
         setUsers(users.filter(u => u.id !== userId))
         setSelectedUsers(selectedUsers.filter(id => id !== userId))
         toast.success('User deleted successfully')
-        console.log('User deleted successfully')
+        // console.log('User deleted successfully')
       } else {
         const error = await response.json()
-        console.log('Delete error:', error)
+        // console.log('Delete error:', error)
         toast.error(error.error || `Failed to delete user (${response.status})`)
       }
     } catch (error) {
-      console.error('Delete user error:', error)
+      // console.error('Delete user error:', error)
       toast.error(`Failed to delete user: ${error.message}`)
     }
   }
@@ -364,7 +365,7 @@ export default function AdminPage() {
     }
 
     try {
-      console.log('Attempting to delete selected users:', selectedUsers)
+      // console.log('Attempting to delete selected users:', selectedUsers)
 
       const results = []
       const deletedUsers = []
@@ -373,20 +374,20 @@ export default function AdminPage() {
       // Process deletions sequentially to avoid database conflicts
       for (const userId of selectedUsers) {
         try {
-          console.log(`Deleting user: ${userId}`)
+          // console.log(`Deleting user: ${userId}`)
           const response = await makeAuthenticatedRequest(`/api/users/${userId}`, {
             method: 'DELETE'
           })
 
-          console.log(`Delete response for ${userId}:`, response.status, response.statusText)
+          // console.log(`Delete response for ${userId}:`, response.status, response.statusText)
 
           if (response.ok) {
             deletedUsers.push(userId)
-            console.log(`Successfully deleted user: ${userId}`)
+            // console.log(`Successfully deleted user: ${userId}`)
           } else {
             const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
             failedUsers.push({ userId, error: errorData.error || `HTTP ${response.status}` })
-            console.error(`Failed to delete user ${userId}:`, errorData)
+            // console.error(`Failed to delete user ${userId}:`, errorData)
           }
 
           // Add small delay between deletions to prevent overwhelming the server
@@ -394,11 +395,11 @@ export default function AdminPage() {
 
         } catch (error) {
           failedUsers.push({ userId, error: error.message })
-          console.error(`Exception deleting user ${userId}:`, error)
+          // console.error(`Exception deleting user ${userId}:`, error)
         }
       }
 
-      console.log(`Bulk delete completed. Success: ${deletedUsers.length}, Failed: ${failedUsers.length}`)
+      // console.log(`Bulk delete completed. Success: ${deletedUsers.length}, Failed: ${failedUsers.length}`)
 
       // Update UI state
       if (deletedUsers.length > 0) {
@@ -419,14 +420,14 @@ export default function AdminPage() {
         toast.success(`${deletedUsers.length} users deleted successfully`)
       } else if (deletedUsers.length === 0) {
         toast.error(`Failed to delete all ${failedUsers.length} selected users`)
-        console.error('All deletions failed:', failedUsers)
+        // console.error('All deletions failed:', failedUsers)
       } else {
         toast.error(`${deletedUsers.length} users deleted, ${failedUsers.length} failed`)
-        console.error('Some deletions failed:', failedUsers)
+        // console.error('Some deletions failed:', failedUsers)
       }
 
     } catch (error) {
-      console.error('Bulk delete error:', error)
+      // console.error('Bulk delete error:', error)
       toast.error(`Failed to delete selected users: ${error.message}`)
       setSelectedUsers([])
     }
@@ -459,7 +460,7 @@ export default function AdminPage() {
 
   const handleCreateUser = async () => {
     try {
-      console.log('Creating new user:', newUser)
+      // console.log('Creating new user:', newUser)
 
       // Validate required fields
       if (!newUser.firstName || !newUser.lastName || !newUser.email || !newUser.password) {
@@ -498,7 +499,7 @@ export default function AdminPage() {
 
       if (response.ok) {
         const createdUser = await response.json()
-        console.log('User created successfully:', createdUser)
+        // console.log('User created successfully:', createdUser)
 
         // Refresh the users list
         fetchUsers()
@@ -518,11 +519,11 @@ export default function AdminPage() {
         toast.success('User created successfully')
       } else {
         const error = await response.json()
-        console.log('Create user error:', error)
+        // console.log('Create user error:', error)
         toast.error(error.error || `Failed to create user (${response.status})`)
       }
     } catch (error) {
-      console.error('Create user error:', error)
+      // console.error('Create user error:', error)
       toast.error(`Failed to create user: ${error.message}`)
     }
   }
@@ -562,24 +563,24 @@ export default function AdminPage() {
 
   const handleDeleteTicket = async (ticketId) => {
     try {
-      console.log('Attempting to delete ticket:', ticketId)
+      // console.log('Attempting to delete ticket:', ticketId)
       const response = await makeAuthenticatedRequest(`/api/tickets/${ticketId}`, {
         method: 'DELETE'
       })
 
-      console.log('Delete response:', response.status, response.statusText)
+      // console.log('Delete response:', response.status, response.statusText)
 
       if (response.ok) {
         setTickets(tickets.filter(t => t.id !== ticketId))
         toast.success('Ticket deleted successfully')
-        console.log('Ticket deleted successfully')
+        // console.log('Ticket deleted successfully')
       } else {
         const error = await response.json()
-        console.log('Delete error:', error)
+        // console.log('Delete error:', error)
         toast.error(error.error || `Failed to delete ticket (${response.status})`)
       }
     } catch (error) {
-      console.error('Delete ticket error:', error)
+      // console.error('Delete ticket error:', error)
       toast.error(`Failed to delete ticket: ${error.message}`)
     }
     setTicketToDelete(null)
@@ -609,7 +610,7 @@ export default function AdminPage() {
     }
 
     try {
-      console.log('Attempting to delete selected tickets:', selectedTickets)
+      // console.log('Attempting to delete selected tickets:', selectedTickets)
 
       const results = []
       const deletedTickets = []
@@ -618,20 +619,20 @@ export default function AdminPage() {
       // Process deletions sequentially to avoid database conflicts
       for (const ticketId of selectedTickets) {
         try {
-          console.log(`Deleting ticket: ${ticketId}`)
+          // console.log(`Deleting ticket: ${ticketId}`)
           const response = await makeAuthenticatedRequest(`/api/tickets/${ticketId}`, {
             method: 'DELETE'
           })
 
-          console.log(`Delete response for ${ticketId}:`, response.status, response.statusText)
+          // console.log(`Delete response for ${ticketId}:`, response.status, response.statusText)
 
           if (response.ok) {
             deletedTickets.push(ticketId)
-            console.log(`Successfully deleted ticket: ${ticketId}`)
+            // console.log(`Successfully deleted ticket: ${ticketId}`)
           } else {
             const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
             failedTickets.push({ ticketId, error: errorData.error || `HTTP ${response.status}` })
-            console.error(`Failed to delete ticket ${ticketId}:`, errorData)
+            // console.error(`Failed to delete ticket ${ticketId}:`, errorData)
           }
 
           // Add small delay between deletions to prevent overwhelming the server
@@ -639,11 +640,11 @@ export default function AdminPage() {
 
         } catch (error) {
           failedTickets.push({ ticketId, error: error.message })
-          console.error(`Exception deleting ticket ${ticketId}:`, error)
+          // console.error(`Exception deleting ticket ${ticketId}:`, error)
         }
       }
 
-      console.log(`Bulk delete completed. Success: ${deletedTickets.length}, Failed: ${failedTickets.length}`)
+      // console.log(`Bulk delete completed. Success: ${deletedTickets.length}, Failed: ${failedTickets.length}`)
 
       // Update UI state
       if (deletedTickets.length > 0) {
@@ -664,14 +665,14 @@ export default function AdminPage() {
         toast.success(`${deletedTickets.length} tickets deleted successfully`)
       } else if (deletedTickets.length === 0) {
         toast.error(`Failed to delete all ${failedTickets.length} selected tickets`)
-        console.error('All deletions failed:', failedTickets)
+        // console.error('All deletions failed:', failedTickets)
       } else {
         toast.error(`${deletedTickets.length} tickets deleted, ${failedTickets.length} failed`)
-        console.error('Some deletions failed:', failedTickets)
+        // console.error('Some deletions failed:', failedTickets)
       }
 
     } catch (error) {
-      console.error('Bulk delete error:', error)
+      // console.error('Bulk delete error:', error)
       toast.error(`Failed to delete selected tickets: ${error.message}`)
       setSelectedTickets([])
     }
@@ -713,7 +714,7 @@ export default function AdminPage() {
 
   return (
     <SidebarLayout>
-      <div className="p-4 sm:p-6 md:p-8">
+      <div className="px-4 sm:px-6 md:px-8 pt-4 pb-4 sm:pb-6 md:pb-8">
         {/* Header */}
         <div className="mb-6 sm:mb-8">
           <div className="flex items-center gap-3 mb-2">
@@ -726,9 +727,12 @@ export default function AdminPage() {
         </div>
 
         <Tabs defaultValue="users" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-1 h-auto p-1">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-9 gap-1 h-auto p-1">
             <TabsTrigger value="users" className="text-[10px] leading-tight py-2 px-1 sm:text-sm sm:py-2 sm:px-3 whitespace-normal min-h-[44px]">
               User Management
+            </TabsTrigger>
+            <TabsTrigger value="modules" className="text-[10px] leading-tight py-2 px-1 sm:text-sm sm:py-2 sm:px-3 whitespace-normal min-h-[44px]">
+              Module Permissions
             </TabsTrigger>
             <TabsTrigger value="tickets" className="text-[10px] leading-tight py-2 px-1 sm:text-sm sm:py-2 sm:px-3 whitespace-normal min-h-[44px]">
               All Tickets
@@ -1002,6 +1006,10 @@ export default function AdminPage() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="modules" className="space-y-6">
+            <ModulePermissions />
           </TabsContent>
 
           <TabsContent value="tickets" className="space-y-6">

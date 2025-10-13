@@ -6,8 +6,8 @@ import next from 'next'
 import { initializeSocket } from './lib/socket.js'
 import { getEmailWebhookService } from './lib/services/EmailWebhookService.js'
 
-// Force development mode for now since we're using the dev build
-const dev = true // Always run in dev mode until we have proper production deployment
+// Use NODE_ENV to determine dev mode
+const dev = process.env.NODE_ENV !== 'production'
 const hostname = process.env.HOSTNAME || '0.0.0.0'
 const port = parseInt(process.env.PORT || '3011', 10)
 

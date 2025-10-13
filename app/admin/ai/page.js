@@ -90,7 +90,7 @@ export default function AIAdminPage() {
       }
 
     } catch (error) {
-      console.error('Error fetching AI data:', error)
+      // console.error('Error fetching AI data:', error)
     } finally {
       setLoading(false)
     }
@@ -112,7 +112,7 @@ export default function AIAdminPage() {
         alert(error.error || 'Failed to add keyword')
       }
     } catch (error) {
-      console.error('Error adding keyword:', error)
+      // console.error('Error adding keyword:', error)
       alert('Failed to add keyword')
     }
   }
@@ -138,7 +138,7 @@ export default function AIAdminPage() {
         alert(error.error || 'Failed to add knowledge base article')
       }
     } catch (error) {
-      console.error('Error adding KB article:', error)
+      // console.error('Error adding KB article:', error)
       alert('Failed to add knowledge base article')
     }
   }
@@ -158,7 +158,7 @@ export default function AIAdminPage() {
         alert(error.error || 'Failed to delete keyword')
       }
     } catch (error) {
-      console.error('Error deleting keyword:', error)
+      // console.error('Error deleting keyword:', error)
       alert('Failed to delete keyword')
     }
   }
@@ -179,7 +179,7 @@ export default function AIAdminPage() {
         alert(error.error || 'Failed to update keyword')
       }
     } catch (error) {
-      console.error('Error updating keyword:', error)
+      // console.error('Error updating keyword:', error)
       alert('Failed to update keyword')
     }
   }
@@ -215,7 +215,7 @@ export default function AIAdminPage() {
         alert(error.error || 'Failed to update knowledge base article')
       }
     } catch (error) {
-      console.error('Error updating KB article:', error)
+      // console.error('Error updating KB article:', error)
       alert('Failed to update knowledge base article')
     }
   }
@@ -246,7 +246,7 @@ export default function AIAdminPage() {
         alert(error.error || 'Failed to delete knowledge base article')
       }
     } catch (error) {
-      console.error('Error deleting KB article:', error)
+      // console.error('Error deleting KB article:', error)
       alert('Failed to delete knowledge base article')
     }
   }

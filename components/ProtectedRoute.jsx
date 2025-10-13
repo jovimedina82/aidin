@@ -27,7 +27,11 @@ export default function ProtectedRoute({ children, roles = [] }) {
 
   // Check role-based access
   if (roles.length > 0 && user?.roles) {
-    const hasRequiredRole = roles.some(role => user.roles.includes(role))
+    // Extract role names from role objects
+    const userRoleNames = user.roles.map(role =>
+      typeof role === 'string' ? role : (role.role?.name || role.name)
+    )
+    const hasRequiredRole = roles.some(role => userRoleNames.includes(role))
     if (!hasRequiredRole) {
       return (
         <div className="min-h-screen flex items-center justify-center">

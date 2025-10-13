@@ -1,5 +1,5 @@
 'use client'
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useAuth } from './AuthProvider'
 import ProtectedRoute from './ProtectedRoute'
 import Navbar from './Navbar'
@@ -21,11 +21,13 @@ const navigation = [
   {
     name: 'Home',
     href: '/dashboard',
-    icon: Home
+    icon: Home,
+    moduleKey: 'dashboard'
   },
   {
     name: 'Tickets',
     icon: Ticket,
+    moduleKey: 'tickets',
     children: [
       { name: 'Your unsolved tickets', href: '/tickets?view=personal-open' },
       { name: 'Unassigned tickets', href: '/tickets?view=unassigned' },
@@ -39,27 +41,32 @@ const navigation = [
   {
     name: 'Customers',
     href: '/users',
-    icon: Users
+    icon: Users,
+    moduleKey: 'users'
   },
   {
     name: 'Organizations',
     href: '/organizations',
-    icon: Building2
+    icon: Building2,
+    moduleKey: 'organizations'
   },
   {
     name: 'Knowledge Base',
     href: '/knowledge-base',
-    icon: BookOpen
+    icon: BookOpen,
+    moduleKey: 'knowledge-base'
   },
   {
     name: 'Reports',
     href: '/reports',
-    icon: BarChart3
+    icon: BarChart3,
+    moduleKey: 'reports'
   },
   {
     name: 'Admin',
     href: '/admin',
-    icon: Settings
+    icon: Settings,
+    moduleKey: 'admin'
   }
 ]
 
@@ -83,12 +90,33 @@ export default function SidebarLayout({ children }) {
   const router = useRouter()
   const pathname = usePathname()
   const [expandedItems, setExpandedItems] = useState({})
+  const [userModules, setUserModules] = useState([])
+  const [modulesLoading, setModulesLoading] = useState(true)
 
-  // Memoize role checks to prevent unnecessary recalculation
-  const { isStaff, isAdmin } = useMemo(() => ({
-    isStaff: user?.roles?.some(role => ['Admin', 'Manager', 'Staff'].includes(role)),
-    isAdmin: user?.roles?.some(role => ['Admin'].includes(role))
-  }), [user?.roles])
+  // Fetch user's accessible modules
+  useEffect(() => {
+    const fetchModules = async () => {
+      try {
+        const response = await fetch('/api/user/modules')
+        if (response.ok) {
+          const data = await response.json()
+          console.log('📦 Fetched user modules:', data.modules)
+          console.log('📦 Module keys:', data.modules?.map(m => m.key))
+          setUserModules(data.modules || [])
+        } else {
+          console.error('Failed to fetch modules, status:', response.status)
+        }
+      } catch (error) {
+        console.error('Failed to fetch user modules:', error)
+      } finally {
+        setModulesLoading(false)
+      }
+    }
+
+    if (user) {
+      fetchModules()
+    }
+  }, [user])
 
   const toggleExpanded = useCallback((itemName) => {
     setExpandedItems(prev => ({
@@ -102,23 +130,33 @@ export default function SidebarLayout({ children }) {
     return pathname.startsWith(href)
   }, [pathname])
 
+  // Check if user has access to a module
+  const hasModuleAccess = useCallback((moduleKey) => {
+    if (!moduleKey) return true // If no moduleKey, show by default
+    return userModules.some(m => m.key === moduleKey)
+  }, [userModules])
+
   // Memoize filtered navigation to prevent recalculation
   const filteredNavigation = useMemo(() => {
-    return navigation.filter(item => {
-      // Hide Admin section for non-admin users
-      if (item.name === 'Admin' && !isAdmin) return false
-      // Hide certain sections for non-staff users
-      if (['Organizations', 'Reports'].includes(item.name) && !isStaff) return false
-      return true
+    if (modulesLoading) return [] // Don't show navigation while loading
+
+    const filtered = navigation.filter(item => {
+      // Filter based on module access
+      const hasAccess = hasModuleAccess(item.moduleKey)
+      console.log(`🔍 Checking ${item.name} (${item.moduleKey}): ${hasAccess}`)
+      return hasAccess
     })
-  }, [isAdmin, isStaff])
+
+    console.log('🔍 Filtered navigation items:', filtered.map(i => i.name))
+    return filtered
+  }, [modulesLoading, hasModuleAccess])
 
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-background">
         <Navbar />
-        <div className="pt-20">
-          <div className="container mx-auto px-4 py-8">
+        <div className="pt-4">
+          <div className="container mx-auto px-4 pb-8">
           <div className="flex gap-6">
             {/* Sidebar */}
             <div className="w-64 rounded-lg shadow p-4 h-fit hidden lg:block" style={{ backgroundColor: '#3d6964' }}>

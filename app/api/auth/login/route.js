@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { prisma } from '@/lib/prisma'
 import { logEvent } from '@/lib/audit'
+import { checkRateLimit } from '@/lib/security/rate-limit'
 
 export async function POST(request) {
   let userEmail = null
@@ -16,6 +17,41 @@ export async function POST(request) {
       return NextResponse.json(
         { error: 'Email and password are required' },
         { status: 400 }
+      )
+    }
+
+    // SECURITY: Rate limiting to prevent brute force attacks
+    const clientIp = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
+    const identifier = `${clientIp}:${email}` // Rate limit per IP + email combination
+
+    const rateLimit = await checkRateLimit(identifier, '/api/auth/login', {
+      maxRequests: 5, // 5 attempts
+      windowMs: 900000 // per 15 minutes
+    })
+
+    if (!rateLimit.allowed) {
+      await logEvent({
+        action: 'login.rate_limited',
+        actorEmail: email,
+        actorType: 'human',
+        entityType: 'user',
+        entityId: email,
+        ip: clientIp,
+        metadata: {
+          reason: 'rate_limit_exceeded',
+          retryAfter: rateLimit.retryAfter
+        }
+      })
+
+      return NextResponse.json(
+        {
+          error: 'Too many login attempts. Please try again later.',
+          retryAfter: rateLimit.retryAfter
+        },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(rateLimit.retryAfter || 900) }
+        }
       )
     }
 

@@ -92,7 +92,7 @@ export function sanitizeHtml(
     DOMPurify.removeAllHooks();
   }
 
-  return clean;
+  return String(clean);
 }
 
 /**

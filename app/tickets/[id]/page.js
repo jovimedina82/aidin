@@ -11,6 +11,7 @@ import AIDraftReview from '../../../components/AIDraftReview'
 
 const ImageGallery = dynamic(() => import('../../../components/ImageGallery'), { ssr: false })
 import { EmailMessageViewer } from '../../../components/EmailMessageViewer'
+import { TicketMessageViewer } from '../../../components/TicketMessageViewer'
 import { Button } from '@/components/ui/button'
 import MentionTextarea from '../../../components/MentionTextarea'
 import { Badge } from '@/components/ui/badge'
@@ -30,6 +31,15 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   ArrowLeft,
   Clock,
@@ -43,7 +53,15 @@ import {
   Mail,
   Tag,
   MoreHorizontal,
-  Paperclip
+  Paperclip,
+  Edit2,
+  Plus,
+  Lock,
+  UserCheck,
+  UserPlus,
+  UserMinus,
+  RefreshCw,
+  Activity
 } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { formatDistanceToNow, format } from 'date-fns'
@@ -61,6 +79,10 @@ export default function TicketDetailPage({ params }) {
   const [users, setUsers] = useState([])
   const [showAssistant, setShowAssistant] = useState(false)
   const [assistantMinimized, setAssistantMinimized] = useState(false)
+  const [isChangeRequesterDialogOpen, setIsChangeRequesterDialogOpen] = useState(false)
+  const [allUsers, setAllUsers] = useState([])
+  const [requesterSearchTerm, setRequesterSearchTerm] = useState('')
+  const [activityTimeline, setActivityTimeline] = useState([])
 
   const userRoleNames = user?.roles?.map(role =>
     typeof role === 'string' ? role : (role.role?.name || role.name)
@@ -78,7 +100,7 @@ export default function TicketDetailPage({ params }) {
         const returnUrl = `/tickets?${urlParams.toString()}`
         router.push(returnUrl)
       } catch (error) {
-        console.error('Failed to parse return parameters:', error)
+        // console.error('Failed to parse return parameters:', error)
         router.push('/tickets')
       }
     } else {
@@ -112,6 +134,8 @@ export default function TicketDetailPage({ params }) {
       if (response.ok) {
         const data = await response.json()
         setTicket(data)
+        // Fetch activity timeline
+        fetchActivity()
       } else if (response.status === 404) {
         toast.error('Ticket not found')
         router.push('/tickets')
@@ -120,10 +144,22 @@ export default function TicketDetailPage({ params }) {
         router.push('/tickets')
       }
     } catch (error) {
-      console.error('Failed to fetch ticket:', error)
+      // console.error('Failed to fetch ticket:', error)
       toast.error('Failed to load ticket')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchActivity = async () => {
+    try {
+      const response = await makeAuthenticatedRequest(`/api/tickets/${params.id}/activity`)
+      if (response.ok) {
+        const data = await response.json()
+        setActivityTimeline(data.timeline || [])
+      }
+    } catch (error) {
+      // console.error('Failed to fetch activity:', error)
     }
   }
 
@@ -140,9 +176,38 @@ export default function TicketDetailPage({ params }) {
           })
         })
         setUsers(staffUsers)
+        // Store all users for requester change dialog
+        setAllUsers(data)
       }
     } catch (error) {
-      console.error('Failed to fetch users:', error)
+      // console.error('Failed to fetch users:', error)
+    }
+  }
+
+  const handleChangeRequester = async (newRequesterId) => {
+    if (!newRequesterId) {
+      toast.error('Please select a requester')
+      return
+    }
+
+    try {
+      const response = await makeAuthenticatedRequest(`/api/tickets/${params.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ requesterId: newRequesterId })
+      })
+
+      if (response.ok) {
+        const updatedTicket = await response.json()
+        setTicket(updatedTicket)
+        setIsChangeRequesterDialogOpen(false)
+        setRequesterSearchTerm('')
+        toast.success('Requester updated successfully')
+      } else {
+        const error = await response.json()
+        toast.error(error.error || 'Failed to update requester')
+      }
+    } catch (error) {
+      toast.error('Failed to update requester')
     }
   }
 
@@ -212,7 +277,7 @@ export default function TicketDetailPage({ params }) {
         toast.error(error.error || 'Failed to update ticket status')
       }
     } catch (error) {
-      console.error('Failed to update ticket status:', error)
+      // console.error('Failed to update ticket status:', error)
       toast.error('Failed to update ticket status')
     }
   }
@@ -264,7 +329,7 @@ export default function TicketDetailPage({ params }) {
         toast.error(error.error || 'Failed to assign ticket')
       }
     } catch (error) {
-      console.error('Failed to assign ticket:', error)
+      // console.error('Failed to assign ticket:', error)
       toast.error('Failed to assign ticket to yourself')
     }
   }
@@ -322,7 +387,7 @@ export default function TicketDetailPage({ params }) {
         toast.error(error.error || 'Failed to escalate ticket')
       }
     } catch (error) {
-      console.error('Failed to escalate ticket:', error)
+      // console.error('Failed to escalate ticket:', error)
       toast.error('Failed to escalate ticket to admin')
     }
   }
@@ -341,7 +406,7 @@ export default function TicketDetailPage({ params }) {
         toast.error(error.error || 'Failed to mark ticket as solved')
       }
     } catch (error) {
-      console.error('Failed to mark ticket as solved:', error)
+      // console.error('Failed to mark ticket as solved:', error)
       toast.error('Failed to mark ticket as solved')
     }
   }
@@ -351,7 +416,7 @@ export default function TicketDetailPage({ params }) {
     const requesterEmail = ticket.requester?.email || ''
     const emailDomain = requesterEmail.includes('@') ? requesterEmail.split('@')[1] : ''
 
-    console.log('🚫 Not a ticket clicked:', { requesterEmail, emailDomain })
+    // console.log('🚫 Not a ticket clicked:', { requesterEmail, emailDomain })
 
     // Ask if user wants to block this sender
     let blockDomain = false
@@ -365,7 +430,7 @@ export default function TicketDetailPage({ params }) {
         `✓ You can unblock them later in Admin > Blocked Senders\n\n` +
         `Click CANCEL to just delete this ticket without blocking the sender.`
       )
-      console.log('Block sender decision:', blockDomain)
+      // console.log('Block sender decision:', blockDomain)
     }
 
     const reason = prompt(
@@ -374,7 +439,7 @@ export default function TicketDetailPage({ params }) {
     )
 
     if (reason === null) {
-      console.log('User cancelled - no reason provided')
+      // console.log('User cancelled - no reason provided')
       return
     }
 
@@ -390,16 +455,16 @@ export default function TicketDetailPage({ params }) {
     )
 
     if (!confirmed) {
-      console.log('User cancelled final confirmation')
+      // console.log('User cancelled final confirmation')
       return
     }
 
     try {
-      console.log('Sending mark-not-ticket request:', {
-        reason,
-        blockDomain,
-        emailDomain: blockDomain ? emailDomain : null
-      })
+      // console.log('Sending mark-not-ticket request:', {
+      //   reason,
+      //   blockDomain,
+      //   emailDomain: blockDomain ? emailDomain : null
+      // })
 
       const response = await makeAuthenticatedRequest(`/api/tickets/${params.id}/mark-not-ticket`, {
         method: 'POST',
@@ -413,19 +478,19 @@ export default function TicketDetailPage({ params }) {
       if (response.ok) {
         if (blockDomain) {
           toast.success(`✅ Ticket removed and sender "${emailDomain}" has been blocked!`)
-          console.log('✅ Sender blocked successfully:', emailDomain)
+          // console.log('✅ Sender blocked successfully:', emailDomain)
         } else {
           toast.success('✅ Ticket marked as "not a ticket" and removed')
-          console.log('✅ Ticket removed (sender not blocked)')
+          // console.log('✅ Ticket removed (sender not blocked)')
         }
         router.push('/tickets')
       } else {
         const error = await response.json()
-        console.error('API error:', error)
+        // console.error('API error:', error)
         toast.error(error.error || 'Failed to mark as not a ticket')
       }
     } catch (error) {
-      console.error('Failed to mark as not a ticket:', error)
+      // console.error('Failed to mark as not a ticket:', error)
       toast.error('Failed to mark as not a ticket')
     }
   }
@@ -520,7 +585,7 @@ export default function TicketDetailPage({ params }) {
         <Navbar />
 
         {/* Zendesk-style Header */}
-        <div className="pt-20 bg-white border-b border-gray-200">
+        <div className="bg-white border-b border-gray-200">
           <div className="max-w-[1600px] mx-auto px-6 py-4">
             <div className="flex items-center justify-between">
               {/* Back button and ticket number */}
@@ -627,7 +692,19 @@ export default function TicketDetailPage({ params }) {
 
                 {/* Requester */}
                 <div>
-                  <label className="text-xs font-medium text-gray-600 block mb-2">REQUESTER</label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-medium text-gray-600">REQUESTER</label>
+                    {isAdmin && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={() => setIsChangeRequesterDialogOpen(true)}
+                      >
+                        <Edit2 className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
                   <div className="flex items-center space-x-2">
                     <Avatar className="h-7 w-7">
                       <AvatarFallback className="text-xs bg-gray-200 text-gray-600">
@@ -759,16 +836,6 @@ export default function TicketDetailPage({ params }) {
 
             {/* Center - Main Content Area (Messages) */}
             <div className="col-span-6 space-y-6">
-              {/* Ticket Title - Blue Header for Requester */}
-              <div className="bg-[#61B7D1] rounded-lg p-5 shadow-sm">
-                <h2 className="text-lg font-semibold text-gray-900 mb-1">{ticket.title}</h2>
-                <div className="flex items-center text-xs text-gray-700 space-x-3">
-                  <span>Ticket #{ticket.ticketNumber}</span>
-                  <span>•</span>
-                  <span>Created {formatDistanceToNow(new Date(ticket.createdAt), { addSuffix: true })}</span>
-                </div>
-              </div>
-
               {/* Original Requester Message - Blue Background */}
               <div className="bg-[#A5D8E6] rounded-lg p-6 shadow-sm">
                 <div className="mb-3">
@@ -792,22 +859,37 @@ export default function TicketDetailPage({ params }) {
                   ) : (
                     <div className="prose prose-sm max-w-none">
                       {ticket.ticketMessages && ticket.ticketMessages.length > 0 && ticket.ticketMessages[0].html ? (
-                        <div
+                        <TicketMessageViewer
+                          html={ticket.ticketMessages[0].html}
                           className="text-sm text-gray-900 leading-relaxed"
-                          dangerouslySetInnerHTML={{ __html: ticket.ticketMessages[0].html }}
                         />
                       ) : (
                         <p className="text-sm text-gray-900 leading-relaxed whitespace-pre-wrap">{ticket.description}</p>
                       )}
 
-                      {ticket.attachments && Array.isArray(ticket.attachments) && ticket.attachments.length > 0 && (
-                        <div className="mt-4">
-                          <ImageGallery images={ticket.attachments.map((url) => ({
-                            url,
-                            thumb: url.includes('.webp') ? url.replace('.webp', '_thumb.webp') : url
-                          }))} />
-                        </div>
-                      )}
+                      {ticket.attachments && Array.isArray(ticket.attachments) && ticket.attachments.length > 0 && (() => {
+                        // Filter only image attachments
+                        const imageAttachments = ticket.attachments.filter(attachment => {
+                          const mimeType = typeof attachment === 'object' ? attachment.mimeType : ''
+                          return mimeType && mimeType.startsWith('image/')
+                        })
+
+                        if (imageAttachments.length === 0) return null
+
+                        return (
+                          <div className="mt-4">
+                            <ImageGallery images={imageAttachments.map((attachment) => {
+                              // Use the download API route to serve images
+                              const url = `/api/attachments/${attachment.id}/download`
+                              return {
+                                url,
+                                thumb: url,
+                                alt: attachment.fileName || 'attachment'
+                              }
+                            })} />
+                          </div>
+                        )
+                      })()}
                     </div>
                   )}
                 </div>
@@ -951,7 +1033,7 @@ export default function TicketDetailPage({ params }) {
                                 readOnly
                               />
                             ) : message.html ? (
-                              <div dangerouslySetInnerHTML={{ __html: stripQuotedContent(message.html) }} />
+                              <TicketMessageViewer html={stripQuotedContent(message.html)} />
                             ) : (
                               <p className="whitespace-pre-wrap">{message.text}</p>
                             )}
@@ -1131,39 +1213,62 @@ export default function TicketDetailPage({ params }) {
                 />
               </div>
 
-              {/* Interaction History */}
+              {/* Activity Timeline */}
               <div className="bg-white rounded-lg border border-gray-200 p-5">
                 <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Activity</h3>
-                <div className="space-y-3 text-xs text-gray-600">
-                  <div className="flex items-start space-x-2">
-                    <Clock className="h-3.5 w-3.5 mt-0.5 text-gray-400" />
-                    <div>
-                      <p className="font-medium text-gray-900">Created</p>
-                      <p>{formatDistanceToNow(new Date(ticket.createdAt), { addSuffix: true })}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start space-x-2">
-                    <Clock className="h-3.5 w-3.5 mt-0.5 text-gray-400" />
-                    <div>
-                      <p className="font-medium text-gray-900">Last Updated</p>
-                      <p>{formatDistanceToNow(new Date(ticket.updatedAt), { addSuffix: true })}</p>
-                    </div>
-                  </div>
-                  {ticket.resolvedAt && (
-                    <div className="flex items-start space-x-2">
-                      <CheckCircle className="h-3.5 w-3.5 mt-0.5 text-green-500" />
-                      <div>
-                        <p className="font-medium text-gray-900">Resolved</p>
-                        <p>{formatDistanceToNow(new Date(ticket.resolvedAt), { addSuffix: true })}</p>
+                <div className="relative">
+                  {/* Timeline line */}
+                  <div className="absolute left-[7px] top-2 bottom-2 w-0.5 bg-gray-200"></div>
+
+                  {/* Timeline events */}
+                  <div className="space-y-4">
+                    {activityTimeline.length > 0 ? (
+                      activityTimeline.map((event, index) => {
+                        // Map icon names to components
+                        const IconComponent = {
+                          plus: Plus,
+                          message: MessageCircle,
+                          lock: Lock,
+                          paperclip: Paperclip,
+                          'user-check': UserCheck,
+                          'user-plus': UserPlus,
+                          'user-minus': UserMinus,
+                          'refresh-cw': RefreshCw,
+                          user: User,
+                          'check-circle': CheckCircle,
+                          activity: Activity
+                        }[event.icon] || Activity
+
+                        return (
+                          <div key={index} className="relative pl-6 pb-4 last:pb-0">
+                            {/* Icon circle */}
+                            <div className="absolute left-0 top-0 flex items-center justify-center w-[15px] h-[15px] bg-white border-2 border-gray-300 rounded-full">
+                              <IconComponent className="h-2 w-2 text-gray-600" strokeWidth={3} />
+                            </div>
+
+                            {/* Event content */}
+                            <div className="text-xs">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <p className="font-medium text-gray-900 leading-tight">{event.title}</p>
+                                  <p className="text-gray-600 mt-0.5 leading-tight">{event.description}</p>
+                                  <p className="text-gray-400 mt-1">
+                                    {formatDistanceToNow(new Date(event.timestamp), { addSuffix: true })}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })
+                    ) : (
+                      <div className="relative pl-6">
+                        <div className="absolute left-0 top-0 flex items-center justify-center w-[15px] h-[15px] bg-white border-2 border-gray-300 rounded-full">
+                          <Activity className="h-2 w-2 text-gray-600" strokeWidth={3} />
+                        </div>
+                        <p className="text-xs text-gray-500">Loading activity...</p>
                       </div>
-                    </div>
-                  )}
-                  <div className="flex items-start space-x-2">
-                    <MessageCircle className="h-3.5 w-3.5 mt-0.5 text-gray-400" />
-                    <div>
-                      <p className="font-medium text-gray-900">Comments</p>
-                      <p>{ticket.comments?.length || 0} total</p>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1193,6 +1298,81 @@ export default function TicketDetailPage({ params }) {
             </Button>
           </div>
         )}
+
+        {/* Change Requester Dialog */}
+        <Dialog open={isChangeRequesterDialogOpen} onOpenChange={setIsChangeRequesterDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Change Ticket Requester</DialogTitle>
+              <DialogDescription>
+                Select a different user to be the requester for this ticket.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">Search Users</label>
+                <Input
+                  placeholder="Search by name or email..."
+                  value={requesterSearchTerm}
+                  onChange={(e) => setRequesterSearchTerm(e.target.value)}
+                />
+              </div>
+              <div className="max-h-64 overflow-y-auto border rounded-md">
+                {allUsers
+                  .filter(u =>
+                    u.id !== ticket?.requesterId &&
+                    (
+                      `${u.firstName} ${u.lastName}`.toLowerCase().includes(requesterSearchTerm.toLowerCase()) ||
+                      u.email?.toLowerCase().includes(requesterSearchTerm.toLowerCase())
+                    )
+                  )
+                  .map(u => (
+                    <button
+                      key={u.id}
+                      onClick={() => handleChangeRequester(u.id)}
+                      className="w-full p-3 hover:bg-gray-50 border-b last:border-b-0 text-left transition-colors"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback className="text-xs bg-gray-200 text-gray-600">
+                            {u.firstName?.[0] || '?'}{u.lastName?.[0] || '?'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">
+                            {u.firstName} {u.lastName}
+                          </p>
+                          <p className="text-xs text-gray-500">{u.email}</p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                {allUsers.filter(u =>
+                  u.id !== ticket?.requesterId &&
+                  (
+                    `${u.firstName} ${u.lastName}`.toLowerCase().includes(requesterSearchTerm.toLowerCase()) ||
+                    u.email?.toLowerCase().includes(requesterSearchTerm.toLowerCase())
+                  )
+                ).length === 0 && (
+                  <div className="p-4 text-center text-sm text-gray-500">
+                    No users found
+                  </div>
+                )}
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsChangeRequesterDialogOpen(false)
+                  setRequesterSearchTerm('')
+                }}
+              >
+                Cancel
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </ProtectedRoute>
   )

@@ -38,20 +38,16 @@ export async function GET(request, { params }) {
         },
         comments: {
           include: {
-            user: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true
-              }
-            }
+            user: true  // Optional relation - allows null
           },
           orderBy: {
             createdAt: 'asc'
           }
         },
         attachments: {
+          include: {
+            user: true  // Optional relation - allows null
+          },
           orderBy: {
             uploadedAt: 'desc'
           }
@@ -68,20 +64,8 @@ export async function GET(request, { params }) {
         },
         // Include child tickets
         childTickets: {
-          select: {
-            id: true,
-            ticketNumber: true,
-            title: true,
-            status: true,
-            createdAt: true,
-            requester: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true
-              }
-            }
+          include: {
+            requester: true  // Optional relation - allows null
           },
           orderBy: {
             createdAt: 'asc'
@@ -119,9 +103,21 @@ export async function GET(request, { params }) {
       )
     }
 
+    // Debug: Log attachment user data
+    console.log('📎 DEBUG: Attachments with user data:', JSON.stringify(ticket.attachments.map(a => ({
+      fileName: a.fileName,
+      userId: a.userId,
+      userExists: !!a.user,
+      userType: a.user?.userType,
+      userName: a.user ? `${a.user.firstName} ${a.user.lastName}` : 'NO USER'
+    })), null, 2))
+
     return NextResponse.json(ticket)
   } catch (error) {
     console.error('Error fetching ticket:', error)
+    console.error('Error name:', error.name)
+    console.error('Error message:', error.message)
+    console.error('Error stack:', error.stack)
     return NextResponse.json(
       { error: 'Failed to fetch ticket' },
       { status: 500 }
@@ -144,6 +140,94 @@ export async function PUT(request, { params }) {
     const roleNames = userRoles.map(role =>
       typeof role === 'string' ? role : (role.role?.name || role.name)
     )
+
+    const isAdmin = roleNames.includes('Admin')
+    const isManager = roleNames.includes('Manager')
+
+    // Check if admin is trying to change requester
+    if (data.requesterId) {
+      // Only admins and managers can change the requester
+      if (!isAdmin && !isManager) {
+        return NextResponse.json({
+          error: 'Only administrators and managers can change the ticket requester'
+        }, { status: 403 })
+      }
+
+      // Validate the new requester exists
+      const newRequester = await prisma.user.findUnique({
+        where: { id: data.requesterId }
+      })
+
+      if (!newRequester) {
+        return NextResponse.json({
+          error: 'The selected requester does not exist'
+        }, { status: 404 })
+      }
+
+      // Log the requester change
+      const currentTicket = await prisma.ticket.findUnique({
+        where: { id: params.id },
+        include: {
+          requester: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true
+            }
+          }
+        }
+      })
+
+      if (currentTicket) {
+        await logEvent({
+          action: 'ticket.requester_changed',
+          actorId: currentUser.id,
+          actorEmail: currentUser.email,
+          actorType: 'human',
+          entityType: 'ticket',
+          entityId: params.id,
+          ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
+          userAgent: request.headers.get('user-agent') || null,
+          prevValues: {
+            requesterId: currentTicket.requesterId,
+            requesterEmail: currentTicket.requester?.email
+          },
+          newValues: {
+            requesterId: data.requesterId,
+            requesterEmail: newRequester.email
+          },
+          metadata: {
+            previousRequester: currentTicket.requester ? `${currentTicket.requester.firstName} ${currentTicket.requester.lastName} (${currentTicket.requester.email})` : 'unknown',
+            newRequester: `${newRequester.firstName} ${newRequester.lastName} (${newRequester.email})`
+          }
+        })
+
+        // Send email notification to the new requester (synchronously to catch errors)
+        try {
+          const { sendTicketCreatedEmail } = await import('@/lib/email')
+
+          // Get full ticket with requester details
+          const fullTicket = await prisma.ticket.findUnique({
+            where: { id: params.id },
+            include: {
+              requester: true,
+              assignee: true
+            }
+          })
+
+          const emailSent = await sendTicketCreatedEmail(fullTicket, newRequester)
+          if (emailSent) {
+            console.log(`✅ Sent requester change notification to ${newRequester.email} for ticket ${currentTicket.ticketNumber}`)
+          } else {
+            console.error(`❌ Failed to send requester change notification to ${newRequester.email} for ticket ${currentTicket.ticketNumber}`)
+          }
+        } catch (error) {
+          console.error('❌ Error sending requester change notification:', error)
+          // Don't fail the request if email fails - just log the error
+        }
+      }
+    }
 
     // If assigneeId is being updated, validate staff assignment rules
     if (data.assigneeId) {
@@ -190,8 +274,6 @@ export async function PUT(request, { params }) {
 
       if (currentTicket && currentTicket.requesterId === currentUser.id) {
         const isStaff = roleNames.includes('Staff')
-        const isAdmin = roleNames.includes('Admin')
-        const isManager = roleNames.includes('Manager')
 
         if (isStaff && !isAdmin && !isManager) {
           return NextResponse.json({
@@ -212,9 +294,6 @@ export async function PUT(request, { params }) {
 
     // Apply automatic assignment and status change rules
     const updateData = { ...data }
-
-    // Check if current user is admin
-    const isAdmin = roleNames.includes('Admin')
 
     // Rule 1: Auto-change status from NEW to OPEN when ticket is assigned
     if (data.assigneeId && currentTicket.status === 'NEW') {
@@ -269,20 +348,16 @@ export async function PUT(request, { params }) {
         },
         comments: {
           include: {
-            user: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true
-              }
-            }
+            user: true  // Optional relation - allows null
           },
           orderBy: {
             createdAt: 'asc'
           }
         },
         attachments: {
+          include: {
+            user: true  // Optional relation - allows null
+          },
           orderBy: {
             uploadedAt: 'desc'
           }
@@ -325,13 +400,33 @@ export async function DELETE(request, { params }) {
       }, { status: 403 })
     }
 
-    // Check if ticket exists
+    // Check if ticket exists and get all associated message assets
     const ticket = await prisma.ticket.findUnique({
-      where: { id: params.id }
+      where: { id: params.id },
+      include: {
+        messageAssets: true  // Get all images/assets for this ticket
+      }
     })
 
     if (!ticket) {
       return NextResponse.json({ error: 'Ticket not found' }, { status: 404 })
+    }
+
+    // Delete images from DigitalOcean Spaces storage
+    if (ticket.messageAssets && ticket.messageAssets.length > 0) {
+      const { deleteObject } = await import('@/modules/storage/spaces')
+
+      console.log(`🗑️  Deleting ${ticket.messageAssets.length} image(s) for ticket ${ticket.ticketNumber}`)
+
+      for (const asset of ticket.messageAssets) {
+        try {
+          await deleteObject(asset.storageKey)
+          console.log(`   ✓ Deleted: ${asset.filename}`)
+        } catch (error) {
+          console.error(`   ✗ Failed to delete ${asset.filename}:`, error.message)
+          // Continue deleting other images even if one fails
+        }
+      }
     }
 
     // Delete related comments first (due to foreign key constraints)
@@ -339,9 +434,26 @@ export async function DELETE(request, { params }) {
       where: { ticketId: params.id }
     })
 
-    // Delete the ticket
+    // Delete the ticket (cascade will delete MessageAsset records, InboundMessage records, etc.)
     await prisma.ticket.delete({
       where: { id: params.id }
+    })
+
+    // Log the deletion
+    await logEvent({
+      action: 'ticket.deleted',
+      actorId: currentUser.id,
+      actorEmail: currentUser.email,
+      actorType: 'human',
+      entityType: 'ticket',
+      entityId: params.id,
+      ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
+      userAgent: request.headers.get('user-agent') || null,
+      metadata: {
+        ticketNumber: ticket.ticketNumber,
+        title: ticket.title,
+        imageCount: ticket.messageAssets?.length || 0
+      }
     })
 
     // Emit Socket.IO event for live updates
@@ -447,20 +559,16 @@ export async function PATCH(request, { params }) {
         },
         comments: {
           include: {
-            user: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true
-              }
-            }
+            user: true  // Optional relation - allows null
           },
           orderBy: {
             createdAt: 'asc'
           }
         },
         attachments: {
+          include: {
+            user: true  // Optional relation - allows null
+          },
           orderBy: {
             uploadedAt: 'desc'
           }

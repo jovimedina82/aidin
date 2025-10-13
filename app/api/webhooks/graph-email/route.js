@@ -9,10 +9,19 @@ export async function POST(request) {
 
     // Validate clientState to ensure webhook is from Microsoft
     const clientState = body.value?.[0]?.clientState
-    const expectedClientState = process.env.GRAPH_WEBHOOK_SECRET || 'aidin-helpdesk-secret-key'
+    const expectedClientState = process.env.GRAPH_WEBHOOK_SECRET
+
+    // SECURITY: Require properly configured secret
+    if (!expectedClientState || expectedClientState.length < 32) {
+      console.error('GRAPH_WEBHOOK_SECRET not configured or too weak (must be >= 32 characters)')
+      return NextResponse.json({ error: 'Webhook not configured' }, { status: 503 })
+    }
 
     if (clientState !== expectedClientState) {
-      console.warn('Invalid clientState in webhook notification')
+      console.warn('Invalid clientState in webhook notification', {
+        ip: request.headers.get('x-forwarded-for'),
+        timestamp: new Date().toISOString()
+      })
       return NextResponse.json({ error: 'Invalid clientState' }, { status: 401 })
     }
 

@@ -63,7 +63,7 @@ export default function TicketThread({ ticket, onUpdate }) {
         setFilteredTickets(tickets)
       }
     } catch (error) {
-      console.error('Failed to load tickets:', error)
+      // console.error('Failed to load tickets:', error)
       toast.error('Failed to load available tickets')
     } finally {
       setLoadingTickets(false)
@@ -126,7 +126,7 @@ export default function TicketThread({ ticket, onUpdate }) {
 
       if (onUpdate) onUpdate()
     } catch (error) {
-      console.error('Merge error:', error)
+      // console.error('Merge error:', error)
       toast.error(error.message || 'Failed to merge tickets')
     } finally {
       setMerging(false)
@@ -150,7 +150,7 @@ export default function TicketThread({ ticket, onUpdate }) {
       toast.success('Ticket unlinked')
       if (onUpdate) onUpdate()
     } catch (error) {
-      console.error('Unlink error:', error)
+      // console.error('Unlink error:', error)
       toast.error(error.message || 'Failed to unlink ticket')
     }
   }

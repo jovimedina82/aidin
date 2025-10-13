@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth"
 import { buildTicketAccessWhere } from "@/lib/access-control"
 import { PerformanceMonitor } from '../../../lib/performance.js'
+import { cache, CacheKeys, CacheTTL } from '@/lib/cache'
 
 export async function GET(request) {
   try {
@@ -12,6 +13,14 @@ export async function GET(request) {
     const user = await getCurrentUser(request)
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Try to get stats from cache first
+    const cacheKey = CacheKeys.STATS_DASHBOARD(user.id)
+    const cachedStats = cache.get(cacheKey)
+    if (cachedStats) {
+      PerformanceMonitor.end('stats-fetch')
+      return NextResponse.json(cachedStats)
     }
 
     // Get access control where clause for this user
@@ -88,6 +97,9 @@ export async function GET(request) {
         solvedHistory: companySolvedHistory
       }
     }
+
+    // Cache the stats for 30 seconds
+    cache.set(cacheKey, stats, CacheTTL.STATS)
 
     PerformanceMonitor.end('stats-fetch')
     return NextResponse.json(stats)

@@ -28,7 +28,7 @@ export default function UserProfileModal({ isOpen, onClose, userId }) {
         setUser(userData)
       }
     } catch (error) {
-      console.error('Failed to fetch user:', error)
+      // console.error('Failed to fetch user:', error)
     } finally {
       setLoading(false)
     }

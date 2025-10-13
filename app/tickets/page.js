@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useMemo, Suspense } from 'react'
+import { useState, useEffect, useMemo, Suspense, useCallback, useRef } from 'react'
 import { useAuth } from '../../components/AuthProvider'
 import { getAuthToken } from '../../lib/auth-client'
 import DashboardLayout from '../../components/DashboardLayout'
@@ -52,7 +52,7 @@ function TicketsPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [tickets, setTickets] = useState([])
-  const [allTickets, setAllTickets] = useState([])
+  const [ticketStats, setTicketStats] = useState(null)
   const [stats, setStats] = useState({
     unsolved: 0,
     unassigned: 0,
@@ -62,6 +62,8 @@ function TicketsPageContent() {
   })
   const [ticketsLoading, setTicketsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const searchTimeoutRef = useRef(null)
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('')
   const [currentView, setCurrentView] = useState('personal-new')
   const [statusFilter, setStatusFilter] = useState('all')
   const [sortBy, setSortBy] = useState('created')
@@ -85,6 +87,19 @@ function TicketsPageContent() {
   const isAdmin = roleNames.includes('Admin')
   const isManager = roleNames.includes('Manager')
   const isStaff = roleNames.includes('Staff') || isManager || isAdmin
+
+  // Debounced search handler
+  const handleSearchChange = useCallback((value) => {
+    setSearchTerm(value)
+
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+    }
+
+    searchTimeoutRef.current = setTimeout(() => {
+      setDebouncedSearchTerm(value)
+    }, 300)
+  }, [])
 
   // Column sorting handler
   const handleColumnSort = (columnType) => {
@@ -349,271 +364,57 @@ function TicketsPageContent() {
 
   // Create views with dynamic counts
   const views = useMemo(() => {
-    // Only calculate counts if user is authenticated, auth is complete, and we have tickets data
-    if (!user || authLoading || !allTickets || allTickets.length === 0) {
+    // Only calculate counts if user is authenticated, auth is complete, and we have stats data
+    if (!user || authLoading || !ticketStats) {
       return [...personalViews, ...companyViews].map(view => ({
         ...view,
         count: 0
       }))
     }
 
-    // Calculate counts using all tickets for sidebar display
-    const counts = calculateDynamicCounts(allTickets)
+    // Use stats data directly for sidebar counts
+    const counts = {
+      ...ticketStats.personal,
+      ...ticketStats.company
+    }
 
     return [...personalViews, ...companyViews].map(view => ({
       ...view,
       count: counts[view.id] || 0
     }))
-  }, [allTickets, user?.id, authLoading])
+  }, [ticketStats, user?.id, authLoading])
 
-  const fetchAllTickets = async () => {
+  const fetchTicketStats = async () => {
     try {
       if (process.env.NODE_ENV === 'development') {
-        console.log('🎫 Starting fetchAllTickets...')
+        // console.log('📊 Fetching ticket stats...')
       }
 
-      const response = await makeAuthenticatedRequest(`/api/tickets?sortBy=createdAt&sortOrder=desc&limit=1000`)
+      const response = await makeAuthenticatedRequest('/api/tickets/stats')
 
       if (response.ok) {
         const data = await response.json()
-        const tickets = data.tickets || []
-        setAllTickets(tickets)
+        setTicketStats(data)
         if (process.env.NODE_ENV === 'development') {
-          console.log('✅ Fetched all tickets for sidebar counts:', tickets.length, 'tickets')
-          if (tickets.length > 0) {
-            console.log('📊 Sample ticket status breakdown:', {
-              NEW: tickets.filter(t => t.status === 'NEW').length,
-              OPEN: tickets.filter(t => t.status === 'OPEN').length,
-              PENDING: tickets.filter(t => t.status === 'PENDING').length,
-              SOLVED: tickets.filter(t => t.status === 'SOLVED').length
-            })
-          }
-        }
-        return tickets
-      } else {
-        console.error('❌ Failed to fetch all tickets:', response.status, response.statusText)
-        const errorText = await response.text()
-        console.error('Error details:', errorText)
-        setAllTickets([])
-        return []
-      }
-    } catch (error) {
-      console.error('❌ Failed to fetch all tickets for counts:', error)
-      setAllTickets([]) // Ensure it's always an array
-      return []
-    }
-  }
-
-  useEffect(() => {
-    // Only fetch data if user is authenticated and auth is complete
-    if (user && !authLoading) {
-      // Fetch all tickets first for sidebar counts, then other data
-      fetchAllTickets().then(() => {
-        fetchTickets()
-        fetchStats()
-        if (isStaff) {
-          fetchDepartments()
-        }
-        if (isAdmin) {
-          fetchStaff()
-        }
-      })
-    }
-  }, [currentView, user, authLoading])
-
-  // Separate useEffect to ensure allTickets is fetched when user becomes available
-  useEffect(() => {
-    if (user && !authLoading && (!allTickets || allTickets.length === 0)) {
-      fetchAllTickets()
-    }
-  }, [user, authLoading])
-
-  // Update department counts when tickets change
-  useEffect(() => {
-    if (allTickets && allTickets.length > 0) {
-      setDepartmentTicketCounts(calculateDepartmentCounts())
-    }
-  }, [allTickets])
-
-  useEffect(() => {
-    // Only fetch tickets if user is authenticated and auth is complete
-    if (user && !authLoading) {
-      fetchTickets()
-    }
-  }, [sortBy, sortOrder, user, authLoading])
-
-  useEffect(() => {
-    // Set initial state from URL params (for back navigation)
-    const view = searchParams.get('view')
-    const status = searchParams.get('status')
-    const search = searchParams.get('search')
-    const sort = searchParams.get('sort')
-    const expanded = searchParams.get('expanded')
-
-    if (view) setCurrentView(view)
-    if (status) setStatusFilter(status)
-    if (search) setSearchTerm(search)
-    if (sort) {
-      // Only restore sort from URL if it's a valid value, otherwise default to 'created'
-      if (['created', 'updated', 'priority', 'status'].includes(sort)) {
-        setSortBy(sort)
-      } else {
-        setSortBy('created')
-      }
-    }
-
-    // Restore expanded agents state
-    if (expanded) {
-      try {
-        const expandedArray = JSON.parse(expanded)
-        setExpandedStaff(new Set(expandedArray))
-      } catch (error) {
-        console.error('Failed to parse expanded agents:', error)
-      }
-    }
-  }, [searchParams])
-
-  useEffect(() => {
-    // Load user preferences from database only if user is authenticated
-    if (user && !authLoading) {
-      loadUserPreferences()
-    }
-  }, [user, authLoading])
-
-  // Auto-refresh tickets every 30 seconds without showing loading state
-  useEffect(() => {
-    if (!user || authLoading) return
-
-    const interval = setInterval(() => {
-      fetchTickets(false) // false = no loading spinner
-      fetchAllTickets() // Also refresh stats in background
-    }, 30000)
-
-    return () => clearInterval(interval)
-  }, [user, authLoading, currentView, sortBy, sortOrder])
-
-  const loadUserPreferences = async () => {
-    try {
-      const response = await makeAuthenticatedRequest('/api/user-preferences')
-      if (response.ok) {
-        const data = await response.json()
-
-        if (data.personalViewOrder) {
-          setPersonalViewOrder(data.personalViewOrder)
-        } else {
-          setPersonalViewOrder(personalViews.map(v => v.id))
-        }
-
-        if (data.companyViewOrder) {
-          setCompanyViewOrder(data.companyViewOrder)
-        } else {
-          setCompanyViewOrder(companyViews.map(v => v.id))
+          // console.log('✅ Fetched ticket stats:', data)
         }
       } else {
-        // Use default order if no preferences found
-        setPersonalViewOrder(personalViews.map(v => v.id))
-        setCompanyViewOrder(companyViews.map(v => v.id))
+        // Handle authentication errors - redirect to login
+        if (response.status === 401) {
+          console.error('Authentication expired, redirecting to login...')
+          window.location.href = '/login'
+          return
+        }
+        console.error('❌ Failed to fetch ticket stats:', response.status, response.statusText)
+        setTicketStats({ personal: {}, company: {}, departments: {} })
       }
     } catch (error) {
-      console.error('Failed to load user preferences:', error)
-      // Use default order on error
-      setPersonalViewOrder(personalViews.map(v => v.id))
-      setCompanyViewOrder(companyViews.map(v => v.id))
+      console.error('❌ Failed to fetch ticket stats:', error)
+      setTicketStats({ personal: {}, company: {}, departments: {} })
     }
   }
 
-  const saveUserPreferences = async (personalOrder = null, companyOrder = null) => {
-    try {
-      await makeAuthenticatedRequest('/api/user-preferences', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          personalViewOrder: personalOrder || personalViewOrder,
-          companyViewOrder: companyOrder || companyViewOrder
-        })
-      })
-    } catch (error) {
-      console.error('Failed to save user preferences:', error)
-    }
-  }
-
-  const resetUserPreferences = async () => {
-    try {
-      await makeAuthenticatedRequest('/api/user-preferences', {
-        method: 'DELETE'
-      })
-
-      // Reset to default order
-      const defaultPersonalOrder = personalViews.map(v => v.id)
-      const defaultCompanyOrder = companyViews.map(v => v.id)
-
-      setPersonalViewOrder(defaultPersonalOrder)
-      setCompanyViewOrder(defaultCompanyOrder)
-    } catch (error) {
-      console.error('Failed to reset user preferences:', error)
-    }
-  }
-
-  const fetchStats = async () => {
-    try {
-      const response = await makeAuthenticatedRequest('/api/stats')
-      if (response.ok) {
-        const data = await response.json()
-        setStats(data)
-      }
-    } catch (error) {
-      console.error('Failed to fetch stats:', error)
-    }
-  }
-
-  const fetchStaff = async () => {
-    try {
-      const response = await makeAuthenticatedRequest('/api/users')
-      if (response.ok) {
-        const data = await response.json()
-        // Filter for agents and admins only
-        const agentUsers = data.users?.filter(user => {
-          const userRoles = user.roles || []
-          const roleNames = userRoles.map(role =>
-            typeof role === 'string' ? role : (role.role?.name || role.name)
-          )
-          return roleNames.includes('Staff') || roleNames.includes('Admin')
-        }) || []
-        setStaff(agentUsers)
-      }
-    } catch (error) {
-      console.error('Failed to fetch agents:', error)
-    }
-  }
-
-  const fetchDepartments = async () => {
-    try {
-      const response = await makeAuthenticatedRequest('/api/admin/departments')
-      if (response.ok) {
-        const data = await response.json()
-        setDepartments(data.departments || [])
-      }
-    } catch (error) {
-      console.error('Failed to fetch departments:', error)
-    }
-  }
-
-  const calculateDepartmentCounts = () => {
-    if (!allTickets || allTickets.length === 0) return {}
-
-    const counts = {}
-    allTickets.forEach(ticket => {
-      // Only count active (non-solved) tickets
-      // finalDepartment stores the department ID
-      if (ticket.status !== 'SOLVED' && ticket.aiDecision?.finalDepartment) {
-        const deptId = ticket.aiDecision.finalDepartment
-        counts[deptId] = (counts[deptId] || 0) + 1
-      }
-    })
-    return counts
-  }
-
-  const fetchTickets = async (showLoadingState = true) => {
+  const fetchTickets = useCallback(async (showLoadingState = true) => {
     try {
       if (showLoadingState) {
         setTicketsLoading(true)
@@ -671,17 +472,217 @@ function TicketsPageContent() {
         const data = await response.json()
         setTickets(data.tickets || [])
       } else {
+        // Handle authentication errors - redirect to login
+        if (response.status === 401) {
+          console.error('Authentication expired, redirecting to login...')
+          window.location.href = '/login'
+          return
+        }
         console.error('Failed to fetch tickets - Response not ok:', response.status)
-        const errorText = await response.text()
-        console.error('Error response:', errorText)
+        setTickets([]) // Clear tickets on error
       }
     } catch (error) {
       console.error('Failed to fetch tickets:', error)
+      setTickets([]) // Clear tickets on error
     } finally {
       if (showLoadingState) {
         setTicketsLoading(false)
       }
     }
+  }, [currentView, sortBy, sortOrder, makeAuthenticatedRequest])
+
+  useEffect(() => {
+    // Only fetch data if user is authenticated and auth is complete
+    if (user && !authLoading) {
+      // Fetch tickets and stats in parallel
+      Promise.all([
+        fetchTickets(),
+        fetchTicketStats(),
+        fetchStats()
+      ])
+    }
+  }, [user, authLoading, fetchTickets])
+
+  // Separate effect for fetchDepartments/fetchStaff to avoid recreating the main effect
+  useEffect(() => {
+    if (user && !authLoading) {
+      if (isStaff) {
+        fetchDepartments()
+      }
+      if (isAdmin) {
+        fetchStaff()
+      }
+    }
+  }, [user, authLoading, isStaff, isAdmin])
+
+  // Update department counts when stats change
+  useEffect(() => {
+    if (ticketStats && ticketStats.departments) {
+      setDepartmentTicketCounts(calculateDepartmentCounts())
+    }
+  }, [ticketStats])
+
+  useEffect(() => {
+    // Set initial state from URL params (for back navigation)
+    const view = searchParams.get('view')
+    const status = searchParams.get('status')
+    const search = searchParams.get('search')
+    const sort = searchParams.get('sort')
+    const expanded = searchParams.get('expanded')
+
+    if (view) setCurrentView(view)
+    if (status) setStatusFilter(status)
+    if (search) setSearchTerm(search)
+    if (sort) {
+      // Only restore sort from URL if it's a valid value, otherwise default to 'created'
+      if (['created', 'updated', 'priority', 'status'].includes(sort)) {
+        setSortBy(sort)
+      } else {
+        setSortBy('created')
+      }
+    }
+
+    // Restore expanded agents state
+    if (expanded) {
+      try {
+        const expandedArray = JSON.parse(expanded)
+        setExpandedStaff(new Set(expandedArray))
+      } catch (error) {
+        // console.error('Failed to parse expanded agents:', error)
+      }
+    }
+  }, [searchParams])
+
+  useEffect(() => {
+    // Load user preferences from database only if user is authenticated
+    if (user && !authLoading) {
+      loadUserPreferences()
+    }
+  }, [user, authLoading])
+
+  // Auto-refresh tickets every 60 seconds without showing loading state
+  useEffect(() => {
+    if (!user || authLoading) return
+
+    const interval = setInterval(() => {
+      fetchTickets(false) // false = no loading spinner
+      fetchTicketStats() // Also refresh stats in background
+    }, 60000)
+
+    return () => clearInterval(interval)
+  }, [user, authLoading, currentView, sortBy, sortOrder, fetchTickets])
+
+  const loadUserPreferences = async () => {
+    try {
+      const response = await makeAuthenticatedRequest('/api/user-preferences')
+      if (response.ok) {
+        const data = await response.json()
+
+        if (data.personalViewOrder) {
+          setPersonalViewOrder(data.personalViewOrder)
+        } else {
+          setPersonalViewOrder(personalViews.map(v => v.id))
+        }
+
+        if (data.companyViewOrder) {
+          setCompanyViewOrder(data.companyViewOrder)
+        } else {
+          setCompanyViewOrder(companyViews.map(v => v.id))
+        }
+      } else {
+        // Use default order if no preferences found
+        setPersonalViewOrder(personalViews.map(v => v.id))
+        setCompanyViewOrder(companyViews.map(v => v.id))
+      }
+    } catch (error) {
+      // console.error('Failed to load user preferences:', error)
+      // Use default order on error
+      setPersonalViewOrder(personalViews.map(v => v.id))
+      setCompanyViewOrder(companyViews.map(v => v.id))
+    }
+  }
+
+  const saveUserPreferences = async (personalOrder = null, companyOrder = null) => {
+    try {
+      await makeAuthenticatedRequest('/api/user-preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          personalViewOrder: personalOrder || personalViewOrder,
+          companyViewOrder: companyOrder || companyViewOrder
+        })
+      })
+    } catch (error) {
+      // console.error('Failed to save user preferences:', error)
+    }
+  }
+
+  const resetUserPreferences = async () => {
+    try {
+      await makeAuthenticatedRequest('/api/user-preferences', {
+        method: 'DELETE'
+      })
+
+      // Reset to default order
+      const defaultPersonalOrder = personalViews.map(v => v.id)
+      const defaultCompanyOrder = companyViews.map(v => v.id)
+
+      setPersonalViewOrder(defaultPersonalOrder)
+      setCompanyViewOrder(defaultCompanyOrder)
+    } catch (error) {
+      // console.error('Failed to reset user preferences:', error)
+    }
+  }
+
+  const fetchStats = async () => {
+    try {
+      const response = await makeAuthenticatedRequest('/api/stats')
+      if (response.ok) {
+        const data = await response.json()
+        setStats(data)
+      }
+    } catch (error) {
+      // console.error('Failed to fetch stats:', error)
+    }
+  }
+
+  const fetchStaff = async () => {
+    try {
+      const response = await makeAuthenticatedRequest('/api/users')
+      if (response.ok) {
+        const data = await response.json()
+        // Filter for agents and admins only
+        const agentUsers = data.users?.filter(user => {
+          const userRoles = user.roles || []
+          const roleNames = userRoles.map(role =>
+            typeof role === 'string' ? role : (role.role?.name || role.name)
+          )
+          return roleNames.includes('Staff') || roleNames.includes('Admin')
+        }) || []
+        setStaff(agentUsers)
+      }
+    } catch (error) {
+      // console.error('Failed to fetch agents:', error)
+    }
+  }
+
+  const fetchDepartments = async () => {
+    try {
+      const response = await makeAuthenticatedRequest('/api/admin/departments')
+      if (response.ok) {
+        const data = await response.json()
+        setDepartments(data.departments || [])
+      }
+    } catch (error) {
+      // console.error('Failed to fetch departments:', error)
+    }
+  }
+
+  const calculateDepartmentCounts = () => {
+    if (!ticketStats || !ticketStats.departments) return {}
+
+    // Return department counts directly from stats
+    return ticketStats.departments
   }
 
   const updateTicketStatus = async (ticketId, newStatus) => {
@@ -697,7 +698,7 @@ function TicketsPageContent() {
         fetchStats()
       }
     } catch (error) {
-      console.error('Failed to update ticket status:', error)
+      // console.error('Failed to update ticket status:', error)
     }
   }
 
@@ -953,12 +954,12 @@ function TicketsPageContent() {
   }
 
   const filteredTickets = tickets.filter(ticket => {
-    const matchesSearch = !searchTerm ||
-      ticket.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ticket.ticketNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ticket.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (ticket.requester?.firstName + ' ' + ticket.requester?.lastName).toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (ticket.assignee?.firstName + ' ' + ticket.assignee?.lastName).toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesSearch = !debouncedSearchTerm ||
+      ticket.title.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+      ticket.ticketNumber.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+      ticket.description.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+      (ticket.requester?.firstName + ' ' + ticket.requester?.lastName).toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+      (ticket.assignee?.firstName + ' ' + ticket.assignee?.lastName).toLowerCase().includes(debouncedSearchTerm.toLowerCase())
 
     // Apply status filter
     const matchesStatus = statusFilter === 'all' || ticket.status === statusFilter
@@ -970,9 +971,20 @@ function TicketsPageContent() {
     // Handle department-specific views
     if (currentView.startsWith('department-')) {
       const departmentId = currentView.replace('department-', '')
+
+      // Include tickets with status: NEW, OPEN, PENDING, ON_HOLD, or SOLVED (within last week)
+      const oneWeekAgo = new Date()
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
+
+      const includeSolved = ticket.status === 'SOLVED' &&
+        ticket.resolvedAt &&
+        new Date(ticket.resolvedAt) >= oneWeekAgo
+
+      const shouldInclude = ['NEW', 'OPEN', 'PENDING', 'ON_HOLD'].includes(ticket.status) || includeSolved
+
       matchesView = matchesView &&
-        ticket.status !== 'SOLVED' &&
-        ticket.aiDecision?.finalDepartment === departmentId
+        shouldInclude &&
+        ticket.departmentId === departmentId
     } else if (activeView?.filter) {
       const filter = activeView.filter
 
@@ -1051,7 +1063,7 @@ function TicketsPageContent() {
       // Add logo maintaining aspect ratio
       pdf.addImage(logoBase64, 'PNG', 25, 20, logoWidth, logoHeight)
     } catch (error) {
-      console.error('Error loading logo:', error)
+      // console.error('Error loading logo:', error)
     }
 
     // Clean, minimalist title
@@ -1291,7 +1303,7 @@ function TicketsPageContent() {
 
   return (
     <DashboardLayout>
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 pt-4 pb-8">
         <div className="flex gap-6">
           {/* Sidebar */}
           <div className="w-64 rounded-lg shadow p-4 h-fit" style={{ backgroundColor: '#3d6964' }}>
@@ -1522,7 +1534,7 @@ function TicketsPageContent() {
                         <Input
                           placeholder={isSolvedView() ? "Search tickets... (e.g., Maria)" : "Search unassigned tickets..."}
                           value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
+                          onChange={(e) => handleSearchChange(e.target.value)}
                           className="w-64"
                         />
                       </div>
@@ -1554,7 +1566,7 @@ function TicketsPageContent() {
                             type="text"
                             placeholder="Search tickets..."
                             value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onChange={(e) => handleSearchChange(e.target.value)}
                             className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           />
                         </div>
@@ -1812,6 +1824,12 @@ function TicketsPageContent() {
                                       sort: sortBy,
                                       expanded: JSON.stringify(Array.from(expandedStaff))
                                     })
+                                    console.log('DEBUG: Ticket clicked (card view)', {
+                                      ticketId: ticket.id,
+                                      ticketNumber: ticket.ticketNumber,
+                                      currentView,
+                                      url: `/tickets/${ticket.id}?return=${encodeURIComponent(returnParams.toString())}`
+                                    })
                                     router.push(`/tickets/${ticket.id}?return=${encodeURIComponent(returnParams.toString())}`)
                                   }}
                                 >
@@ -1895,6 +1913,12 @@ function TicketsPageContent() {
                                        search: searchTerm,
                                        sort: sortBy,
                                        expanded: JSON.stringify(Array.from(expandedStaff))
+                                     })
+                                     console.log('DEBUG: Ticket clicked (table view)', {
+                                       ticketId: ticket.id,
+                                       ticketNumber: ticket.ticketNumber,
+                                       currentView,
+                                       url: `/tickets/${ticket.id}?return=${encodeURIComponent(returnParams.toString())}`
                                      })
                                      router.push(`/tickets/${ticket.id}?return=${encodeURIComponent(returnParams.toString())}`)
                                    }}>
@@ -2030,6 +2054,12 @@ function TicketsPageContent() {
                               sort: sortBy,
                               expanded: JSON.stringify(Array.from(expandedStaff))
                             })
+                            console.log('DEBUG: Ticket clicked (card view - department)', {
+                              ticketId: ticket.id,
+                              ticketNumber: ticket.ticketNumber,
+                              currentView,
+                              url: `/tickets/${ticket.id}?return=${encodeURIComponent(returnParams.toString())}`
+                            })
                             router.push(`/tickets/${ticket.id}?return=${encodeURIComponent(returnParams.toString())}`)
                           }}
                         >
@@ -2120,6 +2150,12 @@ function TicketsPageContent() {
                                search: searchTerm,
                                sort: sortBy,
                                expanded: JSON.stringify(Array.from(expandedStaff))
+                             })
+                             console.log('DEBUG: Ticket clicked (table view - department)', {
+                               ticketId: ticket.id,
+                               ticketNumber: ticket.ticketNumber,
+                               currentView,
+                               url: `/tickets/${ticket.id}?return=${encodeURIComponent(returnParams.toString())}`
                              })
                              router.push(`/tickets/${ticket.id}?return=${encodeURIComponent(returnParams.toString())}`);
                            }}>

@@ -80,7 +80,7 @@ const VirtualAssistant = ({ ticket = null, isMinimized = false, onToggleMinimize
         throw new Error('Failed to get response')
       }
     } catch (error) {
-      console.error('Failed to send message:', error)
+      // console.error('Failed to send message:', error)
       const errorMessage = {
         id: Date.now() + 1,
         type: 'assistant',

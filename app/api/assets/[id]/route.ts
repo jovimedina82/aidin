@@ -85,7 +85,7 @@ export async function GET(
       try {
         const buffer = await getAsset(asset.storageKey);
 
-        return new NextResponse(buffer, {
+        return new NextResponse(buffer as any, {
           headers: {
             'Content-Type': asset.mime,
             'Content-Length': String(asset.size),

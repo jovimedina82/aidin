@@ -170,10 +170,31 @@ async function classifyWithAI(email: EmailToClassify, signals: HeuristicSignals)
   const subject = String(email.subject || '').slice(0, 300);
   const body = String(email.body || email.bodyPreview || '').slice(0, 4000);
 
-  const systemPrompt = `Return STRICT JSON only: {"class":"support|vendor|unclear","confidence":0.0-1.0,"reason":"...","priority":"low|normal|high"}`;
+  const systemPrompt = `You are an email classifier for a helpdesk system. Classify emails into:
+
+**support**: Real support requests from users needing help
+- Internal employees (surterreproperties.com) asking questions or reporting issues
+- External users requesting IT help, reporting bugs, asking for access
+- Anyone expressing problems, asking "how do I", or requesting assistance
+
+**vendor**: Automated/marketing emails NOT needing support
+- No-reply addresses (noreply@, no-reply@, donotreply@)
+- Marketing/newsletters (unsubscribe links, promotions, sales)
+- OTP/verification codes, password resets from services
+- Automated notifications (OOO, meeting invites, bounces, monitoring alerts)
+- Invoices, receipts, statements
+
+**unclear**: Cannot confidently classify (manual review needed)
+
+CRITICAL RULES:
+1. Internal company emails (surterreproperties.com) are ALWAYS "support" unless automated (OOO/bounce/meeting)
+2. Questions, help requests, or problem reports are ALWAYS "support" regardless of domain
+3. Only classify as "vendor" if clearly automated/marketing with no support request
+
+Return STRICT JSON only: {"class":"support|vendor|unclear","confidence":0.0-1.0,"reason":"...","priority":"low|normal|high"}`;
 
   const userContent = [
-    `From: ${senderEmail}${isInternal ? ' (company domain)' : ''}`,
+    `From: ${senderEmail}${isInternal ? ' (INTERNAL COMPANY DOMAIN)' : ''}`,
     `Domain: ${senderDomain || 'unknown'}`,
     `Subject: ${subject}`,
     `Body: ${body}`,

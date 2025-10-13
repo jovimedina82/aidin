@@ -128,7 +128,7 @@ export class EmailPollingService {
    * Fetch unread emails from Microsoft Graph
    */
   private async fetchUnreadEmails(batchSize: number = 10): Promise<GraphEmail[]> {
-    const accessToken = await this.getAccessToken();
+    let accessToken = await this.getAccessToken();
 
     const url =
       `https://graph.microsoft.com/v1.0/users/${this.helpdeskEmail}/mailFolders/inbox/messages` +
@@ -138,19 +138,50 @@ export class EmailPollingService {
       `&$select=id,subject,from,toRecipients,body,bodyPreview,receivedDateTime,isRead,conversationId,internetMessageId`;
 
     try {
-      const response = await fetch(url, {
+      let response = await fetch(url, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
       });
 
+      // If 401, clear cache and retry with fresh token
+      if (response.status === 401) {
+        console.log('🔄 Token expired, refreshing...');
+        this.accessToken = null;
+        this.tokenExpiry = 0;
+        accessToken = await this.getAccessToken();
+
+        response = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+      }
+
       if (!response.ok) {
         const error = await response.text();
+        console.error(`❌ Graph API error:`, {
+          status: response.status,
+          error,
+          helpdeskEmail: this.helpdeskEmail,
+          url
+        });
         throw new Error(`Graph API error: ${response.status} - ${error}`);
       }
 
       const data = await response.json();
-      return data.value || [];
+      const emails = data.value || [];
+
+      console.log(`📬 Fetched ${emails.length} unread email(s) from inbox`);
+
+      // Log details about fetched emails for debugging
+      if (emails.length > 0) {
+        emails.forEach((email: GraphEmail) => {
+          console.log(`  - From: ${email.from.emailAddress.address}, Subject: "${email.subject}", Received: ${email.receivedDateTime}`);
+        });
+      }
+
+      return emails;
     } catch (error: any) {
       console.error('❌ Failed to fetch emails:', error.message);
       throw error;
@@ -203,7 +234,8 @@ export class EmailPollingService {
 
     try {
       // Try reply endpoint
-      const response = await fetch(`http://localhost:3000/api/inbound/email-reply`, {
+      const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3011}`;
+      const response = await fetch(`${baseUrl}/api/inbound/email-reply`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -217,7 +249,7 @@ export class EmailPollingService {
 
         // Fallback: Try with ticketNumber query param
         const fallbackResponse = await fetch(
-          `http://localhost:3000/api/inbound/email-reply?resolveBy=ticketNumber`,
+          `${baseUrl}/api/inbound/email-reply?resolveBy=ticketNumber`,
           {
             method: 'POST',
             headers: {
@@ -358,7 +390,8 @@ export class EmailPollingService {
     };
 
     try {
-      const response = await fetch(`http://localhost:3000/api/inbound/email`, {
+      const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3011}`;
+      const response = await fetch(`${baseUrl}/api/inbound/email`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -433,7 +466,8 @@ export class EmailPollingService {
     };
 
     try {
-      const response = await fetch(`http://localhost:3000/api/inbound/email`, {
+      const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3011}`;
+      const response = await fetch(`${baseUrl}/api/inbound/email`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -12,7 +12,7 @@
     --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    --primary: 195 60% 40%;  /* Brand blue */
+    --primary: 173 24% 32%;  /* Brand green #3d6964 */
     --primary-foreground: 0 0% 100%;
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
@@ -24,8 +24,9 @@
     --destructive-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 195 60% 40%;
+    --ring: 173 24% 32%;
     --radius: 0.5rem;
+    --nav-h: 64px;
   }
 
   .dark {
@@ -36,7 +37,7 @@
     --card-foreground: 210 40% 98%;
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
-    --primary: 195 60% 50%;
+    --primary: 173 24% 40%;
     --primary-foreground: 0 0% 100%;
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
@@ -48,7 +49,7 @@
     --destructive-foreground: 210 40% 98%;
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 195 60% 50%;
+    --ring: 173 24% 40%;
   }
 }
 
@@ -60,6 +61,7 @@
 
   body {
     @apply bg-background text-foreground;
+    padding-top: 64px;
   }
 }
 

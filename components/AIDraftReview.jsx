@@ -72,7 +72,7 @@ export default function AIDraftReview({ ticket, onUpdate }) {
             toast.success(`✨ KB article created: ${kbResult.article.title}`, { duration: 4000 })
           }
         } catch (kbError) {
-          console.error('Auto-save to KB error:', kbError)
+          // console.error('Auto-save to KB error:', kbError)
           // Don't show error to user - KB creation is optional
         }
       }
@@ -81,7 +81,7 @@ export default function AIDraftReview({ ticket, onUpdate }) {
 
       if (onUpdate) onUpdate()
     } catch (error) {
-      console.error('Send draft error:', error)
+      // console.error('Send draft error:', error)
       toast.error(error.message || 'Failed to send draft')
     } finally {
       setSending(false)
@@ -115,7 +115,7 @@ export default function AIDraftReview({ ticket, onUpdate }) {
 
       if (onUpdate) onUpdate()
     } catch (error) {
-      console.error('Regenerate draft error:', error)
+      // console.error('Regenerate draft error:', error)
       toast.error(error.message || 'Failed to regenerate draft')
     } finally {
       setRegenerating(false)
@@ -187,7 +187,7 @@ export default function AIDraftReview({ ticket, onUpdate }) {
 
       toast.success(`${isPDF ? 'PDF' : 'Image'} uploaded and inserted`)
     } catch (error) {
-      console.error('File upload error:', error)
+      // console.error('File upload error:', error)
       toast.error(error.message || 'Failed to upload file')
     } finally {
       setUploading(false)
@@ -227,7 +227,7 @@ export default function AIDraftReview({ ticket, onUpdate }) {
       toast.success(message)
       setShowKBModal(false)
     } catch (error) {
-      console.error('Save to KB error:', error)
+      // console.error('Save to KB error:', error)
       toast.error(error.message || 'Failed to save to knowledge base')
     } finally {
       setSavingToKB(false)

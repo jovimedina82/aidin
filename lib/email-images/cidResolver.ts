@@ -33,7 +33,7 @@ export async function buildCidMap(
       const normalizedCid = asset.contentId.replace(/^<|>$/g, '');
 
       // Create signed URL
-      const appBaseUrl = process.env.APP_BASE_URL || 'http://localhost:3000';
+      const appBaseUrl = process.env.BASE_URL || process.env.APP_BASE_URL || `http://localhost:${process.env.PORT || 3011}`;
       const token = createAssetToken({
         assetId: asset.id,
         variant: asset.variant,
@@ -71,7 +71,7 @@ export async function resolveCid(
     return null;
   }
 
-  const appBaseUrl = process.env.APP_BASE_URL || 'http://localhost:3000';
+  const appBaseUrl = process.env.BASE_URL || process.env.APP_BASE_URL || `http://localhost:${process.env.PORT || 3011}`;
   const token = createAssetToken({
     assetId: asset.id,
     variant: asset.variant,
@@ -91,7 +91,7 @@ export function createSignedAssetUrl(
   variant: 'original' | 'web' | 'thumb' = 'web',
   ttl: number = 900
 ): string {
-  const appBaseUrl = process.env.APP_BASE_URL || 'http://localhost:3000';
+  const appBaseUrl = process.env.BASE_URL || process.env.APP_BASE_URL || `http://localhost:${process.env.PORT || 3011}`;
   const token = createAssetToken({
     assetId,
     variant,

@@ -165,7 +165,42 @@ export async function POST(request: NextRequest) {
 
     // 6. Sanitize HTML
     const sanitizedHtml = html ? sanitizeHtml(html, { strict: true }) : null;
-    const plainText = text || getTextPreview(sanitizedHtml || '', 10000);
+    let plainText = text || getTextPreview(sanitizedHtml || '', 10000);
+
+    // Strip quoted email replies to extract only the new message
+    const replyIndicators = [
+      /^From:.*$/m,
+      /^Sent:.*$/m,
+      /^To:.*$/m,
+      /^Subject:.*$/m,
+      /^On .* wrote:$/m,
+      /^[-_]{3,}.*Original Message.*[-_]{3,}/im,
+      /^>+.*$/gm,
+      /^Get Outlook for (iOS|Android)/m,
+      /^Sent from my (iPhone|iPad|Android)/m,
+    ];
+
+    // Find the earliest match of any reply indicator
+    let cutoffIndex = -1;
+    for (const indicator of replyIndicators) {
+      const match = plainText.match(indicator);
+      if (match && match.index !== undefined) {
+        if (cutoffIndex === -1 || match.index < cutoffIndex) {
+          cutoffIndex = match.index;
+        }
+      }
+    }
+
+    // If we found a reply indicator, cut the text there
+    if (cutoffIndex > 0) {
+      plainText = plainText.substring(0, cutoffIndex).trim();
+    }
+
+    // Remove common email signatures
+    plainText = plainText
+      .replace(/\n*--+\s*\n.*$/s, '')
+      .trim();
+
     const snippet = getTextPreview(plainText, 200);
 
     // 7. Upload attachments
@@ -236,9 +271,29 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // 10. Resolve CID references in HTML (inline images)
+    // 10. Resolve CID references in HTML (inline images) and strip HTML quoted content
     const { resolveCidReferences } = await import('@/lib/email/cid-resolver');
-    const htmlWithResolvedCids = resolveCidReferences(sanitizedHtml || '', uploadedAttachments);
+    let processedHtml = resolveCidReferences(sanitizedHtml || '', uploadedAttachments);
+
+    // Also strip quoted content from HTML if present
+    // Look for common HTML quote patterns like <div class="gmail_quote"> or email headers in HTML
+    const htmlQuotePatterns = [
+      /<div class="gmail_quote">.*?<\/div>/is,
+      /<blockquote.*?>.*?<\/blockquote>/is,
+      /<div.*?class=".*?OutlookMessageHeader.*?".*?>.*?<\/div>/is,
+      /(<br>|<div>)\s*From:.*$/is,
+      /(<br>|<div>)\s*Sent:.*$/is,
+    ];
+
+    for (const pattern of htmlQuotePatterns) {
+      const match = processedHtml.match(pattern);
+      if (match && match.index !== undefined) {
+        processedHtml = processedHtml.substring(0, match.index).trim();
+        break; // Stop at first match
+      }
+    }
+
+    const htmlWithResolvedCids = processedHtml;
 
     // 11. Create TicketMessage (kind='email')
     const ticketMessage = await prisma.ticketMessage.create({
@@ -260,6 +315,7 @@ export async function POST(request: NextRequest) {
 
     // 12. Save attachments
     for (const att of uploadedAttachments) {
+      // Create EmailAttachment record (for tracking)
       await prisma.emailAttachment.create({
         data: {
           emailIngestId: emailIngest.id,
@@ -271,6 +327,20 @@ export async function POST(request: NextRequest) {
           isInline: att.inline || false,
           cid: att.cid,
           virusScanStatus: 'pending'
+        }
+      });
+
+      // Also create Attachment record so it appears in the ticket's Attachments section
+      await prisma.attachment.create({
+        data: {
+          ticketId: ticket.id,
+          userId: author.id,
+          fileName: att.filename,
+          fileSize: att.size,
+          mimeType: att.contentType,
+          filePath: att.cdnUrl, // Use CDN URL as the file path
+          expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year expiry
+          sentInEmail: true // Email attachments came FROM an email, don't send them back
         }
       });
     }

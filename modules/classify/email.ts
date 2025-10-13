@@ -207,7 +207,8 @@ Respond with JSON only:
       departmentCode,
       tags,
       confidence,
-      reasoning: result.reasoning || 'AI classification completed'
+      reasoning: result.reasoning || 'AI classification completed',
+      method: 'ai' as const
     };
   } catch (error: any) {
     if (error.name === 'AbortError') {
@@ -256,7 +257,8 @@ async function classifyWithKeywords(params: {
       departmentCode: 'GN',
       tags: ['uncategorized'],
       confidence: 0.1,
-      reasoning: 'No keyword matches found'
+      reasoning: 'No keyword matches found',
+      method: 'fallback' as const
     };
   }
 
@@ -273,7 +275,8 @@ async function classifyWithKeywords(params: {
     departmentCode: department,
     tags: tags.length > 0 ? tags : ['general'],
     confidence,
-    reasoning: `Keyword matching: ${score} matches in ${department}`
+    reasoning: `Keyword matching: ${score} matches in ${department}`,
+    method: 'keyword' as const
   };
 }
 

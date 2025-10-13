@@ -73,7 +73,7 @@ export default function NewTicketPage() {
       toast.success(`Ticket created successfully! #${data.ticketNumber}`)
       router.push(`/tickets/${data.id}`)
     } catch (error) {
-      console.error('Ticket creation error:', error)
+      // console.error('Ticket creation error:', error)
       toast.error(error.message || 'Failed to create ticket')
     } finally {
       setLoading(false)

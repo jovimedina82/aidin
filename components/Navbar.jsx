@@ -1,5 +1,10 @@
 'use client'
+
 import { useState, useEffect } from 'react'
+import { usePathname } from 'next/navigation'
+import Link from 'next/link'
+import Image from 'next/image'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from './AuthProvider'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
@@ -8,169 +13,169 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip"
-import { Ticket, Users, BarChart3, Settings, LogOut, Book, Plus, UserCheck, Ban } from 'lucide-react'
-import Link from 'next/link'
-import Image from 'next/image'
+} from '@/components/ui/tooltip'
+import {
+  BarChart3,
+  Ticket,
+  Book,
+  Users,
+  Settings,
+  Ban,
+  Plus,
+  Menu,
+  X,
+  UserCircle,
+  LogOut,
+} from 'lucide-react'
 
 export default function Navbar() {
   const { user, logout } = useAuth()
+  const pathname = usePathname()
   const [isScrolled, setIsScrolled] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
-  // Generate initials from firstName/lastName or name field
-  const initials = user
-    ? (user.firstName && user.lastName
-        ? `${user.firstName[0]}${user.lastName[0]}`
-        : (user.name ? user.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'U'))
-    : 'U'
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 10)
+    }
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
 
-  // Role-based permissions - handle both array of strings and array of objects
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [isMobileMenuOpen])
+
   const userRoleNames = user?.roles?.map(role =>
     typeof role === 'string' ? role : (role.role?.name || role.name)
   ) || []
 
   const isStaff = userRoleNames.some(role => ['Admin', 'Manager', 'Staff'].includes(role))
   const isAdmin = userRoleNames.some(role => ['Admin', 'Manager'].includes(role))
-  const isRequester = userRoleNames.includes('Requester')
 
-  // Handle scroll effect
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrollTop = window.scrollY
-      setIsScrolled(scrollTop > 10)
-    }
+  const initials = user
+    ? (user.firstName && user.lastName
+        ? `${user.firstName[0]}${user.lastName[0]}`
+        : (user.name ? user.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'U'))
+    : 'U'
 
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
+  const navItems = [
+    { href: '/dashboard', label: 'Dashboard', tooltip: 'Dashboard - View tickets overview and statistics', icon: BarChart3, show: true },
+    { href: '/tickets', label: 'Tickets', tooltip: 'Tickets - Manage and view all support tickets', icon: Ticket, show: true },
+    { href: '/knowledge-base', label: 'K/B', tooltip: 'Knowledge Base - Browse help articles and solutions', icon: Book, show: true },
+    { href: '/users', label: 'Users', tooltip: 'Users - Manage user accounts and permissions', icon: Users, show: isStaff },
+    { href: '/admin', label: 'Admin', tooltip: 'Admin - System settings and configuration', icon: Settings, show: isAdmin },
+    { href: '/admin/blocked-domains', label: 'B/S', tooltip: 'Blocked Senders - Manage blocked email domains', icon: Ban, show: isAdmin },
+  ]
+
+  const isActive = (href) => pathname === href || pathname?.startsWith(`${href}/`)
 
   return (
-    <TooltipProvider delayDuration={500}>
+    <TooltipProvider delayDuration={300}>
       <nav
-        className={`surterre-nav fixed top-0 left-0 right-0 z-50 border-b border-border transition-all duration-300 ${
+        aria-label="Primary"
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
           isScrolled
-            ? 'backdrop-blur-md shadow-lg'
-            : ''
+            ? 'bg-[hsl(var(--primary))]/95 backdrop-blur-md shadow-lg'
+            : 'bg-[hsl(var(--primary))] shadow-sm'
         }`}
-        style={{
-          backgroundColor: isScrolled ? '#3d6964cc' : '#3d6964'
-        }}
+        style={{ height: 'var(--nav-h, 64px)' }}
       >
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between h-20">
-            <div className="flex items-center space-x-8">
-              <Link href="/dashboard" className="surterre-logo flex items-center gap-3">
-                <div className="w-20 h-20 flex items-center justify-center rounded-full overflow-hidden flex-shrink-0">
-                  <Image src="/logo.png" alt="Aidin Logo" width={80} height={80} className="object-contain" />
-                </div>
-                <div className="flex items-center">
-                  <Image src="/images/AidIn helpdesk.png" alt="Aidin Helpdesk" width={120} height={48} className="object-contain" />
-                </div>
-              </Link>
-
-              <div className="hidden md:flex space-x-4">
-                {/* Dashboard - Available to all */}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Link href="/dashboard" className="flex items-center space-x-2 text-white/80 hover:text-white">
-                      <BarChart3 size={16} />
-                      <span>Dashboard</span>
-                    </Link>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>View analytics and ticket statistics</p>
-                  </TooltipContent>
-                </Tooltip>
-
-                {/* Tickets - Available to all */}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Link href="/tickets" className="flex items-center space-x-2 text-white/80 hover:text-white">
-                      <Ticket size={16} />
-                      <span>Tickets</span>
-                    </Link>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Manage and view support tickets</p>
-                  </TooltipContent>
-                </Tooltip>
-
-                {/* Knowledge Base - Available to all */}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Link href="/knowledge-base" className="flex items-center space-x-2 text-white/80 hover:text-white">
-                      <Book size={16} />
-                      <span>Knowledge Base</span>
-                    </Link>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Browse help articles and solutions</p>
-                  </TooltipContent>
-                </Tooltip>
-
-                {/* Staff/Admin only sections */}
-                {isStaff && (
-                  <>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Link href="/users" className="flex items-center space-x-2 text-white/80 hover:text-white">
-                          <Users size={16} />
-                          <span>Users</span>
-                        </Link>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Manage users and permissions</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </>
-                )}
-
-                {/* Admin only sections */}
-                {isAdmin && (
-                  <>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Link href="/admin" className="flex items-center space-x-2 text-white/80 hover:text-white">
-                          <Settings size={16} />
-                          <span>Admin</span>
-                        </Link>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>System settings and configuration</p>
-                      </TooltipContent>
-                    </Tooltip>
-
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Link href="/admin/blocked-domains" className="flex items-center space-x-2 text-white/80 hover:text-white">
-                          <Ban size={16} />
-                          <span>Blocked Senders</span>
-                        </Link>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Manage blocked email senders</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </>
-                )}
+        <div className="max-w-[1400px] mx-auto pl-0 pr-4 sm:pr-6 h-full">
+          <div className="flex items-center justify-between h-full">
+            {/* Logo - Left */}
+            <Link
+              href="/dashboard"
+              className="flex items-center group focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent))] focus:ring-offset-2 focus:ring-offset-[hsl(var(--primary))] rounded-lg"
+            >
+              <div className="relative h-16 transition-transform group-hover:scale-105">
+                <Image
+                  src="/images/Official-Logo.png"
+                  alt="Aidin Helpdesk"
+                  width={260}
+                  height={64}
+                  className="object-contain h-16 opacity-95 group-hover:opacity-100 transition-opacity"
+                  priority
+                />
               </div>
+            </Link>
+
+            {/* Desktop Navigation - Center */}
+            <div className="hidden lg:flex items-center gap-1 flex-1 justify-center max-w-2xl mx-auto">
+              {navItems.filter(item => item.show).map((item) => {
+                const Icon = item.icon
+                const active = isActive(item.href)
+                return (
+                  <Tooltip key={item.href}>
+                    <TooltipTrigger asChild>
+                      <Link
+                        href={item.href}
+                        className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all hover:bg-white/10 ${
+                          active
+                            ? 'text-white'
+                            : 'text-white/80 hover:text-white'
+                        }`}
+                      >
+                        <Icon size={18} strokeWidth={2} />
+                        <span>{item.label}</span>
+                        {active && (
+                          <motion.div
+                            layoutId="navbar-indicator"
+                            className="absolute bottom-0 left-0 right-0 h-0.5 bg-[hsl(var(--accent))]"
+                            transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                          />
+                        )}
+                      </Link>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{item.tooltip || item.label}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )
+              })}
             </div>
 
-            <div className="flex items-center space-x-4">
-              {/* Create Ticket Button - Available to all */}
+            {/* Mobile Menu Toggle */}
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="lg:hidden p-2 rounded-lg hover:bg-white/10 text-white transition-colors focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent))] focus:ring-offset-2 focus:ring-offset-[hsl(var(--primary))]"
+              aria-label="Toggle menu"
+              aria-expanded={isMobileMenuOpen}
+            >
+              {isMobileMenuOpen ? (
+                <X size={24} strokeWidth={2} />
+              ) : (
+                <Menu size={24} strokeWidth={2} />
+              )}
+            </button>
+
+            {/* Right Actions - Buttons and User Menu */}
+            <div className="flex items-center gap-3">
+              {/* New Ticket Button */}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Link href="/tickets/new">
-                    <Button size="sm" className="surterre-btn surterre-btn-primary">
-                      <Plus className="mr-2 h-4 w-4" />
-                      New Ticket
+                    <Button
+                      size="sm"
+                      className="bg-white hover:bg-white/95 text-[hsl(var(--primary))] font-medium shadow-sm hover:shadow-md transition-all h-9 px-4"
+                    >
+                      <Plus className="mr-2 h-4 w-4" strokeWidth={2.5} />
+                      <span className="hidden sm:inline">New Ticket</span>
+                      <span className="sm:hidden">New</span>
                     </Button>
                   </Link>
                 </TooltipTrigger>
@@ -179,40 +184,52 @@ export default function Navbar() {
                 </TooltipContent>
               </Tooltip>
 
+              {/* User Menu */}
               <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                  <Avatar className="h-8 w-8">
-                    {user?.avatar && (
-                      <AvatarImage src={user.avatar} alt={user.name || user.email || 'User'} />
-                    )}
-                    <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end" forceMount>
-                <div className="flex items-center justify-start gap-2 p-2">
-                  <div className="flex flex-col space-y-1 leading-none">
-                    <p className="font-medium">{user?.name || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'User'}</p>
-                    <p className="w-[200px] truncate text-sm text-muted-foreground">
-                      {user?.email}
-                    </p>
-                    <div className="flex gap-1 mt-1">
-                      {user?.roles?.map((role, index) => {
-                        const roleName = typeof role === 'string' ? role : (role.role?.name || role.name || 'User');
-                        return (
-                          <span key={`${roleName}-${index}`} className="text-xs bg-muted px-2 py-1 rounded">
-                            {roleName}
-                          </span>
-                        );
-                      })}
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="relative h-10 w-10 rounded-full hover:bg-white/10 p-0 focus:ring-2 focus:ring-[hsl(var(--accent))] focus:ring-offset-2 focus:ring-offset-[hsl(var(--primary))]"
+                  >
+                    <Avatar className="h-10 w-10 ring-2 ring-white/20 transition-transform hover:scale-105">
+                      {user?.avatar && (
+                        <AvatarImage src={user.avatar} alt={user.name || user.email || 'User'} />
+                      )}
+                      <AvatarFallback className="text-sm bg-white/20 text-white font-medium">
+                        {initials}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-64" align="end" forceMount>
+                  <div className="flex items-start gap-3 p-3">
+                    <Avatar className="h-12 w-12">
+                      {user?.avatar && (
+                        <AvatarImage src={user.avatar} alt={user.name || user.email || 'User'} />
+                      )}
+                      <AvatarFallback className="text-sm">{initials}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col space-y-1 flex-1 min-w-0">
+                      <p className="text-sm font-medium leading-none truncate">
+                        {user?.name || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'User'}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {user?.roles?.slice(0, 3).map((role, index) => {
+                          const roleName = typeof role === 'string' ? role : (role.role?.name || role.name || 'User')
+                          return (
+                            <span
+                              key={`${roleName}-${index}`}
+                              className="text-[10px] bg-muted px-2 py-0.5 rounded"
+                            >
+                              {roleName}
+                            </span>
+                          )
+                        })}
+                      </div>
                     </div>
                   </div>
-                </div>
-                <DropdownMenuSeparator />
-                
-                {/* Mobile menu items */}
-                <div className="md:hidden">
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <Link href="/dashboard" className="flex items-center">
                       <BarChart3 className="mr-2 h-4 w-4" />
@@ -256,24 +273,58 @@ export default function Navbar() {
                     </>
                   )}
                   <DropdownMenuSeparator />
-                </div>
-
-                <DropdownMenuItem asChild>
-                  <Link href="/profile" className="flex items-center">
-                    <UserCheck className="mr-2 h-4 w-4" />
-                    Profile
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={logout} className="text-red-600">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Log out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  <DropdownMenuItem asChild>
+                    <Link href="/profile" className="flex items-center">
+                      <UserCircle className="mr-2 h-4 w-4" />
+                      Profile
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={logout} className="text-red-600 focus:text-red-600">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Log out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
+
+        {/* Mobile Menu */}
+        <AnimatePresence>
+          {isMobileMenuOpen && (
+            <motion.div
+              id="mobile-menu"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3, ease: 'easeInOut' }}
+              className="lg:hidden overflow-hidden border-t border-white/10 bg-[hsl(var(--primary))]/98 backdrop-blur-md"
+            >
+              <div className="px-4 py-4 space-y-1 max-h-[calc(100vh-var(--nav-h,64px))] overflow-y-auto">
+                {navItems.filter(item => item.show).map((item) => {
+                  const Icon = item.icon
+                  const active = isActive(item.href)
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-lg text-base font-medium transition-colors ${
+                        active
+                          ? 'bg-white/15 text-white'
+                          : 'text-white/80 hover:text-white hover:bg-white/10 active:bg-white/20'
+                      }`}
+                    >
+                      <Icon size={20} strokeWidth={2} />
+                      <span>{item.label}</span>
+                    </Link>
+                  )
+                })}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </nav>
     </TooltipProvider>
   )

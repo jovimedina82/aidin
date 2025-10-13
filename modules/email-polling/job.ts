@@ -10,7 +10,7 @@
 import cron from 'node-cron';
 import { getEmailPollingService } from './service';
 
-let pollingTask: cron.ScheduledTask | null = null;
+let pollingTask: any | null = null;
 let isPolling = false;
 
 /**

@@ -10,11 +10,8 @@ export function AuthProvider({ children }) {
   const [token, setTokenState] = useState(null)
 
   useEffect(() => {
-    // Add a small delay to ensure client-side hydration completes
-    const timer = setTimeout(() => {
-      checkAuth()
-    }, 100)
-    return () => clearTimeout(timer)
+    // Check auth immediately on mount
+    checkAuth()
   }, [])
 
   const checkAuth = async () => {
@@ -47,15 +44,15 @@ export function AuthProvider({ children }) {
         // Silently handle auth check errors in production
         if (process.env.NODE_ENV === 'development') {
           if (fetchError.name === 'AbortError') {
-            console.error('Auth check timed out')
+            // console.error('Auth check timed out')
           } else {
-            console.error('Auth check error:', fetchError)
+            // console.error('Auth check error:', fetchError)
           }
         }
       }
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
-        console.error('Auth check error:', error)
+        // console.error('Auth check error:', error)
       }
     } finally {
       setLoading(false)
@@ -122,7 +119,7 @@ export function AuthProvider({ children }) {
       })
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
-        console.error('Logout API call failed:', error)
+        // console.error('Logout API call failed:', error)
       }
     }
     

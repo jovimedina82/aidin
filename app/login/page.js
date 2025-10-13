@@ -16,7 +16,7 @@ export default function LoginPage() {
       if (!r.ok) throw new Error('dev login failed');
       window.location.href = '/dashboard';
     } catch (e) {
-      console.error(e);
+      // console.error(e);
       alert('Dev login failed');
     } finally {
       setBusy(false);

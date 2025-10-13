@@ -107,3 +107,8 @@ prisma/*.db
 **/secrets/
 credentials/
 .env.ci
+
+# Sensitive documentation with production credentials
+POSTGRESQL_SETUP_SUMMARY.md
+docs/DEV_VS_PRODUCTION_SETUP.md
+scripts/sync-prod-to-dev.sh

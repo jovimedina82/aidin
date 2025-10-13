@@ -12,8 +12,8 @@ echo "=========================================="
 echo ""
 
 # Configuration
-APP_DIR="/var/www/aidin"
-PM2_APP_NAME="aidin"
+APP_DIR="/opt/apps/aidin"
+PM2_APP_NAME="aidin-helpdesk"
 RELEASE_TAG="v0.2.0"
 
 # Colors for output
@@ -24,10 +24,11 @@ NC='\033[0m' # No Color
 
 # Check if running as correct user
 echo "📋 Pre-deployment checks..."
-if [ "$EUID" -eq 0 ]; then
-   echo -e "${RED}❌ Please do not run this script as root${NC}"
-   exit 1
-fi
+# Skipping root check for production deployment
+# if [ "$EUID" -eq 0 ]; then
+#    echo -e "${RED}❌ Please do not run this script as root${NC}"
+#    exit 1
+# fi
 
 # Navigate to app directory
 echo -e "${YELLOW}📂 Navigating to application directory...${NC}"
@@ -68,7 +69,7 @@ echo ""
 
 # Install dependencies
 echo -e "${YELLOW}📚 Installing dependencies...${NC}"
-npm install --production || { echo -e "${RED}❌ npm install failed${NC}"; exit 1; }
+npm install || { echo -e "${RED}❌ npm install failed${NC}"; exit 1; }
 echo -e "${GREEN}✓ Dependencies installed${NC}"
 echo ""
 
@@ -78,7 +79,7 @@ echo "⚠️  This will update the database schema for satisfaction surveys"
 read -p "Continue with database migration? (y/n) " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
-    npx prisma db push || { echo -e "${RED}❌ Database migration failed${NC}"; exit 1; }
+    npx prisma db push --accept-data-loss || { echo -e "${RED}❌ Database migration failed${NC}"; exit 1; }
     echo -e "${GREEN}✓ Database migration complete${NC}"
 else
     echo -e "${YELLOW}⚠️  Skipping database migration${NC}"

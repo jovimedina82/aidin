@@ -50,7 +50,9 @@ import {
   AlertCircle,
   Users,
   Target,
-  Shield
+  Shield,
+  Smile,
+  Star
 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 
@@ -75,16 +77,28 @@ export default function ReportsPage() {
     pending: 0,
     solved: 0
   })
+  const [satisfactionMetrics, setSatisfactionMetrics] = useState(null)
+  const [satisfactionPeriod, setSatisfactionPeriod] = useState('7d')
 
   // Only agents and admins can access reports
-  const hasAccess = user?.roles?.some(role => ['Admin', 'Manager', 'Staff'].includes(role))
+  const userRoleNames = user?.roles?.map(role =>
+    typeof role === 'string' ? role : (role.role?.name || role.name)
+  ) || []
+  const hasAccess = userRoleNames.some(role => ['Admin', 'Manager', 'Staff'].includes(role))
 
   useEffect(() => {
     if (hasAccess) {
       fetchAnalyticsData()
       fetchStats()
+      fetchSatisfactionMetrics()
     }
   }, [hasAccess, timePeriod, timeRange])
+
+  useEffect(() => {
+    if (hasAccess) {
+      fetchSatisfactionMetrics()
+    }
+  }, [satisfactionPeriod, hasAccess])
 
   const fetchAnalyticsData = async () => {
     if (!hasAccess) return
@@ -109,15 +123,15 @@ export default function ReportsPage() {
 
       if (response.ok) {
         const data = await response.json()
-        console.log('Analytics data received:', data)
-        console.log('Priority breakdown:', data.priorityBreakdown)
-        console.log('Priority breakdown length:', data.priorityBreakdown?.length)
+        // console.log('Analytics data received:', data)
+        // console.log('Priority breakdown:', data.priorityBreakdown)
+        // console.log('Priority breakdown length:', data.priorityBreakdown?.length)
         setAnalytics(data)
       } else {
-        console.error('Analytics request failed:', response.status, response.statusText)
+        // console.error('Analytics request failed:', response.status, response.statusText)
       }
     } catch (error) {
-      console.error('Failed to fetch analytics:', error)
+      // console.error('Failed to fetch analytics:', error)
     } finally {
       setLoading(false)
     }
@@ -131,7 +145,19 @@ export default function ReportsPage() {
         setStats(data)
       }
     } catch (error) {
-      console.error('Failed to fetch stats:', error)
+      // console.error('Failed to fetch stats:', error)
+    }
+  }
+
+  const fetchSatisfactionMetrics = async () => {
+    try {
+      const response = await makeAuthenticatedRequest(`/api/satisfaction-metrics?period=${satisfactionPeriod}`)
+      if (response.ok) {
+        const data = await response.json()
+        setSatisfactionMetrics(data)
+      }
+    } catch (error) {
+      // console.error('Failed to fetch satisfaction metrics:', error)
     }
   }
 
@@ -269,7 +295,7 @@ export default function ReportsPage() {
 
       toast.success(`Analytics data exported to ${fileName}. You can now create charts in Excel using this data.`)
     } catch (error) {
-      console.error('Export error:', error)
+      // console.error('Export error:', error)
       toast.error("Failed to export analytics data. Please try again.")
     }
   }
@@ -321,13 +347,13 @@ export default function ReportsPage() {
   }
 
   // Debug logging
-  console.log('Reports page render:', {
-    hasAccess,
-    loading,
-    analytics: analytics ? 'exists' : 'null',
-    priorityBreakdown: analytics?.priorityBreakdown,
-    user: user ? `${user.firstName} ${user.lastName}` : 'null'
-  })
+  // console.log('Reports page render:', {
+  //   hasAccess,
+  //   loading,
+  //   analytics: analytics ? 'exists' : 'null',
+  //   priorityBreakdown: analytics?.priorityBreakdown,
+  //   user: user ? `${user.firstName} ${user.lastName}` : 'null'
+  // })
 
   return (
     <SidebarLayout>
@@ -731,6 +757,203 @@ export default function ReportsPage() {
                       <CheckCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
                       <p>SLA compliance tracking coming soon</p>
                       <p className="text-sm">Data will appear once tickets are resolved</p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Overall Satisfaction Trend */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Smile className="w-5 h-5" />
+                      Customer Satisfaction
+                    </CardTitle>
+                    <CardDescription>Average satisfaction rating over time</CardDescription>
+                  </div>
+                  <Select value={satisfactionPeriod} onValueChange={setSatisfactionPeriod}>
+                    <SelectTrigger className="w-24">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="7d">7 days</SelectItem>
+                      <SelectItem value="30d">30 days</SelectItem>
+                      <SelectItem value="90d">90 days</SelectItem>
+                      <SelectItem value="all">All time</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {satisfactionMetrics?.overall?.totalRatings > 0 ? (
+                  <div>
+                    {/* Summary Stats */}
+                    <div className="grid grid-cols-3 gap-4 mb-6">
+                      <div className="text-center p-3 bg-blue-50 rounded-lg">
+                        <div className="text-2xl font-bold text-blue-600">
+                          {satisfactionMetrics.overall.averageRating.toFixed(1)}
+                        </div>
+                        <div className="text-xs text-gray-600">Average Rating</div>
+                      </div>
+                      <div className="text-center p-3 bg-green-50 rounded-lg">
+                        <div className="text-2xl font-bold text-green-600">
+                          {satisfactionMetrics.overall.satisfactionPercentage.toFixed(0)}%
+                        </div>
+                        <div className="text-xs text-gray-600">Satisfied (4-5★)</div>
+                      </div>
+                      <div className="text-center p-3 bg-purple-50 rounded-lg">
+                        <div className="text-2xl font-bold text-purple-600">
+                          {satisfactionMetrics.overall.totalRatings}
+                        </div>
+                        <div className="text-xs text-gray-600">Total Ratings</div>
+                      </div>
+                    </div>
+
+                    {/* Daily Trend Chart */}
+                    <ResponsiveContainer width="100%" height={250}>
+                      <LineChart data={satisfactionMetrics.dailyMetrics.filter(d => d.averageRating !== null)}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis
+                          dataKey="date"
+                          tick={{ fontSize: 12 }}
+                          tickFormatter={(value) => new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                        />
+                        <YAxis
+                          tick={{ fontSize: 12 }}
+                          domain={[0, 5]}
+                          label={{ value: 'Rating (1-5)', angle: -90, position: 'insideLeft' }}
+                        />
+                        <Tooltip
+                          labelFormatter={(value) => new Date(value).toLocaleDateString()}
+                          formatter={(value, name) => {
+                            if (name === 'averageRating') return [`${value?.toFixed(2)} stars`, 'Average Rating']
+                            return [value, name]
+                          }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="averageRating"
+                          stroke="#f59e0b"
+                          strokeWidth={3}
+                          dot={{ fill: '#f59e0b', strokeWidth: 2, r: 4 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div className="h-64 flex items-center justify-center text-muted-foreground">
+                    <div className="text-center">
+                      <Smile className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>No satisfaction data available yet</p>
+                      <p className="text-sm">Ratings will appear once customers rate resolved tickets</p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Staff Satisfaction Performance */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Star className="w-5 h-5" />
+                  Staff Performance Ratings
+                </CardTitle>
+                <CardDescription>
+                  Average satisfaction rating per staff member ({satisfactionPeriod === '7d' ? 'last 7 days' : satisfactionPeriod === '30d' ? 'last 30 days' : satisfactionPeriod === '90d' ? 'last 90 days' : 'all time'})
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {satisfactionMetrics?.staff?.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart
+                      data={satisfactionMetrics.staff}
+                      layout="vertical"
+                      margin={{top: 20, right: 30, left: 20, bottom: 5}}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis
+                        type="number"
+                        domain={[0, 5]}
+                        tick={{ fontSize: 12 }}
+                        label={{ value: 'Average Rating (1-5)', position: 'insideBottom', offset: -5 }}
+                      />
+                      <YAxis
+                        dataKey="staffName"
+                        type="category"
+                        tick={{ fontSize: 12 }}
+                        width={120}
+                      />
+                      <Tooltip
+                        formatter={(value, name) => {
+                          if (name === 'averageRating') return [`${value?.toFixed(2)} stars`, 'Average Rating']
+                          if (name === 'totalRatings') return [value, 'Total Ratings']
+                          return [value, name]
+                        }}
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const data = payload[0].payload
+                            return (
+                              <div className="bg-white p-3 border rounded shadow-lg">
+                                <p className="font-semibold">{data.staffName}</p>
+                                <p className="text-sm text-gray-600">{data.staffEmail}</p>
+                                <div className="mt-2 space-y-1">
+                                  <p className="text-sm">
+                                    <span className="font-medium">Rating:</span> {data.averageRating.toFixed(2)} ⭐
+                                  </p>
+                                  <p className="text-sm">
+                                    <span className="font-medium">Total Ratings:</span> {data.totalRatings}
+                                  </p>
+                                  <div className="text-xs mt-2 pt-2 border-t">
+                                    <div className="font-medium mb-1">Distribution:</div>
+                                    {[5, 4, 3, 2, 1].map(rating => (
+                                      data.distribution[rating] > 0 && (
+                                        <div key={rating} className="flex justify-between">
+                                          <span>{rating}★:</span>
+                                          <span>{data.distribution[rating]}</span>
+                                        </div>
+                                      )
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          }
+                          return null
+                        }}
+                      />
+                      <Bar
+                        dataKey="averageRating"
+                        radius={[0, 4, 4, 0]}
+                      >
+                        {satisfactionMetrics.staff.map((entry, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={
+                              entry.averageRating >= 4.5 ? '#10b981' :
+                              entry.averageRating >= 4.0 ? '#3b82f6' :
+                              entry.averageRating >= 3.5 ? '#f59e0b' :
+                              entry.averageRating >= 3.0 ? '#f97316' :
+                              '#ef4444'
+                            }
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-64 flex items-center justify-center text-muted-foreground">
+                    <div className="text-center">
+                      <Star className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>No staff ratings available yet</p>
+                      <p className="text-sm">
+                        {satisfactionMetrics?.overall?.totalRatings > 0
+                          ? 'Staff ratings will appear once assigned tickets are rated'
+                          : 'Data will appear once customers rate resolved tickets'}
+                      </p>
                     </div>
                   </div>
                 )}

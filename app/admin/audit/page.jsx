@@ -85,7 +85,7 @@ export default function AuditLogPage() {
       setLogs(data.data);
       setTotal(data.total);
     } catch (error) {
-      console.error('Error fetching logs:', error);
+      // console.error('Error fetching logs:', error);
       toast.error('Failed to fetch audit logs');
     } finally {
       setLoading(false);
@@ -121,7 +121,7 @@ export default function AuditLogPage() {
         toast.error(`Chain broken at entry ${result.firstFailureId}`);
       }
     } catch (error) {
-      console.error('Error verifying chain:', error);
+      // console.error('Error verifying chain:', error);
       toast.error('Failed to verify chain');
     } finally {
       setLoading(false);
@@ -152,7 +152,7 @@ export default function AuditLogPage() {
 
       toast.success(`Exported ${format.toUpperCase()} successfully`);
     } catch (error) {
-      console.error('Error exporting logs:', error);
+      // console.error('Error exporting logs:', error);
       toast.error('Failed to export logs');
     }
   };

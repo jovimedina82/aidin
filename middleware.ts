@@ -24,8 +24,10 @@ export async function middleware(req: NextRequest) {
     return res;
   }
 
+  // Public paths that don't require authentication
   const publicPaths = new Set<string>(['/login']);
-  const isPublic = publicPaths.has(url.pathname);
+  const isPublic = publicPaths.has(url.pathname) || url.pathname.startsWith('/survey/');
+
   if (!user && !isPublic) {
     const res = NextResponse.redirect(new URL('/login', getBaseUrl(req)));
     return res;

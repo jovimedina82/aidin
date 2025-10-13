@@ -1,10 +1,11 @@
 'use client'
+import { memo } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { GripVertical } from 'lucide-react'
 
-export default function DraggableStatCard({ id, title, value, description, icon: Icon, color = 'text-muted-foreground', loading }) {
+function DraggableStatCard({ id, title, value, description, icon: Icon, color = 'text-muted-foreground', loading }) {
   const {
     attributes,
     listeners,
@@ -48,3 +49,13 @@ export default function DraggableStatCard({ id, title, value, description, icon:
     </div>
   )
 }
+
+// Memoize the component to prevent unnecessary re-renders
+export default memo(DraggableStatCard, (prevProps, nextProps) => {
+  // Only re-render if these props change
+  return (
+    prevProps.id === nextProps.id &&
+    prevProps.value === nextProps.value &&
+    prevProps.loading === nextProps.loading
+  )
+})

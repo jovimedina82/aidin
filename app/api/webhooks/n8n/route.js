@@ -1,22 +1,48 @@
 import { NextResponse } from 'next/server'
-import { getCurrentUser } from '@/lib/auth'
+import { validateSimpleSecret } from '@/lib/security/hmac'
+import { checkRateLimit } from '@/lib/security/rate-limit'
+
+const N8N_WEBHOOK_SECRET = process.env.N8N_WEBHOOK_SECRET
 
 export async function POST(request) {
   try {
+    // SECURITY: Validate webhook secret
+    const providedSecret = request.headers.get('x-webhook-secret')
+
+    if (!N8N_WEBHOOK_SECRET) {
+      console.error('N8N_WEBHOOK_SECRET not configured')
+      return NextResponse.json({ error: 'Webhook not configured' }, { status: 503 })
+    }
+
+    if (!validateSimpleSecret(providedSecret, N8N_WEBHOOK_SECRET)) {
+      console.warn('Invalid N8N webhook secret attempt')
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Rate limiting
+    const clientIp = request.headers.get('x-forwarded-for') || 'unknown'
+    const rateLimit = await checkRateLimit(clientIp, '/api/webhooks/n8n', {
+      maxRequests: 100,
+      windowMs: 60000 // 100 requests per minute
+    })
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded', retryAfter: rateLimit.retryAfter },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(rateLimit.retryAfter || 60) }
+        }
+      )
+    }
+
     // Get the webhook payload
     const payload = await request.json()
 
-    // Basic validation - you can add authentication here if needed
+    // Basic validation
     if (!payload || !payload.event) {
       return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
     }
-
-    // Log the webhook for debugging
-    console.log('N8N Webhook received:', {
-      event: payload.event,
-      timestamp: new Date().toISOString(),
-      data: payload.data
-    })
 
     // Respond immediately to N8N
     return NextResponse.json({
@@ -28,8 +54,7 @@ export async function POST(request) {
   } catch (error) {
     console.error('N8N Webhook error:', error)
     return NextResponse.json({
-      error: 'Webhook processing failed',
-      message: error.message
+      error: 'Webhook processing failed'
     }, { status: 500 })
   }
 }

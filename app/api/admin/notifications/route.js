@@ -7,7 +7,10 @@ export async function POST(request) {
     const user = await getCurrentUser(request)
 
     // Allow requests from n8n (system user) or admins
-    const isAdmin = user?.roles?.some(role => role.name === 'Admin')
+    const userRoleNames = user?.roles?.map(role =>
+      typeof role === 'string' ? role : (role.role?.name || role.name)
+    ) || []
+    const isAdmin = userRoleNames.includes('Admin')
 
     if (!isAdmin && !request.headers.get('authorization')?.includes('Basic')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -90,7 +93,10 @@ export async function GET(request) {
   try {
     const user = await getCurrentUser(request)
 
-    if (!user?.roles?.some(role => role.name === 'Admin')) {
+    const userRoleNames = user?.roles?.map(role =>
+      typeof role === 'string' ? role : (role.role?.name || role.name)
+    ) || []
+    if (!userRoleNames.includes('Admin')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

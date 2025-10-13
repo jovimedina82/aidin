@@ -91,6 +91,39 @@ export async function POST(request) {
       .replace(/\r\n/g, '\n') // Normalize line endings
       .trim()
 
+    // Remove quoted email replies and signatures
+    // Split by common email reply indicators
+    const replyIndicators = [
+      /^From:.*$/m,
+      /^Sent:.*$/m,
+      /^On .* wrote:$/m,
+      /^[-_]{3,}.*Original Message.*[-_]{3,}/i,
+      /^>+.*$/gm, // Lines starting with >
+      /^Get Outlook for (iOS|Android)/m,
+      /^Sent from my (iPhone|iPad|Android)/m,
+    ]
+
+    // Find the earliest match of any reply indicator
+    let cutoffIndex = -1
+    for (const indicator of replyIndicators) {
+      const match = cleanedBody.match(indicator)
+      if (match && match.index !== undefined) {
+        if (cutoffIndex === -1 || match.index < cutoffIndex) {
+          cutoffIndex = match.index
+        }
+      }
+    }
+
+    // If we found a reply indicator, cut the body there
+    if (cutoffIndex > 0) {
+      cleanedBody = cleanedBody.substring(0, cutoffIndex).trim()
+    }
+
+    // Remove common email signatures at the end
+    cleanedBody = cleanedBody
+      .replace(/\n*--+\s*\n.*$/s, '') // Signature separator
+      .trim()
+
     // Limit length to prevent huge comments
     if (cleanedBody.length > 5000) {
       cleanedBody = cleanedBody.substring(0, 5000) + '\n\n...(truncated)'

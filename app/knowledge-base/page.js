@@ -73,7 +73,7 @@ export default function KnowledgeBasePage() {
         toast.error(errorData.error || 'Failed to load articles')
       }
     } catch (error) {
-      console.error('Failed to fetch articles:', error)
+      // console.error('Failed to fetch articles:', error)
       toast.error('Failed to load knowledge base articles')
     } finally {
       setLoading(false)
@@ -88,7 +88,7 @@ export default function KnowledgeBasePage() {
         setDepartments(data.departments || [])
       }
     } catch (error) {
-      console.error('Failed to fetch departments:', error)
+      // console.error('Failed to fetch departments:', error)
     }
   }
 
@@ -169,7 +169,7 @@ export default function KnowledgeBasePage() {
         toast.error(error.error || 'Failed to save article')
       }
     } catch (error) {
-      console.error('Error saving article:', error)
+      // console.error('Error saving article:', error)
       toast.error('Failed to save article')
     }
   }
@@ -201,7 +201,7 @@ export default function KnowledgeBasePage() {
         toast.error('Failed to delete article')
       }
     } catch (error) {
-      console.error('Error deleting article:', error)
+      // console.error('Error deleting article:', error)
       toast.error('Failed to delete article')
     }
   }
@@ -221,7 +221,7 @@ export default function KnowledgeBasePage() {
         toast.error(error.error || 'Failed to toggle article status')
       }
     } catch (error) {
-      console.error('Error toggling article status:', error)
+      // console.error('Error toggling article status:', error)
       toast.error('Failed to toggle article status')
     }
   }

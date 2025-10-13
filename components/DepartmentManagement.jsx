@@ -103,7 +103,7 @@ export default function DepartmentManagement({ makeAuthenticatedRequest }) {
         toast.error('Failed to fetch departments')
       }
     } catch (error) {
-      console.error('Error fetching departments:', error)
+      // console.error('Error fetching departments:', error)
       toast.error('Failed to fetch departments')
     } finally {
       setLoading(false)
@@ -133,7 +133,7 @@ export default function DepartmentManagement({ makeAuthenticatedRequest }) {
         toast.error(error.error || 'Failed to create department')
       }
     } catch (error) {
-      console.error('Error creating department:', error)
+      // console.error('Error creating department:', error)
       toast.error('Failed to create department')
     }
   }
@@ -165,7 +165,7 @@ export default function DepartmentManagement({ makeAuthenticatedRequest }) {
         toast.error(error.error || 'Failed to update department')
       }
     } catch (error) {
-      console.error('Error updating department:', error)
+      // console.error('Error updating department:', error)
       toast.error('Failed to update department')
     }
   }
@@ -184,7 +184,7 @@ export default function DepartmentManagement({ makeAuthenticatedRequest }) {
         toast.error(error.error || 'Failed to delete department')
       }
     } catch (error) {
-      console.error('Error deleting department:', error)
+      // console.error('Error deleting department:', error)
       toast.error('Failed to delete department')
     }
   }
@@ -217,7 +217,7 @@ export default function DepartmentManagement({ makeAuthenticatedRequest }) {
       if (failed === 0) toast.success(`${deleted} deleted`)
       else toast.error(`${deleted} deleted, ${failed} failed`)
     } catch (error) {
-      console.error('Error deleting selected departments:', error)
+      // console.error('Error deleting selected departments:', error)
       toast.error('Failed to delete selected departments')
     }
   }
@@ -249,7 +249,7 @@ export default function DepartmentManagement({ makeAuthenticatedRequest }) {
         toast.error(error.error || 'Failed to update status')
       }
     } catch (error) {
-      console.error('Error updating department status:', error)
+      // console.error('Error updating department status:', error)
       toast.error('Failed to update status')
     }
   }

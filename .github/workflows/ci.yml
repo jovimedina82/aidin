@@ -9,8 +9,26 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+
+    # Use PostgreSQL service for database
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: aidin_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
     env:
       CI: true
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/aidin_test?schema=public
 
     steps:
     - name: Checkout code
@@ -31,7 +49,7 @@ jobs:
     - name: Generate Prisma Client
       run: npx prisma generate
 
-    - name: Create CI SQLite schema
+    - name: Setup PostgreSQL schema
       run: npx prisma db push --accept-data-loss
 
     - name: Run linter

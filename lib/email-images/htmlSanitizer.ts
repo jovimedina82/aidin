@@ -4,7 +4,6 @@
  * - Rewrites CID references and data URIs to signed asset URLs
  */
 
-import { JSDOM } from 'jsdom';
 import DOMPurify from 'isomorphic-dompurify';
 
 // Allowed tags for email HTML
@@ -171,7 +170,10 @@ export function rewriteDataUriImages(
 /**
  * Wrap images in a container with max-width constraint
  */
-export function wrapImagesInContainer(html: string): string {
+export async function wrapImagesInContainer(html: string): Promise<string> {
+  // Dynamic import to avoid loading jsdom during build time
+  const { JSDOM } = await import('jsdom');
+
   const dom = new JSDOM(html);
   const document = dom.window.document;
   const images = document.querySelectorAll('img');

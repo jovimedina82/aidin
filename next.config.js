@@ -42,6 +42,8 @@ const nextConfig = {
       'canvas',
       'jspdf',
       'jspdf-autotable',
+      'whatwg-url',
+      'webidl-conversions',
     ],
     // Enable instrumentation for server initialization
     instrumentationHook: true,
@@ -81,6 +83,8 @@ const nextConfig = {
         ...config.resolve.fallback,
         canvas: false,
         jsdom: false,
+        'whatwg-url': false,
+        'webidl-conversions': false,
       };
     }
 

@@ -30,7 +30,7 @@ export const POST = withErrorHandler(async (request) => {
 
   const data = await request.json()
 
-  const module = await prisma.module.create({
+  const createdModule = await prisma.module.create({
     data: {
       name: data.name,
       key: data.key,
@@ -44,7 +44,7 @@ export const POST = withErrorHandler(async (request) => {
     }
   })
 
-  return ApiSuccess.created({ module })
+  return ApiSuccess.created({ module: createdModule })
 })
 
 // PATCH /api/admin/modules - Update module
@@ -62,10 +62,10 @@ export const PATCH = withErrorHandler(async (request) => {
   // Don't allow updating the key itself
   delete updateData.key
 
-  const module = await prisma.module.update({
+  const updatedModule = await prisma.module.update({
     where: { key: moduleKey },
     data: updateData
   })
 
-  return ApiSuccess.ok({ module })
+  return ApiSuccess.ok({ module: updatedModule })
 })

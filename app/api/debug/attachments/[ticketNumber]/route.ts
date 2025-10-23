@@ -11,11 +11,7 @@ export async function GET(
     const ticket = await prisma.ticket.findUnique({
       where: { ticketNumber: params.ticketNumber },
       include: {
-        emailIngest: {
-          include: {
-            attachments: true
-          }
-        }
+        attachments: true
       }
     });
 
@@ -25,7 +21,7 @@ export async function GET(
 
     return NextResponse.json({
       ticketNumber: ticket.ticketNumber,
-      attachments: ticket.emailIngest?.attachments || []
+      attachments: ticket.attachments || []
     });
   } catch (error: any) {
     return NextResponse.json({

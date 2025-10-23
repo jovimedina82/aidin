@@ -36,7 +36,13 @@ const nextConfig = {
 
   experimental: {
     // Remove if not using Server Components
-    serverComponentsExternalPackages: ['mongodb'],
+    serverComponentsExternalPackages: [
+      'mongodb',
+      'jsdom',
+      'canvas',
+      'jspdf',
+      'jspdf-autotable',
+    ],
     // Enable instrumentation for server initialization
     instrumentationHook: true,
     // Optimize package imports
@@ -61,6 +67,23 @@ const nextConfig = {
       };
     }
 
+    // Exclude browser-only libraries from server-side bundles
+    if (isServer) {
+      config.externals = [
+        ...(config.externals || []),
+        {
+          canvas: 'commonjs canvas',
+        }
+      ];
+
+      // Add fallback for browser globals that don't exist in Node.js
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        canvas: false,
+        jsdom: false,
+      };
+    }
+
     // Optimize for production
     if (!dev) {
       config.optimization = {
@@ -72,10 +95,10 @@ const nextConfig = {
           cacheGroups: {
             default: false,
             vendors: false,
-            // Vendor chunk
+            // Vendor chunk (only for client-side)
             vendor: {
               name: 'vendor',
-              chunks: 'all',
+              chunks: isServer ? 'async' : 'all',
               test: /node_modules/,
               priority: 20
             },

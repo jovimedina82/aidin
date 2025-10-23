@@ -137,7 +137,7 @@ const nextConfig = {
           // Content Security Policy - restrict frame ancestors to self only
           { key: "Content-Security-Policy", value: "frame-ancestors 'self';" },
           // CORS - Only allow specific origins (never use '*' in production)
-          { key: "Access-Control-Allow-Origin", value: "http://localhost:3000" },
+          { key: "Access-Control-Allow-Origin", value: "https://helpdesk.surterreproperties.com:3011" },
           { key: "Access-Control-Allow-Methods", value: "GET, POST, PUT, PATCH, DELETE, OPTIONS" },
           // Only allow specific headers (never use '*')
           { key: "Access-Control-Allow-Headers", value: "Content-Type, Authorization, X-Requested-With" },

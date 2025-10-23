@@ -20,6 +20,18 @@ export async function GET(request, { params }) {
             lastName: true,
             email: true
           }
+        },
+        attachments: {
+          select: {
+            id: true,
+            fileName: true,
+            fileSize: true,
+            mimeType: true,
+            uploadedAt: true
+          },
+          orderBy: {
+            uploadedAt: 'asc'
+          }
         }
       },
       orderBy: {
@@ -161,17 +173,18 @@ export async function POST(request, { params }) {
 </div>
           `
 
-          // Fetch ONLY attachments that haven't been sent in an email yet
-          // This ensures we only send NEW attachments, not old ones
+          // Fetch ONLY attachments linked to this specific comment
+          // This ensures we only send attachments that belong to this reply
           const ticketAttachments = await prisma.attachment.findMany({
             where: {
               ticketId: params.id,
+              commentId: comment.id,  // Only get attachments for this specific comment
               sentInEmail: false  // Only get attachments not yet sent
             },
             orderBy: { uploadedAt: 'desc' }
           })
 
-          console.log(`📎 Found ${ticketAttachments.length} new attachments (not yet emailed) for ticket ${fullTicket.ticketNumber}`)
+          console.log(`📎 Found ${ticketAttachments.length} new attachments for comment ${comment.id} on ticket ${fullTicket.ticketNumber}`)
 
           // Convert attachments to Graph API format
           const emailAttachments = []

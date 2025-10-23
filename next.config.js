@@ -39,8 +39,16 @@ const nextConfig = {
     serverComponentsExternalPackages: ['mongodb'],
     // Enable instrumentation for server initialization
     instrumentationHook: true,
-    // Optimize CSS
-    optimizeCss: true,
+    // Optimize package imports
+    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
+  },
+
+  // Modularize imports for tree-shaking
+  modularizeImports: {
+    'lucide-react': {
+      transform: 'lucide-react/dist/esm/icons/{{kebabCase member}}',
+      skipDefaultConversion: true,
+    },
   },
 
   webpack(config, { dev, isServer }) {

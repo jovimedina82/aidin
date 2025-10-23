@@ -14,8 +14,9 @@ export async function register() {
     // Check if scheduler should be enabled
     const isProduction = process.env.NODE_ENV === 'production'
     const syncEnabled = process.env.AZURE_SYNC_ENABLED !== 'false'
+    const devModeEnabled = process.env.AZURE_SYNC_DEV_MODE === 'true'
 
-    if (isProduction && syncEnabled) {
+    if (syncEnabled && (isProduction || devModeEnabled)) {
       console.log('📅 Starting Azure AD sync scheduler...')
       azureSyncScheduler.start()
     } else {

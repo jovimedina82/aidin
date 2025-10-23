@@ -33,6 +33,8 @@ import {
   X,
   UserCircle,
   LogOut,
+  UserCheck,
+  Sparkles,
 } from 'lucide-react'
 
 export default function Navbar() {
@@ -73,13 +75,20 @@ export default function Navbar() {
         : (user.name ? user.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'U'))
     : 'U'
 
+  // Main navigation items - core user-facing features
   const navItems = [
-    { href: '/dashboard', label: 'Dashboard', tooltip: 'Dashboard - View tickets overview and statistics', icon: BarChart3, show: true },
-    { href: '/tickets', label: 'Tickets', tooltip: 'Tickets - Manage and view all support tickets', icon: Ticket, show: true },
-    { href: '/knowledge-base', label: 'K/B', tooltip: 'Knowledge Base - Browse help articles and solutions', icon: Book, show: true },
-    { href: '/users', label: 'Users', tooltip: 'Users - Manage user accounts and permissions', icon: Users, show: isStaff },
-    { href: '/admin', label: 'Admin', tooltip: 'Admin - System settings and configuration', icon: Settings, show: isAdmin },
-    { href: '/admin/blocked-domains', label: 'B/S', tooltip: 'Blocked Senders - Manage blocked email domains', icon: Ban, show: isAdmin },
+    { href: '/dashboard', label: 'Dashboard', tooltip: 'View tickets overview and statistics', icon: BarChart3, show: true },
+    { href: '/tickets', label: 'Tickets', tooltip: 'Manage and view all support tickets', icon: Ticket, show: true },
+    { href: '/knowledge-base', label: 'Knowledge Base', tooltip: 'Browse help articles and solutions', icon: Book, show: true },
+    { href: '/staff-directory', label: 'Staff Directory', tooltip: 'View staff availability and locations', icon: UserCheck, show: true },
+    { href: '/aidin-chat', label: 'AidIN Chat', tooltip: 'AI assistant for technical support and queries', icon: Sparkles, show: isStaff },
+  ]
+
+  // Admin navigation items - shown in dropdown menu
+  const adminItems = [
+    { href: '/users', label: 'User Management', icon: Users, show: isStaff },
+    { href: '/admin', label: 'Settings', icon: Settings, show: isAdmin },
+    { href: '/admin/blocked-domains', label: 'Blocked Senders', icon: Ban, show: isAdmin },
   ]
 
   const isActive = (href) => pathname === href || pathname?.startsWith(`${href}/`)
@@ -202,6 +211,7 @@ export default function Navbar() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-64" align="end" forceMount>
+                  {/* User Profile Section */}
                   <div className="flex items-start gap-3 p-3">
                     <Avatar className="h-12 w-12">
                       {user?.avatar && (
@@ -229,57 +239,41 @@ export default function Navbar() {
                       </div>
                     </div>
                   </div>
+
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/dashboard" className="flex items-center">
-                      <BarChart3 className="mr-2 h-4 w-4" />
-                      Dashboard
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/tickets" className="flex items-center">
-                      <Ticket className="mr-2 h-4 w-4" />
-                      Tickets
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/knowledge-base" className="flex items-center">
-                      <Book className="mr-2 h-4 w-4" />
-                      Knowledge Base
-                    </Link>
-                  </DropdownMenuItem>
-                  {isStaff && (
-                    <DropdownMenuItem asChild>
-                      <Link href="/users" className="flex items-center">
-                        <Users className="mr-2 h-4 w-4" />
-                        Users
-                      </Link>
-                    </DropdownMenuItem>
-                  )}
-                  {isAdmin && (
-                    <>
-                      <DropdownMenuItem asChild>
-                        <Link href="/admin" className="flex items-center">
-                          <Settings className="mr-2 h-4 w-4" />
-                          Admin
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href="/admin/blocked-domains" className="flex items-center">
-                          <Ban className="mr-2 h-4 w-4" />
-                          Blocked Senders
-                        </Link>
-                      </DropdownMenuItem>
-                    </>
-                  )}
-                  <DropdownMenuSeparator />
+
+                  {/* Personal Section */}
                   <DropdownMenuItem asChild>
                     <Link href="/profile" className="flex items-center">
                       <UserCircle className="mr-2 h-4 w-4" />
-                      Profile
+                      My Profile
                     </Link>
                   </DropdownMenuItem>
+
+                  {/* Admin Section */}
+                  {(isStaff || isAdmin) && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <div className="px-2 py-1.5">
+                        <p className="text-xs font-semibold text-muted-foreground">Administration</p>
+                      </div>
+                      {adminItems.filter(item => item.show).map((item) => {
+                        const Icon = item.icon
+                        return (
+                          <DropdownMenuItem key={item.href} asChild>
+                            <Link href={item.href} className="flex items-center">
+                              <Icon className="mr-2 h-4 w-4" />
+                              {item.label}
+                            </Link>
+                          </DropdownMenuItem>
+                        )
+                      })}
+                    </>
+                  )}
+
                   <DropdownMenuSeparator />
+
+                  {/* Logout */}
                   <DropdownMenuItem onClick={logout} className="text-red-600 focus:text-red-600">
                     <LogOut className="mr-2 h-4 w-4" />
                     Log out
@@ -302,7 +296,8 @@ export default function Navbar() {
               className="lg:hidden overflow-hidden border-t border-white/10 bg-[hsl(var(--primary))]/98 backdrop-blur-md"
             >
               <div className="px-4 py-4 space-y-1 max-h-[calc(100vh-var(--nav-h,64px))] overflow-y-auto">
-                {navItems.filter(item => item.show).map((item) => {
+                {/* Main Navigation */}
+                {navItems.map((item) => {
                   const Icon = item.icon
                   const active = isActive(item.href)
                   return (
@@ -321,6 +316,34 @@ export default function Navbar() {
                     </Link>
                   )
                 })}
+
+                {/* Admin Section for Mobile */}
+                {(isStaff || isAdmin) && adminItems.filter(item => item.show).length > 0 && (
+                  <>
+                    <div className="px-4 pt-4 pb-2">
+                      <p className="text-xs font-semibold text-white/60 uppercase tracking-wider">Administration</p>
+                    </div>
+                    {adminItems.filter(item => item.show).map((item) => {
+                      const Icon = item.icon
+                      const active = isActive(item.href)
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          onClick={() => setIsMobileMenuOpen(false)}
+                          className={`flex items-center gap-3 px-4 py-3 rounded-lg text-base font-medium transition-colors ${
+                            active
+                              ? 'bg-white/15 text-white'
+                              : 'text-white/80 hover:text-white hover:bg-white/10 active:bg-white/20'
+                          }`}
+                        >
+                          <Icon size={20} strokeWidth={2} />
+                          <span>{item.label}</span>
+                        </Link>
+                      )
+                    })}
+                  </>
+                )}
               </div>
             </motion.div>
           )}

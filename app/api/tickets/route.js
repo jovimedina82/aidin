@@ -151,6 +151,7 @@ export const GET = withErrorHandler(async (request) => {
   const excludeStatuses = searchParams.getAll('excludeStatus')
   const priority = searchParams.get('priority')
   const assigneeId = searchParams.get('assigneeId')
+  const tagId = searchParams.get('tagId')
 
   // Build where clause with access control
   const accessWhere = await buildTicketAccessWhere(user)
@@ -170,6 +171,15 @@ export const GET = withErrorHandler(async (request) => {
     where.assigneeId = null
   } else if (assigneeId) {
     where.assigneeId = assigneeId
+  }
+
+  // Handle tag filtering
+  if (tagId) {
+    where.tags = {
+      some: {
+        tagId: tagId
+      }
+    }
   }
 
   // Build orderBy clause
@@ -245,6 +255,19 @@ export async function POST(request) {
     }
 
     const data = await request.json()
+
+    // Authorization check: Only Staff, Manager, or Admin can create tickets on behalf of others
+    if (data.requesterId && user && data.requesterId !== user.id) {
+      const userRoles = user.roles?.map(r => r.role?.name || r.name) || []
+      const canCreateOnBehalfOf = userRoles.some(role => ['Staff', 'Manager', 'Admin'].includes(role))
+
+      if (!canCreateOnBehalfOf) {
+        return NextResponse.json(
+          { error: 'Unauthorized. Only Staff, Manager, or Admin can create tickets on behalf of others.' },
+          { status: 403 }
+        )
+      }
+    }
 
     // Strip HTML from title and description early (important for email-based tickets)
     // This ensures clean data for AI processing, ticket creation, and comments
@@ -538,12 +561,27 @@ export async function POST(request) {
       metadata: {
         source: isSystemRequest ? 'email' : 'web',
         hasEmailConversationId: !!data.emailConversationId,
-        aiProcessed: !!aiDecisionData
+        aiProcessed: !!aiDecisionData,
+        createdOnBehalfOf: data.requesterId && user && data.requesterId !== user.id ? ticket.requesterId : null
       }
     })
 
     // Emit Socket.IO event for live updates
     emitTicketCreated(ticket)
+
+    // Send confirmation email to the requester (in the background)
+    if (!data.emailConversationId && ticket.requester && ticket.requester.email) {
+      setImmediate(async () => {
+        try {
+          const { sendTicketCreatedEmail } = await import('@/lib/email.js')
+          await sendTicketCreatedEmail(ticket, ticket.requester)
+          console.log(`✅ Ticket creation email sent to ${ticket.requester.email}`)
+        } catch (error) {
+          console.error('Failed to send ticket creation email:', error)
+          // Don't fail ticket creation if email fails
+        }
+      })
+    }
 
     // Trigger N8N webhook for new ticket (don't wait for it)
     setImmediate(async () => {

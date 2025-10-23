@@ -14,6 +14,7 @@ import { EmailMessageViewer } from '../../../components/EmailMessageViewer'
 import { TicketMessageViewer } from '../../../components/TicketMessageViewer'
 import { Button } from '@/components/ui/button'
 import MentionTextarea from '../../../components/MentionTextarea'
+import RichTextEditor from '../../../components/RichTextEditor'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
@@ -83,6 +84,7 @@ export default function TicketDetailPage({ params }) {
   const [allUsers, setAllUsers] = useState([])
   const [requesterSearchTerm, setRequesterSearchTerm] = useState('')
   const [activityTimeline, setActivityTimeline] = useState([])
+  const [selectedFiles, setSelectedFiles] = useState([])
 
   const userRoleNames = user?.roles?.map(role =>
     typeof role === 'string' ? role : (role.role?.name || role.name)
@@ -213,7 +215,16 @@ export default function TicketDetailPage({ params }) {
 
   const handleAddComment = async (e) => {
     e.preventDefault()
-    if (!newComment.trim()) return
+
+    // Check if content is empty (strip HTML tags to check for actual content)
+    const tempDiv = document.createElement('div')
+    tempDiv.innerHTML = newComment
+    const textContent = tempDiv.textContent || tempDiv.innerText || ''
+
+    if (!textContent.trim()) {
+      toast.error('Please enter a comment')
+      return
+    }
 
     setSubmittingComment(true)
     try {
@@ -221,15 +232,47 @@ export default function TicketDetailPage({ params }) {
         method: 'POST',
         body: JSON.stringify({
           content: newComment,
-          isInternal: isInternal
+          isInternal: isInternal,
+          isHTML: true // Flag to indicate this is HTML content
         })
       })
 
       if (response.ok) {
+        const commentData = await response.json()
+
+        // Upload attachments if any, linked to this comment
+        if (selectedFiles.length > 0) {
+          try {
+            const uploadPromises = selectedFiles.map(async (file) => {
+              const formData = new FormData()
+              formData.append('file', file)
+              formData.append('ticketId', params.id)
+              formData.append('commentId', commentData.id) // Link to the comment
+
+              const uploadResponse = await makeAuthenticatedRequest('/api/attachments', {
+                method: 'POST',
+                body: formData
+              })
+
+              if (!uploadResponse.ok) {
+                throw new Error(`Failed to upload ${file.name}`)
+              }
+            })
+
+            await Promise.all(uploadPromises)
+            toast.success(`Comment added with ${selectedFiles.length} attachment(s)!`)
+          } catch (uploadError) {
+            console.error('Attachment upload error:', uploadError)
+            toast.warning('Comment added, but some attachments failed to upload')
+          }
+        } else {
+          toast.success('Comment added successfully')
+        }
+
         setNewComment('')
         setIsInternal(false)
+        setSelectedFiles([])
         fetchTicket()
-        toast.success('Comment added successfully')
       } else {
         const error = await response.json()
         toast.error(error.error || 'Failed to add comment')
@@ -239,6 +282,30 @@ export default function TicketDetailPage({ params }) {
     } finally {
       setSubmittingComment(false)
     }
+  }
+
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files || [])
+    const validFiles = files.filter(file => {
+      const maxSize = 25 * 1024 * 1024 // 25MB
+      if (file.size > maxSize) {
+        toast.error(`${file.name} is too large (max 25MB)`)
+        return false
+      }
+      return true
+    })
+    setSelectedFiles(prev => [...prev, ...validFiles])
+    e.target.value = '' // Reset input
+  }
+
+  const removeFile = (index) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const formatFileSize = (bytes) => {
+    if (bytes < 1024) return bytes + ' B'
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
   }
 
   const handleUpdateTicket = async (field, value) => {
@@ -540,8 +607,86 @@ export default function TicketDetailPage({ params }) {
       elements.forEach(el => el.remove())
     })
 
+    // Get the text content to find quoted patterns
+    let textContent = doc.body.innerHTML
+
+    // AGGRESSIVE: Look for ticket footer and cut everything after it
+    // This is typically where quoted content starts in our email notifications
+    const ticketFooterMatch = textContent.match(/Ticket\s+(?:#?[A-Z]+)?[0-9]+\s*[•●]\s*AidIN\s+Helpdesk/i)
+    if (ticketFooterMatch && ticketFooterMatch.index) {
+      // Cut everything from the ticket footer onwards (this is all quoted content)
+      textContent = textContent.substring(0, ticketFooterMatch.index)
+    }
+
+    // Alternative: Look for "test user replied:" or similar patterns and cut from there
+    const repliedPatternMatch = textContent.match(/(test\s+user|.+?)\s+replied:/i)
+    if (repliedPatternMatch && repliedPatternMatch.index) {
+      textContent = textContent.substring(0, repliedPatternMatch.index)
+    }
+
+    // Look for "Hello [name]," pattern which usually starts quoted content
+    const helloPatternMatch = textContent.match(/Hello\s+[^,]+,/i)
+    if (helloPatternMatch && helloPatternMatch.index > 0) {
+      // Only cut if it's not at the very beginning (first 20 chars)
+      // This prevents removing legitimate greetings in new messages
+      if (helloPatternMatch.index > 20) {
+        textContent = textContent.substring(0, helloPatternMatch.index)
+      }
+    }
+
+    // Common email quote patterns to remove
+    const quotePatterns = [
+      // "On [date], [name] wrote:" pattern
+      /On .+? wrote:/gi,
+      // Email headers (From:, To:, Sent:, Subject:)
+      /From:.+?(?=<br|<p|$)/gis,
+      /To:.+?(?=<br|<p|$)/gis,
+      /Sent:.+?(?=<br|<p|$)/gis,
+      /Subject:.+?(?=<br|<p|$)/gis,
+      // "Issue Resolved?" and similar prompts
+      /Issue Resolved\?/gi,
+      /✓ Yes, Mark as Solved/gi,
+      /No login required/gi,
+      /View Full Ticket →/gi,
+      /View Full Ticket/gi,
+      // Horizontal separators
+      /_{3,}/g,
+      /-{3,}/g,
+      /={3,}/g,
+      // Lines starting with ">" (email quote marker)
+      /^&gt;.+$/gm,
+      />>.+$/gm
+    ]
+
+    // Apply all patterns
+    quotePatterns.forEach(pattern => {
+      textContent = textContent.replace(pattern, '')
+    })
+
+    // Try to find where the actual new content ends and quoted content begins
+    // Look for common separators or patterns that indicate quoted content
+    const separatorPatterns = [
+      /<hr[^>]*>/gi,
+      /<div[^>]*class="[^"]*quote[^"]*"[^>]*>/gi,
+      /<div[^>]*style="[^"]*border-left[^"]*"[^>]*>/gi
+    ]
+
+    separatorPatterns.forEach(pattern => {
+      const match = textContent.match(pattern)
+      if (match && match.index) {
+        // Keep only content before the separator
+        textContent = textContent.substring(0, match.index)
+      }
+    })
+
+    // Clean up multiple consecutive <br> tags
+    textContent = textContent.replace(/(<br\s*\/?>\s*){3,}/gi, '<br><br>')
+
+    // Clean up empty paragraphs
+    textContent = textContent.replace(/<p>\s*<\/p>/gi, '')
+
     // Return cleaned HTML
-    return doc.body.innerHTML
+    return textContent.trim()
   }
 
   if (loading) {
@@ -583,6 +728,96 @@ export default function TicketDetailPage({ params }) {
     <ProtectedRoute>
       <div className="min-h-screen bg-gray-50">
         <Navbar />
+
+        {/* Global styles for rich text content display */}
+        <style jsx global>{`
+          .rich-text-content h1 {
+            font-size: 2em;
+            font-weight: bold;
+            margin-top: 0.67em;
+            margin-bottom: 0.67em;
+          }
+
+          .rich-text-content h2 {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-top: 0.83em;
+            margin-bottom: 0.83em;
+          }
+
+          .rich-text-content h3 {
+            font-size: 1.17em;
+            font-weight: bold;
+            margin-top: 1em;
+            margin-bottom: 1em;
+          }
+
+          .rich-text-content ul,
+          .rich-text-content ol {
+            padding-left: 1.5em;
+            margin: 0.5em 0;
+          }
+
+          .rich-text-content ul {
+            list-style-type: disc;
+          }
+
+          .rich-text-content ol {
+            list-style-type: decimal;
+          }
+
+          .rich-text-content li {
+            margin: 0.25em 0;
+          }
+
+          .rich-text-content code {
+            background-color: #f3f4f6;
+            padding: 0.2em 0.4em;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 0.9em;
+          }
+
+          .rich-text-content pre {
+            background-color: #1f2937;
+            color: #f3f4f6;
+            padding: 1em;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 0.5em 0;
+          }
+
+          .rich-text-content pre code {
+            background: none;
+            padding: 0;
+            color: inherit;
+          }
+
+          .rich-text-content a {
+            color: #2563eb;
+            text-decoration: underline;
+          }
+
+          .rich-text-content a:hover {
+            color: #1e40af;
+          }
+
+          .rich-text-content strong {
+            font-weight: bold;
+          }
+
+          .rich-text-content em {
+            font-style: italic;
+          }
+
+          .rich-text-content u {
+            text-decoration: underline;
+          }
+
+          .rich-text-content p {
+            margin: 0.5em 0;
+          }
+        `}</style>
 
         {/* Zendesk-style Header */}
         <div className="bg-white border-b border-gray-200">
@@ -868,10 +1103,11 @@ export default function TicketDetailPage({ params }) {
                       )}
 
                       {ticket.attachments && Array.isArray(ticket.attachments) && ticket.attachments.length > 0 && (() => {
-                        // Filter only image attachments
+                        // Filter only image attachments that belong to the original ticket (no commentId)
                         const imageAttachments = ticket.attachments.filter(attachment => {
                           const mimeType = typeof attachment === 'object' ? attachment.mimeType : ''
-                          return mimeType && mimeType.startsWith('image/')
+                          const belongsToOriginal = !attachment.commentId // Only show attachments without commentId
+                          return mimeType && mimeType.startsWith('image/') && belongsToOriginal
                         })
 
                         if (imageAttachments.length === 0) return null
@@ -950,7 +1186,8 @@ export default function TicketDetailPage({ params }) {
                       isInternal: !comment.isPublic, // Convert isPublic to isInternal
                       isPublic: comment.isPublic,
                       user: comment.user,
-                      content: comment.content
+                      content: comment.content,
+                      attachments: comment.attachments || [] // Include attachments
                     })
                   })
                 }
@@ -1025,19 +1262,54 @@ export default function TicketDetailPage({ params }) {
 
                           <div className="prose prose-sm max-w-none text-sm text-gray-900 leading-relaxed">
                             {message.type === 'comment' ? (
-                              <MentionTextarea
-                                value={message.content}
-                                renderMentions={true}
-                                ticketId={params.id}
-                                className="bg-transparent border-none p-0 resize-none min-h-0 shadow-none focus-visible:ring-0 text-gray-900"
-                                readOnly
-                              />
+                              // Check if content contains HTML tags
+                              message.content && (message.content.includes('<p>') || message.content.includes('<h1>') || message.content.includes('<strong>') || message.content.includes('<em>') || message.content.includes('<ul>')) ? (
+                                <div dangerouslySetInnerHTML={{ __html: message.content }} className="rich-text-content" />
+                              ) : (
+                                <MentionTextarea
+                                  value={message.content}
+                                  renderMentions={true}
+                                  ticketId={params.id}
+                                  className="bg-transparent border-none p-0 resize-none min-h-0 shadow-none focus-visible:ring-0 text-gray-900"
+                                  readOnly
+                                />
+                              )
                             ) : message.html ? (
                               <TicketMessageViewer html={stripQuotedContent(message.html)} />
                             ) : (
                               <p className="whitespace-pre-wrap">{message.text}</p>
                             )}
                           </div>
+
+                          {/* Display attachments for this comment */}
+                          {message.type === 'comment' && message.attachments && message.attachments.length > 0 && (
+                            <div className="mt-4 pt-4 border-t border-gray-300">
+                              <h4 className="text-xs font-semibold text-gray-600 uppercase mb-2">
+                                Attachments ({message.attachments.length})
+                              </h4>
+                              <div className="space-y-2">
+                                {message.attachments.map((attachment) => (
+                                  <a
+                                    key={attachment.id}
+                                    href={`/api/attachments/${attachment.id}/download`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center space-x-2 p-2 bg-white bg-opacity-50 rounded border border-gray-300 hover:bg-opacity-75 transition-colors"
+                                  >
+                                    <Paperclip className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-medium text-gray-900 truncate">
+                                        {attachment.fileName}
+                                      </p>
+                                      <p className="text-xs text-gray-500">
+                                        {attachment.fileSize ? formatFileSize(attachment.fileSize) : ''}
+                                      </p>
+                                    </div>
+                                  </a>
+                                ))}
+                              </div>
+                            </div>
+                          )}
 
                           {/* Show "Mark as Solved" button for requesters after staff responses */}
                           {!isRequester && !message.isInternal && ticket.requesterId === user?.id && ticket.status !== 'SOLVED' && (
@@ -1104,15 +1376,70 @@ export default function TicketDetailPage({ params }) {
                     </div>
                   )}
 
-                  {/* Comment textarea */}
-                  <div className="p-6">
-                    <MentionTextarea
-                      placeholder={isInternal ? "Add an internal note... (use @ to mention users)" : "Type your public reply... (use @ to mention users)"}
-                      value={newComment}
+                  {/* Comment textarea with rich text editor */}
+                  <div className="p-6 pb-4">
+                    <RichTextEditor
+                      content={newComment}
                       onChange={setNewComment}
-                      ticketId={params.id}
-                      className="min-h-[150px] text-sm border-gray-300 focus:border-[#3d6964] focus:ring-[#3d6964]"
+                      placeholder={isInternal ? "Add an internal note with formatted text..." : "Type your public reply with formatted text..."}
+                      className="min-h-[150px]"
                     />
+                  </div>
+
+                  {/* File Attachments */}
+                  <div className="px-6 pb-4">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <input
+                        type="file"
+                        id="comment-file-input"
+                        className="hidden"
+                        multiple
+                        onChange={handleFileSelect}
+                        accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                      />
+                      <label htmlFor="comment-file-input" className="cursor-pointer">
+                        <div className="flex items-center space-x-1 text-sm text-gray-600 hover:text-gray-900 transition-colors">
+                          <Paperclip className="w-4 h-4" />
+                          <span>Attach files</span>
+                        </div>
+                      </label>
+                      {selectedFiles.length > 0 && (
+                        <span className="text-xs text-gray-500">
+                          ({selectedFiles.length} file{selectedFiles.length > 1 ? 's' : ''} selected)
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Selected Files List */}
+                    {selectedFiles.length > 0 && (
+                      <div className="space-y-2">
+                        {selectedFiles.map((file, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-200"
+                          >
+                            <div className="flex items-center space-x-2 flex-1 min-w-0">
+                              <Paperclip className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-900 truncate">
+                                  {file.name}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {formatFileSize(file.size)}
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeFile(index)}
+                              className="flex-shrink-0 text-red-500 hover:text-red-700 transition-colors p-1"
+                            >
+                              <XCircle className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* Submit button */}
@@ -1129,7 +1456,12 @@ export default function TicketDetailPage({ params }) {
                     </div>
                     <Button
                       type="submit"
-                      disabled={submittingComment || !newComment.trim()}
+                      disabled={submittingComment || (() => {
+                        const tempDiv = document.createElement('div')
+                        tempDiv.innerHTML = newComment
+                        const textContent = tempDiv.textContent || tempDiv.innerText || ''
+                        return !textContent.trim()
+                      })()}
                       className="bg-[#3d6964] hover:bg-[#2d5954] text-white"
                     >
                       {submittingComment ? 'Submitting...' : 'Submit'}

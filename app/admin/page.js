@@ -57,6 +57,7 @@ import DepartmentManagement from '../../components/DepartmentManagement'
 import AIAdministration from '../../components/AIAdministration'
 import AuditLogViewer from '../../components/AuditLogViewer'
 import ModulePermissions from '../../components/admin/ModulePermissions'
+import TagManager from '../../components/TagManager'
 
 export default function AdminPage() {
   const { user, makeAuthenticatedRequest } = useAuth()
@@ -727,7 +728,7 @@ export default function AdminPage() {
         </div>
 
         <Tabs defaultValue="users" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-9 gap-1 h-auto p-1">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-10 gap-1 h-auto p-1">
             <TabsTrigger value="users" className="text-[10px] leading-tight py-2 px-1 sm:text-sm sm:py-2 sm:px-3 whitespace-normal min-h-[44px]">
               User Management
             </TabsTrigger>
@@ -736,6 +737,9 @@ export default function AdminPage() {
             </TabsTrigger>
             <TabsTrigger value="tickets" className="text-[10px] leading-tight py-2 px-1 sm:text-sm sm:py-2 sm:px-3 whitespace-normal min-h-[44px]">
               All Tickets
+            </TabsTrigger>
+            <TabsTrigger value="tags" className="text-[10px] leading-tight py-2 px-1 sm:text-sm sm:py-2 sm:px-3 whitespace-normal min-h-[44px]">
+              Tag Management
             </TabsTrigger>
             <TabsTrigger value="departments" className="text-[10px] leading-tight py-2 px-1 sm:text-sm sm:py-2 sm:px-3 whitespace-normal min-h-[44px]">
               Departments
@@ -1010,6 +1014,10 @@ export default function AdminPage() {
 
           <TabsContent value="modules" className="space-y-6">
             <ModulePermissions />
+          </TabsContent>
+
+          <TabsContent value="tags" className="space-y-6">
+            <TagManager />
           </TabsContent>
 
           <TabsContent value="tickets" className="space-y-6">

@@ -139,7 +139,10 @@
       "Bash(brew services start:*)",
       "Bash(/opt/homebrew/opt/postgresql@15/bin/createdb:*)",
       "Bash(export DATABASE_URL=\"postgresql://owner@localhost:5432/aidin_helpdesk_dev\")",
-      "Bash(/opt/homebrew/opt/postgresql@15/bin/psql:*)"
+      "Bash(/opt/homebrew/opt/postgresql@15/bin/psql:*)",
+      "Bash(npx shadcn@latest add:*)",
+      "Bash(PORT=3011 NODE_OPTIONS='--max-old-space-size=2048' npx next dev:*)",
+      "Bash(NODE_OPTIONS='--max-old-space-size=2048' npx next dev:*)"
     ],
     "deny": [],
     "ask": []

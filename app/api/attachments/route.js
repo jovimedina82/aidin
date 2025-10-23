@@ -50,7 +50,7 @@ export async function GET(request) {
 
 /**
  * POST /api/attachments
- * Upload attachment to a ticket
+ * Upload attachment to a ticket (optionally associated with a comment)
  */
 export async function POST(request) {
   try {
@@ -62,6 +62,7 @@ export async function POST(request) {
     const formData = await request.formData()
     const file = formData.get('file')
     const ticketId = formData.get('ticketId')
+    const commentId = formData.get('commentId') // Optional: link attachment to specific comment
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
@@ -85,11 +86,12 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    // Upload attachment
+    // Upload attachment (with optional commentId)
     const attachment = await AttachmentService.uploadAttachment(
       file,
       ticketId,
-      user.id
+      user.id,
+      commentId || null
     )
 
     return NextResponse.json({

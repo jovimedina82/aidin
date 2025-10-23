@@ -101,14 +101,6 @@ export default function NewTicketPage() {
         <Navbar />
 
         <main className="container mx-auto px-4 py-8">
-          {/* Debug info - only in development */}
-          {process.env.NODE_ENV !== 'production' && (
-            <div className="mb-4 p-2 bg-yellow-100 rounded text-xs">
-              Auth Status: {user ? `Logged in as ${user.email}` : 'Not authenticated'} |
-              Token: {typeof window !== 'undefined' && localStorage.getItem('authToken') ? 'Present' : 'Missing'}
-            </div>
-          )}
-
           {/* Header */}
           <div className="flex items-center gap-4 mb-6">
             <Button

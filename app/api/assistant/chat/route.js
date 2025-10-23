@@ -50,6 +50,84 @@ User Information:
 `
     }
 
+    // Staff Location Query Detection
+    let staffPresenceInfo = []
+    let queriedNames = []
+    const isStaffLocationQuery = /\b(where\s+(is|are)|who\s+is\s+in|is\s+\w+\s+in|location\s+of|find\s+\w+|locate|status\s+of)\b/i.test(message)
+
+    if (isStaffLocationQuery) {
+      try {
+        // Try to extract names from the message
+        // Remove punctuation and split into words
+        const cleanMessage = message.replace(/[?.!,;:]/g, ' ')
+        const words = cleanMessage.split(/\s+/)
+        const excludeWords = ['Where', 'Who', 'Is', 'Are', 'The', 'In', 'Office', 'Find', 'Locate', 'Status', 'Of', 'At', 'To', 'From', 'With']
+        const potentialNames = words.filter(word =>
+          /^[A-Z][a-z]+$/.test(word) && !excludeWords.includes(word)
+        )
+        queriedNames = potentialNames
+
+        console.log('Staff query detected:', message)
+        console.log('Potential names:', potentialNames)
+
+        // Also check for "who is in the office" or "who is in" queries
+        const isWhoIsInQuery = /\b(who\s+is\s+in|who's\s+in|list\s+(staff|people|everyone))\b/i.test(message)
+
+        if (isWhoIsInQuery || message.toLowerCase().includes('who is in the office')) {
+          // Query all current staff presence in office
+          staffPresenceInfo = await prisma.staffPresence.findMany({
+            where: {
+              isActive: true,
+              status: { in: ['IN_OFFICE', 'AVAILABLE', 'REMOTE', 'AFTER_HOURS'] }
+            },
+            include: {
+              user: {
+                select: {
+                  firstName: true,
+                  lastName: true,
+                  email: true,
+                  jobTitle: true
+                }
+              }
+            },
+            orderBy: { status: 'asc' }
+          })
+        } else if (potentialNames.length > 0) {
+          // Query specific staff members by name
+          staffPresenceInfo = await prisma.staffPresence.findMany({
+            where: {
+              isActive: true,
+              user: {
+                OR: potentialNames.map(name => ({
+                  OR: [
+                    { firstName: { contains: name, mode: 'insensitive' } },
+                    { lastName: { contains: name, mode: 'insensitive' } }
+                  ]
+                }))
+              }
+            },
+            include: {
+              user: {
+                select: {
+                  firstName: true,
+                  lastName: true,
+                  email: true,
+                  jobTitle: true
+                }
+              }
+            }
+          })
+        }
+
+        console.log('Staff presence results:', staffPresenceInfo.length, 'found')
+        if (staffPresenceInfo.length > 0) {
+          console.log('Staff details:', staffPresenceInfo.map(p => `${p.user.firstName} ${p.user.lastName}: ${p.status}`))
+        }
+      } catch (error) {
+        console.error('Staff presence query error:', error)
+      }
+    }
+
     // Enhanced Knowledge Base and Similar Ticket Lookup
     let relevantKB = []
     let similarResolvedTickets = []
@@ -193,7 +271,84 @@ ${similarResolvedTickets.map((ticket, index) => {
 `
     }
 
+    // Add Staff Presence Information to context
+    if (isStaffLocationQuery && staffPresenceInfo.length > 0) {
+      const OFFICE_LOCATIONS = {
+        NEWPORT: 'Newport Office',
+        LAGUNA_BEACH: 'Laguna Beach Office',
+        DANA_POINT: 'Dana Point Office'
+      }
+
+      const STATUS_LABELS = {
+        AVAILABLE: 'available',
+        IN_OFFICE: 'in the office',
+        REMOTE: 'working remotely',
+        VACATION: 'on vacation',
+        SICK: 'out sick',
+        AFTER_HOURS: 'working after hours'
+      }
+
+      // Check if staff members are after hours
+      const now = new Date()
+      const currentDay = now.getDay()
+      const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+
+      // Fetch office hours for queried staff
+      const userIds = staffPresenceInfo.map(p => p.userId)
+      const officeHours = await prisma.officeHours.findMany({
+        where: {
+          userId: { in: userIds },
+          isActive: true
+        }
+      })
+
+      const officeHoursMap = {}
+      officeHours.forEach(oh => {
+        if (!officeHoursMap[oh.userId]) {
+          officeHoursMap[oh.userId] = []
+        }
+        officeHoursMap[oh.userId].push(oh)
+      })
+
+      context += `📍 STAFF LOCATION & AVAILABILITY DATA (PRIORITY INFORMATION):
+${staffPresenceInfo.map((presence, index) => {
+  const user = presence.user
+  const userOfficeHours = officeHoursMap[presence.userId] || []
+  const todayHours = userOfficeHours.find(oh => oh.dayOfWeek === currentDay)
+
+  let isAfterHours = false
+  if (userOfficeHours.length > 0) {
+    if (!todayHours) {
+      isAfterHours = true
+    } else {
+      isAfterHours = currentTime < todayHours.startTime || currentTime > todayHours.endTime
+    }
+  }
+
+  const statusLabel = isAfterHours ? 'working after hours' : (STATUS_LABELS[presence.status] || presence.status.toLowerCase())
+  const originalStatus = isAfterHours ? ` (set as ${STATUS_LABELS[presence.status] || presence.status.toLowerCase()})` : ''
+  const location = presence.officeLocation && !isAfterHours ? ` at ${OFFICE_LOCATIONS[presence.officeLocation]}` : ''
+  const notes = presence.notes ? ` (${presence.notes})` : ''
+  const jobTitle = user.jobTitle ? ` - ${user.jobTitle}` : ''
+
+  return `${index + 1}. ${user.firstName} ${user.lastName}${jobTitle}: ${statusLabel}${location}${originalStatus}${notes}`
+}).join('\n')}
+
+`
+    } else if (isStaffLocationQuery && staffPresenceInfo.length === 0 && queriedNames.length > 0) {
+      context += `📍 STAFF LOCATION QUERY: No active presence record found for "${queriedNames.join(', ')}". The person may not have set their status yet.\n\n`
+    }
+
     context += `Guidelines:
+${staffPresenceInfo.length > 0 ? `
+🚨 CRITICAL: This is a STAFF LOCATION QUERY. The user is asking about staff whereabouts.
+- YOU MUST use the "STAFF LOCATION & AVAILABILITY DATA" section above
+- Answer DIRECTLY with the person's name, status, and location
+- Format: "[Name] is [status] [at location if applicable]"
+- Be friendly and conversational
+- DO NOT give generic helpdesk responses
+- Example good response: "Jovi is on vacation" or "Jovi is in the Newport Office and is available"
+` : ''}
 - PRIORITIZE knowledge base articles and similar resolved tickets above all else
 - If you found similar resolved tickets, reference them specifically with ticket numbers
 - Quote solutions and resolutions from the similar tickets when applicable
@@ -257,6 +412,11 @@ User's question: ${message}`
 
     // Generate enhanced suggestions based on knowledge base and similar tickets
     let suggestions = []
+
+    // Priority 0: Staff location queries
+    if (staffPresenceInfo.length > 0) {
+      suggestions.push('View Staff Directory')
+    }
 
     // Priority 1: Suggestions from similar resolved tickets
     if (similarResolvedTickets.length > 0) {
@@ -340,7 +500,8 @@ User's question: ${message}`
       suggestions: suggestions.slice(0, 3), // Limit to 3 suggestions
       timestamp: new Date().toISOString(),
       foundSimilarTickets: similarResolvedTickets.length,
-      foundKnowledgeBase: relevantKB.length
+      foundKnowledgeBase: relevantKB.length,
+      foundStaffPresence: staffPresenceInfo.length
     })
 
   } catch (error) {

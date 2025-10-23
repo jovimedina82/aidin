@@ -73,7 +73,8 @@ const VirtualAssistant = ({ ticket = null, isMinimized = false, onToggleMinimize
           suggestions: data.suggestions,
           timestamp: new Date(),
           foundSimilarTickets: data.foundSimilarTickets || 0,
-          foundKnowledgeBase: data.foundKnowledgeBase || 0
+          foundKnowledgeBase: data.foundKnowledgeBase || 0,
+          foundStaffPresence: data.foundStaffPresence || 0
         }
         setMessages(prev => [...prev, assistantMessage])
       } else {
@@ -176,10 +177,10 @@ const VirtualAssistant = ({ ticket = null, isMinimized = false, onToggleMinimize
                     <div className="flex-1">
                       <p className="text-sm whitespace-pre-wrap">{message.content}</p>
 
-                      {/* Knowledge Base and Similar Tickets Indicators */}
-                      {message.type === 'assistant' && (message.foundSimilarTickets > 0 || message.foundKnowledgeBase > 0) && (
+                      {/* Knowledge Base, Similar Tickets, and Staff Presence Indicators */}
+                      {message.type === 'assistant' && (message.foundSimilarTickets > 0 || message.foundKnowledgeBase > 0 || message.foundStaffPresence > 0) && (
                         <div className="mt-2 p-2 bg-blue-50 rounded text-xs">
-                          <div className="flex items-center space-x-3">
+                          <div className="flex items-center flex-wrap gap-2">
                             {message.foundSimilarTickets > 0 && (
                               <span className="text-blue-700">
                                 🎫 {message.foundSimilarTickets} similar resolved ticket{message.foundSimilarTickets > 1 ? 's' : ''} found
@@ -188,6 +189,11 @@ const VirtualAssistant = ({ ticket = null, isMinimized = false, onToggleMinimize
                             {message.foundKnowledgeBase > 0 && (
                               <span className="text-blue-700">
                                 📚 {message.foundKnowledgeBase} knowledge base article{message.foundKnowledgeBase > 1 ? 's' : ''} referenced
+                              </span>
+                            )}
+                            {message.foundStaffPresence > 0 && (
+                              <span className="text-blue-700">
+                                📍 {message.foundStaffPresence} staff member{message.foundStaffPresence > 1 ? 's' : ''} located
                               </span>
                             )}
                           </div>

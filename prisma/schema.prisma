@@ -41,6 +41,8 @@ model User {
   attachments        Attachment[]         @relation("AttachmentUploader")
   manager            User?                @relation("UserManager", fields: [managerId], references: [id])
   directReports      User[]               @relation("UserManager")
+  staffPresence      StaffPresence[]
+  officeHours        OfficeHours[]
 
   @@map("users")
 }
@@ -115,6 +117,7 @@ model Ticket {
   comments             TicketComment[]
   kbUsage              TicketKBUsage[]
   ticketMessages       TicketMessage[]
+  tags                 TicketTag[]
   assignee             User?            @relation("TicketAssignee", fields: [assigneeId], references: [id])
   parentTicket         Ticket?          @relation("TicketThread", fields: [parentTicketId], references: [id])
   childTickets         Ticket[]         @relation("TicketThread")
@@ -125,15 +128,16 @@ model Ticket {
 }
 
 model TicketComment {
-  id        String   @id @default(uuid())
-  ticketId  String
-  userId    String
-  content   String
-  isPublic  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id])
+  id          String       @id @default(uuid())
+  ticketId    String
+  userId      String
+  content     String
+  isPublic    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  ticket      Ticket       @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id])
+  attachments Attachment[]
 
   @@map("ticket_comments")
 }
@@ -327,21 +331,24 @@ model AuditChainVerification {
 }
 
 model Attachment {
-  id          String   @id @default(uuid())
+  id          String         @id @default(uuid())
   ticketId    String
+  commentId   String?
   userId      String
   fileName    String
   fileSize    Int
   mimeType    String
   filePath    String
-  uploadedAt  DateTime @default(now())
+  uploadedAt  DateTime       @default(now())
   expiresAt   DateTime
-  sentInEmail Boolean  @default(false) // Track if attachment was already sent in an email
-  ticket      Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  user        User     @relation("AttachmentUploader", fields: [userId], references: [id])
+  sentInEmail Boolean        @default(false) // Track if attachment was already sent in an email
+  ticket      Ticket         @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  comment     TicketComment? @relation(fields: [commentId], references: [id], onDelete: SetNull)
+  user        User           @relation("AttachmentUploader", fields: [userId], references: [id])
 
   @@index([userId])
   @@index([ticketId])
+  @@index([commentId])
   @@index([expiresAt])
   @@map("attachments")
 }
@@ -488,6 +495,7 @@ model TicketTag {
   tagId    String   @map("tag_id")
   addedAt  DateTime @default(now()) @map("added_at")
   addedBy  String?  @map("added_by")
+  ticket   Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   tag      Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
   @@unique([ticketId, tagId])
@@ -674,4 +682,102 @@ enum AssetVariant {
   original
   web
   thumb
+}
+
+enum PresenceStatus {
+  AVAILABLE
+  VACATION
+  SICK
+  REMOTE
+  IN_OFFICE
+  AFTER_HOURS
+}
+
+enum OfficeLocation {
+  NEWPORT
+  LAGUNA_BEACH
+  DANA_POINT
+}
+
+// Staff presence tracking - where staff members are and their availability
+model StaffPresence {
+  id             String          @id @default(uuid())
+  userId         String          @map("user_id")
+  status         PresenceStatus
+  officeLocation OfficeLocation? @map("office_location") // Only set when status is IN_OFFICE
+  notes          String?                                // Optional context (e.g., "Back on Monday")
+  startDate      DateTime        @map("start_date")     // When this status becomes effective
+  endDate        DateTime?       @map("end_date")       // When this status ends (null = indefinite)
+  isActive       Boolean         @default(true)         @map("is_active") // Only one active status per user
+  createdAt      DateTime        @default(now())        @map("created_at")
+  updatedAt      DateTime        @updatedAt             @map("updated_at")
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isActive])
+  @@index([startDate, endDate])
+  @@index([status])
+  @@map("staff_presence")
+}
+
+// Office hours - each user's working schedule (e.g., 9-5 Monday-Friday)
+model OfficeHours {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  dayOfWeek Int      @map("day_of_week") // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  startTime String   @map("start_time")  // HH:MM format (e.g., "09:00")
+  endTime   String   @map("end_time")    // HH:MM format (e.g., "17:00")
+  isActive  Boolean  @default(true)      @map("is_active") // Allow disabling specific days
+  createdAt DateTime @default(now())     @map("created_at")
+  updatedAt DateTime @updatedAt          @map("updated_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dayOfWeek])
+  @@index([userId, isActive])
+  @@index([dayOfWeek])
+  @@map("office_hours")
+}
+
+// Company holidays - specific dates when the office is closed
+model Holiday {
+  id          String   @id @default(uuid())
+  name        String                             // e.g., "Thanksgiving"
+  description String?                            // Optional details
+  startDate   DateTime @map("start_date")        // When holiday starts
+  endDate     DateTime @map("end_date")          // When holiday ends (at 5pm)
+  isActive    Boolean  @default(true)            @map("is_active") // Can disable without deleting
+  createdBy   String   @map("created_by")        // Admin who created it
+  createdAt   DateTime @default(now())           @map("created_at")
+  updatedAt   DateTime @updatedAt                @map("updated_at")
+
+  @@index([startDate, endDate])
+  @@index([isActive])
+  @@map("holidays")
+}
+
+// AidIN Chat Sessions - AI assistant conversations for staff members
+model AidinChatSession {
+  id        String             @id @default(uuid())
+  userId    String             @map("user_id")
+  title     String             @default("New Chat")      // Auto-generated or user-set title
+  createdAt DateTime           @default(now())           @map("created_at")
+  updatedAt DateTime           @updatedAt                @map("updated_at")
+  expiresAt DateTime                                     @map("expires_at") // Auto-delete after 30 days
+  messages  AidinChatMessage[]
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([expiresAt])
+  @@map("aidin_chat_sessions")
+}
+
+// AidIN Chat Messages - Individual messages in chat sessions
+model AidinChatMessage {
+  id        String           @id @default(uuid())
+  sessionId String           @map("session_id")
+  role      String                                      // "user" or "assistant"
+  content   String                                      // The message content
+  createdAt DateTime         @default(now())            @map("created_at")
+  session   AidinChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+  @@map("aidin_chat_messages")
 }

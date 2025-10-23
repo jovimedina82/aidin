@@ -250,7 +250,7 @@ export async function processInboundEmail(
     htmlSanitized = rewriteDataUriImages(htmlSanitized, dataUriMap);
 
     // Sanitize HTML
-    htmlSanitized = sanitizeHtml(htmlSanitized);
+    htmlSanitized = await sanitizeHtml(htmlSanitized);
   }
 
   // 10. Update InboundMessage with sanitized HTML

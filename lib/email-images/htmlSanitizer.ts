@@ -4,8 +4,6 @@
  * - Rewrites CID references and data URIs to signed asset URLs
  */
 
-import DOMPurify from 'isomorphic-dompurify';
-
 // Allowed tags for email HTML
 const ALLOWED_TAGS = [
   'p', 'div', 'span', 'br', 'hr',
@@ -32,10 +30,13 @@ export interface SanitizeOptions {
 /**
  * Sanitize HTML with DOMPurify
  */
-export function sanitizeHtml(
+export async function sanitizeHtml(
   html: string,
   options: SanitizeOptions = {}
-): string {
+): Promise<string> {
+  // Dynamic import to avoid loading DOMPurify (and jsdom) during build time
+  const { default: DOMPurify } = await import('isomorphic-dompurify');
+
   const { allowedTags = ALLOWED_TAGS, allowedAttributes = ALLOWED_ATTR, urlRewriter } = options;
 
   const config: any = {

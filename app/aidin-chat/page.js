@@ -60,6 +60,7 @@ export default function AidinChatPage() {
 
   // Fetch all sessions on mount
   useEffect(() => {
+    console.log('Component mounted. User:', user?.email, 'Is Staff:', isStaff) // Debug log
     if (isStaff) {
       fetchSessions()
     }
@@ -78,20 +79,29 @@ export default function AidinChatPage() {
   }
 
   const createNewSession = async () => {
+    console.log('createNewSession called') // Debug log
     try {
       const response = await makeAuthenticatedRequest('/api/aidin-chat/sessions', {
         method: 'POST',
         body: JSON.stringify({ title: 'New Chat' })
       })
 
+      console.log('Session creation response:', response.status) // Debug log
+
       if (response.ok) {
         const data = await response.json()
+        console.log('Session created:', data.session) // Debug log
         setSessions([data.session, ...sessions])
         setCurrentSession(data.session)
         setMessages([])
         toast.success('New chat created')
+      } else {
+        const errorData = await response.json()
+        console.error('Failed to create session:', errorData) // Debug log
+        toast.error(errorData.error || 'Failed to create new chat')
       }
     } catch (error) {
+      console.error('Error creating session:', error) // Debug log
       toast.error('Failed to create new chat')
     }
   }

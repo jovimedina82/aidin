@@ -398,7 +398,70 @@ export async function POST(request: NextRequest) {
     // 18. Apply tags
     await applyTagsToTicket(ticket.id, classification.tags);
 
-    // 19. Audit log
+    // 19. Capture CC recipients from incoming email
+    if (cc) {
+      try {
+        // Parse CC field (can be string or array)
+        const ccList = Array.isArray(cc) ? cc : [cc];
+
+        for (const ccRecipient of ccList) {
+          // Extract email and name from CC recipient
+          // Format can be "email@domain.com" or "Name <email@domain.com>"
+          let email: string;
+          let name: string | null = null;
+
+          if (typeof ccRecipient === 'string') {
+            const match = ccRecipient.match(/^(?:"?([^"]*)"?\s)?<?([^>]+@[^>]+)>?$/);
+            if (match) {
+              name = match[1]?.trim() || null;
+              email = match[2].trim().toLowerCase();
+            } else {
+              email = ccRecipient.trim().toLowerCase();
+            }
+          } else if (ccRecipient && typeof ccRecipient === 'object') {
+            // If CC is an object with email/name properties (Graph API format)
+            email = (ccRecipient.email || ccRecipient.address || ccRecipient.emailAddress?.address || '').trim().toLowerCase();
+            name = ccRecipient.name || ccRecipient.emailAddress?.name || null;
+          } else {
+            continue; // Skip invalid CC entries
+          }
+
+          if (!email || !email.includes('@')) {
+            continue; // Skip invalid emails
+          }
+
+          // Don't add the helpdesk email itself as a CC
+          const helpdeskEmail = process.env.HELPDESK_EMAIL?.toLowerCase() || 'helpdesk@surterreproperties.com';
+          if (email === helpdeskEmail) {
+            continue;
+          }
+
+          // Create TicketCC record with source='original'
+          try {
+            await prisma.ticketCC.create({
+              data: {
+                ticketId: ticket.id,
+                email,
+                name,
+                addedBy: 'system',
+                source: 'original'
+              }
+            });
+            console.log(`📧 Auto-captured CC recipient: ${name ? `${name} <${email}>` : email}`);
+          } catch (ccError: any) {
+            // Ignore duplicate errors (unique constraint on ticketId + email)
+            if (ccError.code !== 'P2002') {
+              console.error(`Failed to save CC recipient ${email}:`, ccError.message);
+            }
+          }
+        }
+      } catch (ccError: any) {
+        console.error('Failed to process CC recipients:', ccError.message);
+        // Don't fail the whole request if CC processing fails
+      }
+    }
+
+    // 20. Audit log
     await logEvent({
       action: 'email.received',
       actorType: 'system',
@@ -420,7 +483,7 @@ export async function POST(request: NextRequest) {
 
     console.log(`✅ Email ingested → Ticket ${ticketNumber} (${classification.departmentCode}, confidence: ${classification.confidence.toFixed(2)})`);
 
-    // 20. Send ticket created notification email to requester
+    // 21. Send ticket created notification email to requester
     try {
       const { getEmailService } = await import('@/lib/services/EmailService.js');
       const emailService = getEmailService();

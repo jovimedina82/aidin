@@ -85,6 +85,11 @@ export default function TicketDetailPage({ params }) {
   const [requesterSearchTerm, setRequesterSearchTerm] = useState('')
   const [activityTimeline, setActivityTimeline] = useState([])
   const [selectedFiles, setSelectedFiles] = useState([])
+  const [ccRecipients, setCcRecipients] = useState([])
+  const [newCcEmail, setNewCcEmail] = useState('')
+  const [newCcName, setNewCcName] = useState('')
+  const [addingCc, setAddingCc] = useState(false)
+  const [surveyRecipient, setSurveyRecipient] = useState('') // Email address of who gets the "Mark as Solved" button
 
   const userRoleNames = user?.roles?.map(role =>
     typeof role === 'string' ? role : (role.role?.name || role.name)
@@ -92,6 +97,20 @@ export default function TicketDetailPage({ params }) {
   const isStaff = userRoleNames.some(role => ['Admin', 'Manager', 'Staff'].includes(role))
   const isAdmin = userRoleNames.some(role => ['Admin', 'Manager'].includes(role))
   const canEdit = isStaff || ticket?.requesterId === user?.id
+
+  // Build list of all emails involved in the conversation (for survey recipient dropdown)
+  const allEmailsInvolved = ticket && ticket.requester ? [
+    {
+      email: ticket.requester.email,
+      name: `${ticket.requester.firstName} ${ticket.requester.lastName}`,
+      label: `${ticket.requester.firstName} ${ticket.requester.lastName} (Requester)`
+    },
+    ...ccRecipients.map(cc => ({
+      email: cc.email,
+      name: cc.name || cc.email,
+      label: `${cc.name || cc.email}${cc.source === 'original' ? ' (CC from email)' : ' (CC added manually)'}`
+    }))
+  ] : []
 
   const handleBackNavigation = () => {
     const returnParams = searchParams.get('return')
@@ -113,6 +132,7 @@ export default function TicketDetailPage({ params }) {
   useEffect(() => {
     if (params.id) {
       fetchTicket()
+      fetchCcRecipients()
       if (isStaff) {
         fetchUsers()
       }
@@ -136,6 +156,10 @@ export default function TicketDetailPage({ params }) {
       if (response.ok) {
         const data = await response.json()
         setTicket(data)
+        // Initialize survey recipient to requester's email if not already set
+        if (!surveyRecipient && data.requester?.email) {
+          setSurveyRecipient(data.requester.email)
+        }
         // Fetch activity timeline
         fetchActivity()
       } else if (response.status === 404) {
@@ -162,6 +186,70 @@ export default function TicketDetailPage({ params }) {
       }
     } catch (error) {
       // console.error('Failed to fetch activity:', error)
+    }
+  }
+
+  const fetchCcRecipients = async () => {
+    try {
+      const response = await makeAuthenticatedRequest(`/api/tickets/${params.id}/cc`)
+      if (response.ok) {
+        const data = await response.json()
+        setCcRecipients(data.cc || [])
+      }
+    } catch (error) {
+      console.error('Failed to fetch CC recipients:', error)
+    }
+  }
+
+  const handleAddCc = async (e) => {
+    e.preventDefault()
+    if (!newCcEmail.trim()) {
+      toast.error('Please enter an email address')
+      return
+    }
+
+    setAddingCc(true)
+    try {
+      const response = await makeAuthenticatedRequest(`/api/tickets/${params.id}/cc`, {
+        method: 'POST',
+        body: JSON.stringify({
+          email: newCcEmail.trim(),
+          name: newCcName.trim() || null
+        })
+      })
+
+      if (response.ok) {
+        toast.success('CC recipient added')
+        setNewCcEmail('')
+        setNewCcName('')
+        fetchCcRecipients()
+      } else {
+        const error = await response.json()
+        toast.error(error.error || 'Failed to add CC recipient')
+      }
+    } catch (error) {
+      toast.error('Failed to add CC recipient')
+    } finally {
+      setAddingCc(false)
+    }
+  }
+
+  const handleRemoveCc = async (email) => {
+    try {
+      const response = await makeAuthenticatedRequest(`/api/tickets/${params.id}/cc`, {
+        method: 'DELETE',
+        body: JSON.stringify({ email })
+      })
+
+      if (response.ok) {
+        toast.success('CC recipient removed')
+        fetchCcRecipients()
+      } else {
+        const error = await response.json()
+        toast.error(error.error || 'Failed to remove CC recipient')
+      }
+    } catch (error) {
+      toast.error('Failed to remove CC recipient')
     }
   }
 
@@ -233,7 +321,8 @@ export default function TicketDetailPage({ params }) {
         body: JSON.stringify({
           content: newComment,
           isInternal: isInternal,
-          isHTML: true // Flag to indicate this is HTML content
+          isHTML: true, // Flag to indicate this is HTML content
+          surveyRecipient: surveyRecipient || ticket.requester?.email // Pass selected survey recipient
         })
       })
 
@@ -1072,7 +1161,7 @@ export default function TicketDetailPage({ params }) {
             {/* Center - Main Content Area (Messages) */}
             <div className="col-span-6 space-y-6">
               {/* Original Requester Message - Blue Background */}
-              <div className="bg-[#A5D8E6] rounded-lg p-6 shadow-sm">
+              <div className="bg-blue-100 rounded-lg p-6 shadow-sm">
                 <div className="mb-3">
                   <p className="text-sm font-semibold text-gray-900">
                     {ticket.requester?.firstName && ticket.requester?.lastName
@@ -1226,8 +1315,8 @@ export default function TicketDetailPage({ params }) {
                       const bgColor = message.isInternal
                         ? 'bg-yellow-50'
                         : isRequester
-                          ? 'bg-[#A5D8E6]'  // Light blue for requester
-                          : 'bg-[#C8DDD7]'  // Very light green for staff/system
+                          ? 'bg-blue-100'  // Blue for requester
+                          : 'bg-green-100'  // Green for staff/managers/admins
 
                       return (
                         <div key={message.id} className={`${bgColor} rounded-lg p-6 shadow-sm`}>
@@ -1442,6 +1531,35 @@ export default function TicketDetailPage({ params }) {
                     )}
                   </div>
 
+                  {/* Survey Recipient Selector - Only for staff and public replies */}
+                  {isStaff && !isInternal && allEmailsInvolved.length > 0 && (
+                    <div className="px-6 pb-4 border-t border-gray-200 pt-4">
+                      <div className="flex items-center gap-3">
+                        <label className="text-xs font-medium text-gray-700 whitespace-nowrap">
+                          Send "Mark as Solved" button to:
+                        </label>
+                        <Select
+                          value={surveyRecipient}
+                          onValueChange={(value) => setSurveyRecipient(value)}
+                        >
+                          <SelectTrigger className="h-8 text-sm border-gray-300 flex-1">
+                            <SelectValue placeholder="Select recipient..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {allEmailsInvolved.map((recipient) => (
+                              <SelectItem key={recipient.email} value={recipient.email}>
+                                {recipient.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">
+                        Only the selected person will receive the one-click "Mark as Solved" button in the email notification.
+                      </p>
+                    </div>
+                  )}
+
                   {/* Submit button */}
                   <div className="px-6 pb-6 flex items-center justify-between">
                     <div className="text-xs text-gray-500">
@@ -1544,6 +1662,77 @@ export default function TicketDetailPage({ params }) {
                   readOnly={!canEdit}
                 />
               </div>
+
+              {/* CC Recipients */}
+              {isStaff && (
+                <div className="bg-white rounded-lg border border-gray-200 p-5">
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">
+                    CC Recipients ({ccRecipients.length})
+                  </h3>
+
+                  {/* Add CC Form */}
+                  <form onSubmit={handleAddCc} className="mb-4 space-y-2">
+                    <Input
+                      type="email"
+                      placeholder="Email address"
+                      value={newCcEmail}
+                      onChange={(e) => setNewCcEmail(e.target.value)}
+                      className="text-sm"
+                    />
+                    <Input
+                      type="text"
+                      placeholder="Name (optional)"
+                      value={newCcName}
+                      onChange={(e) => setNewCcName(e.target.value)}
+                      className="text-sm"
+                    />
+                    <Button
+                      type="submit"
+                      size="sm"
+                      disabled={addingCc || !newCcEmail.trim()}
+                      className="w-full bg-[#3d6964] hover:bg-[#2d5954]"
+                    >
+                      {addingCc ? 'Adding...' : 'Add CC'}
+                    </Button>
+                  </form>
+
+                  {/* CC Recipients List */}
+                  <div className="space-y-2">
+                    {ccRecipients.length === 0 ? (
+                      <p className="text-xs text-gray-500 text-center py-2">No CC recipients</p>
+                    ) : (
+                      ccRecipients.map((cc) => (
+                        <div
+                          key={cc.id}
+                          className="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-200"
+                        >
+                          <div className="flex-1 min-w-0">
+                            {cc.name && (
+                              <p className="text-sm font-medium text-gray-900 truncate">
+                                {cc.name}
+                              </p>
+                            )}
+                            <p className="text-xs text-gray-600 truncate">
+                              {cc.email}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-0.5">
+                              {cc.source === 'original' ? 'From email' : 'Added manually'}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveCc(cc.email)}
+                            className="flex-shrink-0 text-red-500 hover:text-red-700 transition-colors p-1 ml-2"
+                            title="Remove CC"
+                          >
+                            <XCircle className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Activity Timeline */}
               <div className="bg-white rounded-lg border border-gray-200 p-5">

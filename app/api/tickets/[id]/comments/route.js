@@ -61,6 +61,7 @@ export async function POST(request, { params }) {
     }
 
     const data = await request.json()
+    const { surveyRecipient } = data  // Extract selected recipient for "Mark as Solved" button
 
     // Get ticket info for audit log
     const ticket = await prisma.ticket.findUnique({
@@ -267,6 +268,32 @@ export async function POST(request, { params }) {
             }
           }
 
+          // Fetch CC recipients for this ticket
+          const ccRecipients = await prisma.ticketCC.findMany({
+            where: {
+              ticketId: params.id
+            },
+            select: {
+              email: true,
+              name: true
+            }
+          })
+
+          // Determine who receives the "Mark as Solved" button
+          // Default to requester if no specific recipient is selected
+          const selectedSurveyRecipient = surveyRecipient || fullTicket.requester.email
+          console.log(`📊 Survey button will be sent to: ${selectedSurveyRecipient}`)
+
+          // Build list of all recipients who should get the email
+          const allRecipients = [
+            { email: fullTicket.requester.email, name: `${fullTicket.requester.firstName} ${fullTicket.requester.lastName}` },
+            ...ccRecipients.map(cc => ({ email: cc.email, name: cc.name || cc.email }))
+          ]
+
+          // Separate recipients: the survey recipient goes in "to", others go in "cc"
+          const primaryRecipient = allRecipients.find(r => r.email === selectedSurveyRecipient)
+          const otherRecipients = allRecipients.filter(r => r.email !== selectedSurveyRecipient)
+
           // Build email payload for Microsoft Graph API
           const emailPayload = {
             message: {
@@ -278,13 +305,25 @@ export async function POST(request, { params }) {
               toRecipients: [
                 {
                   emailAddress: {
-                    address: fullTicket.requester.email
+                    address: primaryRecipient.email,
+                    name: primaryRecipient.name
                   }
                 }
               ],
               attachments: emailAttachments
             },
             saveToSentItems: true
+          }
+
+          // Add other recipients as CC if any exist
+          if (otherRecipients.length > 0) {
+            emailPayload.message.ccRecipients = otherRecipients.map(recipient => ({
+              emailAddress: {
+                address: recipient.email,
+                name: recipient.name || undefined
+              }
+            }))
+            console.log(`📧 Email will include ${otherRecipients.length} CC recipient(s): ${otherRecipients.map(r => r.email).join(', ')}`)
           }
 
           console.log(`📧 Email will include ${emailAttachments.length} attachment(s)`)

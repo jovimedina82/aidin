@@ -30,27 +30,11 @@ echo "5️⃣  Building Next.js application..."
 rm -rf .next
 NODE_ENV=production npm run build
 
-echo "6️⃣  Creating compatibility files..."
-# Create routes-manifest.json for Next.js 14 compatibility
-cat > .next/routes-manifest.json << 'EOF'
-{
-  "version": 3,
-  "pages404": true,
-  "basePath": "",
-  "redirects": [],
-  "headers": [],
-  "dynamicRoutes": [],
-  "staticRoutes": [],
-  "dataRoutes": [],
-  "i18n": null
-}
-EOF
-
-echo "7️⃣  Setting correct permissions..."
+echo "6️⃣  Setting correct permissions..."
 chown -R www-data:www-data .next
 chown -R www-data:www-data lib/generated
 
-echo "8️⃣  Verifying build files..."
+echo "7️⃣  Verifying build files..."
 if [ ! -f .next/BUILD_ID ]; then
     echo "❌ ERROR: BUILD_ID file missing!"
     exit 1
@@ -69,7 +53,7 @@ if [ ! -d lib/generated/prisma ]; then
 fi
 echo "✓ Prisma client generated"
 
-echo "9️⃣  Restarting service..."
+echo "8️⃣  Restarting service..."
 systemctl restart aidin.service
 
 echo "⏳ Waiting for service to start..."

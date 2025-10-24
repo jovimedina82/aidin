@@ -118,6 +118,7 @@ model Ticket {
   kbUsage              TicketKBUsage[]
   ticketMessages       TicketMessage[]
   tags                 TicketTag[]
+  cc                   TicketCC[]
   assignee             User?            @relation("TicketAssignee", fields: [assigneeId], references: [id])
   parentTicket         Ticket?          @relation("TicketThread", fields: [parentTicketId], references: [id])
   childTickets         Ticket[]         @relation("TicketThread")
@@ -502,6 +503,22 @@ model TicketTag {
   @@index([ticketId])
   @@index([tagId])
   @@map("ticket_tags")
+}
+
+model TicketCC {
+  id        String   @id @default(uuid())
+  ticketId  String   @map("ticket_id")
+  email     String
+  name      String?                                 // Optional display name
+  addedAt   DateTime @default(now()) @map("added_at")
+  addedBy   String?  @map("added_by")              // Who added this CC (user ID or "system" for auto-captured)
+  source    String   @default("manual")             // "manual" (staff added) or "original" (from incoming email)
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@unique([ticketId, email])
+  @@index([ticketId])
+  @@index([email])
+  @@map("ticket_cc")
 }
 
 model RateLimitEntry {

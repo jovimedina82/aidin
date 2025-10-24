@@ -175,12 +175,29 @@ export default function AidinChatPage() {
       return
     }
 
-    if (!currentSession) {
-      // Create a new session first
-      await createNewSession()
-      // Wait a bit for the session to be created
-      await new Promise(resolve => setTimeout(resolve, 500))
-      return
+    // If no session exists, create one first and then send the message
+    let sessionToUse = currentSession
+    if (!sessionToUse) {
+      try {
+        const response = await makeAuthenticatedRequest('/api/aidin-chat/sessions', {
+          method: 'POST',
+          body: JSON.stringify({ title: 'New Chat' })
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          sessionToUse = data.session
+          setSessions([data.session, ...sessions])
+          setCurrentSession(data.session)
+          setMessages([])
+        } else {
+          toast.error('Failed to create new chat')
+          return
+        }
+      } catch (error) {
+        toast.error('Failed to create new chat')
+        return
+      }
     }
 
     setSendingMessage(true)
@@ -198,7 +215,7 @@ export default function AidinChatPage() {
 
     try {
       const response = await makeAuthenticatedRequest(
-        `/api/aidin-chat/sessions/${currentSession.id}/messages`,
+        `/api/aidin-chat/sessions/${sessionToUse.id}/messages`,
         {
           method: 'POST',
           body: JSON.stringify({ content: userMessageContent })
@@ -219,7 +236,8 @@ export default function AidinChatPage() {
       } else {
         // Remove temp message on error
         setMessages(messages.filter(m => m.id !== tempUserMessage.id))
-        toast.error('Failed to send message')
+        const errorData = await response.json().catch(() => ({}))
+        toast.error(errorData.error || 'Failed to send message')
       }
     } catch (error) {
       setMessages(messages.filter(m => m.id !== tempUserMessage.id))

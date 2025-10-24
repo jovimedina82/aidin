@@ -144,23 +144,20 @@ export async function POST(request, { params }) {
       content: content.trim()
     })
 
-    // Get AI response from OpenAI using o1-preview (latest reasoning model)
-    // Note: o1-preview doesn't support system messages, so we prepend instructions to the first user message
-    const messagesForAI = [...conversationHistory]
-
-    // If this is the first message, prepend the system instructions
-    if (session.messages.length === 0 && messagesForAI.length === 1) {
-      messagesForAI[0] = {
-        role: 'user',
-        content: `You are AidIN, a helpful AI assistant for the SurTerre Properties IT helpdesk team. You help staff members with technical questions, troubleshooting, code assistance, and general IT support queries. Be professional, concise, and helpful. If you're unsure about something specific to SurTerre Properties, acknowledge that and provide general best practices instead.
-
-User question: ${messagesForAI[0].content}`
-      }
-    }
+    // Prepare messages with system prompt for GPT-4 Turbo
+    const messagesForAI = [
+      {
+        role: 'system',
+        content: `You are AidIN, a helpful AI assistant for the SurTerre Properties IT helpdesk team. You help staff members with technical questions, troubleshooting, code assistance, and general IT support queries. Be professional, concise, and helpful. If you're unsure about something specific to SurTerre Properties, acknowledge that and provide general best practices instead.`
+      },
+      ...conversationHistory
+    ]
 
     const completion = await openai.chat.completions.create({
-      model: 'o1-preview',
-      messages: messagesForAI
+      model: 'gpt-4-turbo-preview',
+      messages: messagesForAI,
+      temperature: 0.7,
+      max_tokens: 2000
     })
 
     const aiResponse = completion.choices[0].message.content

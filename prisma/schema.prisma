@@ -334,7 +334,7 @@ model AuditChainVerification {
 model Attachment {
   id          String         @id @default(uuid())
   ticketId    String
-  commentId   String?
+  commentId   String?        @map("comment_id")
   userId      String
   fileName    String
   fileSize    Int

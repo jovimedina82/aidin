@@ -8,6 +8,9 @@ import { getCurrentUser } from '@/lib/auth';
 import { PrismaClient } from '@/lib/generated/prisma';
 import { logEvent } from '@/lib/audit';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 const prisma = new PrismaClient();
 
 /**

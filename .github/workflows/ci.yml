@@ -80,6 +80,14 @@ jobs:
     env:
       CI: true
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/aidin_test?schema=public
+      JWT_SECRET: "ci-placeholder-secret-minimum-32-characters-long-for-validation"
+      GRAPH_CLIENT_SECRET: "ci-placeholder"
+      OPENAI_API_KEY: "ci-placeholder"
+      ENABLE_PUBLIC_REGISTRATION: "false"
+      INBOUND_EMAIL_ENABLED: "false"
+      AUTO_ASSIGN_ENABLED: "false"
+      AI_PROVIDER: "openai"
+      NODE_ENV: "production"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

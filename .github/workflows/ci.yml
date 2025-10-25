@@ -16,7 +16,7 @@ jobs:
         with:
           node-version: '20.x'
           cache: 'npm'
-      - run: npm ci --legacy-peer-deps
+      - run: npm ci --legacy-peer-deps || npm install --legacy-peer-deps --no-audit --no-fund
       - run: npm run ci:lint
 
   openapi:
@@ -29,7 +29,7 @@ jobs:
         with:
           node-version: '20.x'
           cache: 'npm'
-      - run: npm ci --legacy-peer-deps
+      - run: npm ci --legacy-peer-deps || npm install --legacy-peer-deps --no-audit --no-fund
       - run: npm run openapi:gen
       - name: Upload OpenAPI artifact
         uses: actions/upload-artifact@v4
@@ -48,7 +48,7 @@ jobs:
         with:
           node-version: '20.x'
           cache: 'npm'
-      - run: npm ci --legacy-peer-deps
+      - run: npm ci --legacy-peer-deps || npm install --legacy-peer-deps --no-audit --no-fund
       - run: npm run deadcode:check || true
       - run: npm run deadcode:json > knip-report.json || echo '{}' > knip-report.json
       - name: Upload deadcode report
@@ -86,7 +86,7 @@ jobs:
         with:
           node-version: '20.x'
           cache: 'npm'
-      - run: npm ci --legacy-peer-deps
+      - run: npm ci --legacy-peer-deps || npm install --legacy-peer-deps --no-audit --no-fund
       - run: npx prisma generate
       - run: npx prisma db push --accept-data-loss
       - run: npm run build

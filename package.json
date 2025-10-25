@@ -10,13 +10,19 @@
         "start:default": "next start",
         "lint": "next lint",
         "type-check": "tsc --noEmit",
+        "ci:lint": "npm run lint && npm run type-check",
         "db:generate": "prisma generate",
         "db:push": "prisma db push",
         "db:seed": "node prisma/seed.js",
         "db:studio": "prisma studio --port 5555",
         "db:reset": "prisma migrate reset --force && npm run db:seed",
         "clean": "rm -rf .next && rm -rf node_modules/.cache",
-        "sync:azure:user": "tsx scripts/sync-azure-user.ts"
+        "sync:azure:user": "tsx scripts/sync-azure-user.ts",
+        "deadcode:check": "knip --reporter=codeframe || true",
+        "deadcode:json": "knip --reporter=json || true",
+        "openapi:gen": "tsx scripts/generate-openapi.ts",
+        "test:e2e": "playwright test",
+        "test:e2e:ui": "playwright test --ui"
     },
     "dependencies": {
         "@aws-sdk/client-s3": "^3.907.0",
@@ -98,13 +104,15 @@
         "zod": "^3.25.76"
     },
     "devDependencies": {
-        "@types/node": "24.5.2",
+        "@playwright/test": "^1.48.0",
+        "@types/node": "^20.14.10",
         "@types/react": "^18.3.12",
         "@types/react-syntax-highlighter": "^15.5.13",
         "autoprefixer": "^10.4.19",
         "eslint": "^8.57.0",
         "eslint-config-next": "^14.2.3",
         "globals": "^16.2.0",
+        "knip": "^5.30.0",
         "postcss": "^8",
         "tailwindcss": "^3.4.1",
         "tsx": "^4.20.6",

@@ -4,7 +4,7 @@
       "dom",
       "dom.iterable",
       "esnext",
-      "ES2020"
+      "ES2022"
     ],
     "allowJs": true,
     "skipLibCheck": true,
@@ -13,7 +13,7 @@
     "incremental": true,
     "esModuleInterop": true,
     "module": "esnext",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
@@ -23,24 +23,34 @@
         "./*"
       ]
     },
-    "target": "ES2020",
+    "target": "ES2022",
     "forceConsistentCasingInFileNames": true,
     "plugins": [
       {
         "name": "next"
       }
     ],
-    "downlevelIteration": true
+    "downlevelIteration": true,
+    "types": ["node", "@playwright/test"]
   },
   "include": [
     "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts",
-    "**/*.js",
-    "**/*.jsx"
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    "lib/**/*.ts",
+    "lib/**/*.tsx",
+    "scripts/**/*.ts",
+    "tests/**/*.ts",
+    "playwright.config.ts",
+    ".next/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    ".next",
+    "dist",
+    "coverage",
+    "playwright-report",
+    "public",
+    "docs/openapi.yaml"
   ]
 }

@@ -1,6 +1,8 @@
-node_modules/
-.next/
-dist/
-coverage/
-prisma/*
-docs/reports/**
+.next
+dist
+coverage
+playwright-report
+public
+docs/openapi.yaml
+node_modules
+*.config.js

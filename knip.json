@@ -1,0 +1,20 @@
+{
+  "$schema": "https://unpkg.com/knip@latest/schema.json",
+  "entry": [
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    "lib/**/*.ts",
+    "lib/**/*.tsx",
+    "scripts/**/*.ts"
+  ],
+  "project": ["**/*.ts", "**/*.tsx"],
+  "ignore": [
+    "playwright.config.ts",
+    "tests/**/*",
+    "docs/**/*",
+    "public/**/*",
+    "scripts/generate-openapi.ts"
+  ],
+  "ignoreBinaries": ["playwright", "tsx"],
+  "ignoreDependencies": ["@next/bundle-analyzer"]
+}

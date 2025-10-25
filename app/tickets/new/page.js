@@ -1,6 +1,5 @@
 'use client'
-import { useState } from 'react'
-import dynamic from 'next/dynamic'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../../../components/AuthProvider'
 import ProtectedRoute from '../../../components/ProtectedRoute'
 import Navbar from '../../../components/Navbar'
@@ -16,21 +15,112 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ArrowLeft, Loader2, Zap } from 'lucide-react'
+import { ArrowLeft, Loader2, Zap, Paperclip, X, File, Image } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 
-const ImageDropPaste = dynamic(() => import('../../../components/ImageDropPaste'), { ssr: false })
+// Helper function to check if user has elevated privileges
+const canCreateOnBehalfOf = (user) => {
+  if (!user || !user.roles) return false
+  const roleNames = user.roles.map(r => r.role?.name || r.name)
+  return roleNames.some(role => ['Staff', 'Manager', 'Admin'].includes(role))
+}
 
 export default function NewTicketPage() {
   const { user, makeAuthenticatedRequest, loading: authLoading } = useAuth()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+  const [users, setUsers] = useState([])
+  const [loadingUsers, setLoadingUsers] = useState(false)
+  const [selectedRequesterId, setSelectedRequesterId] = useState(null)
+  const [selectedFiles, setSelectedFiles] = useState([])
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     priority: 'NORMAL'
   })
+
+  const showOnBehalfOf = canCreateOnBehalfOf(user)
+
+  // Fetch users when component mounts (if user has permission)
+  useEffect(() => {
+    if (showOnBehalfOf && users.length === 0) {
+      fetchUsers()
+    }
+  }, [showOnBehalfOf])
+
+  const fetchUsers = async () => {
+    setLoadingUsers(true)
+    try {
+      const response = await makeAuthenticatedRequest('/api/users')
+      if (response.ok) {
+        const data = await response.json()
+        // Sort users alphabetically by name
+        const sortedUsers = (data.data || data).sort((a, b) => {
+          const nameA = `${a.firstName} ${a.lastName}`.toLowerCase()
+          const nameB = `${b.firstName} ${b.lastName}`.toLowerCase()
+          return nameA.localeCompare(nameB)
+        })
+        setUsers(sortedUsers)
+      }
+    } catch (error) {
+      console.error('Failed to fetch users:', error)
+    } finally {
+      setLoadingUsers(false)
+    }
+  }
+
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files || [])
+    const validFiles = files.filter(file => {
+      const maxSize = 25 * 1024 * 1024 // 25MB
+      if (file.size > maxSize) {
+        toast.error(`${file.name} is too large (max 25MB)`)
+        return false
+      }
+      return true
+    })
+    setSelectedFiles(prev => [...prev, ...validFiles])
+    e.target.value = '' // Reset input
+  }
+
+  const removeFile = (index) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const formatFileSize = (bytes) => {
+    if (bytes < 1024) return bytes + ' B'
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+  }
+
+  const getFileIcon = (file) => {
+    if (file.type.startsWith('image/')) {
+      return <Image className="w-4 h-4 text-purple-600" />
+    }
+    return <File className="w-4 h-4 text-gray-600" />
+  }
+
+  const uploadAttachments = async (ticketId) => {
+    if (selectedFiles.length === 0) return
+
+    const uploadPromises = selectedFiles.map(async (file) => {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('ticketId', ticketId)
+
+      const response = await makeAuthenticatedRequest('/api/attachments', {
+        method: 'POST',
+        body: formData
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to upload ${file.name}`)
+      }
+    })
+
+    await Promise.all(uploadPromises)
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -50,12 +140,22 @@ export default function NewTicketPage() {
     setLoading(true)
 
     try {
+      // Build request payload
+      const payload = {
+        ...formData
+      }
+
+      // Add requesterId if creating on behalf of someone
+      if (showOnBehalfOf && selectedRequesterId) {
+        payload.requesterId = selectedRequesterId
+      }
+
       const response = await makeAuthenticatedRequest('/api/tickets', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(payload)
       })
 
       const data = await response.json()
@@ -70,7 +170,18 @@ export default function NewTicketPage() {
         throw new Error(data.error || 'Failed to create ticket')
       }
 
-      toast.success(`Ticket created successfully! #${data.ticketNumber}`)
+      // Upload attachments if any
+      if (selectedFiles.length > 0) {
+        try {
+          await uploadAttachments(data.id)
+          toast.success(`Ticket created successfully! #${data.ticketNumber} with ${selectedFiles.length} attachment(s)`)
+        } catch (error) {
+          toast.warning(`Ticket #${data.ticketNumber} created, but some attachments failed to upload`)
+        }
+      } else {
+        toast.success(`Ticket created successfully! #${data.ticketNumber}`)
+      }
+
       router.push(`/tickets/${data.id}`)
     } catch (error) {
       // console.error('Ticket creation error:', error)
@@ -124,7 +235,7 @@ export default function NewTicketPage() {
                   Describe your issue or request in detail. Our AI will automatically categorize and prioritize your ticket.
                 </CardDescription>
               </CardHeader>
-              
+
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="space-y-2">
@@ -136,37 +247,42 @@ export default function NewTicketPage() {
                       onChange={(e) => handleChange('title', e.target.value)}
                       required
                     />
-                    <p className="text-xs text-muted-foreground">
-                      Be specific and concise about the problem you're experiencing
-                    </p>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="description">Description *</Label>
-                    <ImageDropPaste
-                      targetTextAreaSelector="#description"
-                      className="mb-3"
-                    />
                     <Textarea
                       id="description"
-                      placeholder="Provide detailed information about your issue, including:
-• What you were trying to do
-• What happened instead
-• Any error messages you saw
-• Steps to reproduce the problem
-• Your operating system and browser (if relevant)
-
-You can also paste or drag & drop images directly into this field!"
+                      placeholder="Provide detailed information about your issue, including steps to reproduce, error messages, etc."
                       value={formData.description}
                       onChange={(e) => handleChange('description', e.target.value)}
-                      className="min-h-[200px]"
+                      className="min-h-[120px]"
                       required
                     />
-                    <p className="text-xs text-muted-foreground">
-                      The more details you provide, the faster we can help you
-                    </p>
                   </div>
-                  
+
+                  {showOnBehalfOf && (
+                    <div className="space-y-2">
+                      <Label htmlFor="onBehalfOf">On behalf of (optional)</Label>
+                      <Select value={selectedRequesterId || 'self'} onValueChange={(value) => setSelectedRequesterId(value === 'self' ? null : value)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder={loadingUsers ? "Loading users..." : "Create for myself"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="self">Create for myself</SelectItem>
+                          {users.map((u) => (
+                            <SelectItem key={u.id} value={u.id}>
+                              {u.firstName} {u.lastName} ({u.email})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Select a user to create this ticket on their behalf
+                      </p>
+                    </div>
+                  )}
+
                   <div className="space-y-2">
                     <Label htmlFor="priority">Priority</Label>
                     <Select value={formData.priority} onValueChange={(value) => handleChange('priority', value)}>
@@ -174,55 +290,75 @@ You can also paste or drag & drop images directly into this field!"
                         <SelectValue placeholder="Select priority" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="LOW">
-                          <div>
-                            <div className="font-medium">Low</div>
-                            <div className="text-xs text-muted-foreground">General questions, minor issues</div>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="NORMAL">
-                          <div>
-                            <div className="font-medium">Normal</div>
-                            <div className="text-xs text-muted-foreground">Regular issues that don't block work</div>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="HIGH">
-                          <div>
-                            <div className="font-medium">High</div>
-                            <div className="text-xs text-muted-foreground">Issues that significantly impact productivity</div>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="URGENT">
-                          <div>
-                            <div className="font-medium">Urgent</div>
-                            <div className="text-xs text-muted-foreground">Critical issues, system down, security concerns</div>
-                          </div>
-                        </SelectItem>
+                        <SelectItem value="LOW">Low - General questions, minor issues</SelectItem>
+                        <SelectItem value="NORMAL">Normal - Regular issues</SelectItem>
+                        <SelectItem value="HIGH">High - Significant impact on work</SelectItem>
+                        <SelectItem value="URGENT">Urgent - Critical issues, system down</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
-                  <div className="bg-muted/50 p-4 rounded-lg">
-                    <div className="flex items-start gap-3">
-                      <Zap className="h-5 w-5 text-primary mt-0.5" />
-                      <div>
-                        <h4 className="font-medium text-sm">AI-Powered Processing</h4>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          When you submit this ticket, our AI will automatically:
+                  {/* File Attachments */}
+                  <div className="space-y-2">
+                    <Label>Attachments (optional)</Label>
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-gray-400 transition-colors">
+                      <input
+                        type="file"
+                        id="file-input"
+                        className="hidden"
+                        multiple
+                        onChange={handleFileSelect}
+                        accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                      />
+                      <label htmlFor="file-input" className="cursor-pointer">
+                        <Paperclip className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                        <p className="text-sm text-gray-600 mb-1">
+                          Click to attach files or images
                         </p>
-                        <ul className="text-xs text-muted-foreground mt-2 space-y-1">
-                          <li>• Categorize your issue based on the description</li>
-                          <li>• Suggest the appropriate priority level</li>
-                          <li>• Generate response suggestions for our support team</li>
-                        </ul>
-                      </div>
+                        <p className="text-xs text-gray-500">
+                          Max 25MB per file
+                        </p>
+                      </label>
                     </div>
+
+                    {/* Selected Files List */}
+                    {selectedFiles.length > 0 && (
+                      <div className="mt-3 space-y-2">
+                        {selectedFiles.map((file, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-200"
+                          >
+                            <div className="flex items-center space-x-2 flex-1 min-w-0">
+                              {getFileIcon(file)}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-900 truncate">
+                                  {file.name}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {formatFileSize(file.size)}
+                                </p>
+                              </div>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeFile(index)}
+                              className="flex-shrink-0"
+                            >
+                              <X className="w-4 h-4 text-red-500" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  
+
                   <div className="flex gap-4">
-                    <Button 
-                      type="button" 
-                      variant="outline" 
+                    <Button
+                      type="button"
+                      variant="outline"
                       onClick={() => router.push('/tickets')}
                       className="flex-1"
                     >

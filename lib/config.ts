@@ -73,7 +73,7 @@ function parseConfig() {
 
   if (!result.success) {
     console.error('❌ Configuration validation failed:')
-    result.error.errors.forEach((err) => {
+    result.error.issues.forEach((err) => {
       console.error(`  - ${err.path.join('.')}: ${err.message}`)
     })
     throw new Error('Invalid configuration. Check environment variables.')

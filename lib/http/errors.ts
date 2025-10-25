@@ -66,7 +66,7 @@ export function handleApiError(error: unknown): NextResponse<ErrorResponse> {
       ErrorCode.VALIDATION_ERROR,
       'Validation failed',
       400,
-      error.errors
+      error.issues
     )
   }
 

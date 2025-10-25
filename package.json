@@ -8,7 +8,7 @@
         "build": "next build",
         "start": "node server.js",
         "start:default": "next start",
-        "lint": "eslint . --ext .js,.ts,.tsx --max-warnings=0",
+        "lint": "eslint . --max-warnings=0",
         "type-check": "tsc -p tsconfig.json --noEmit",
         "ci:lint": "npm run lint && npm run type-check",
         "db:generate": "prisma generate",

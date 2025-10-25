@@ -20,7 +20,7 @@
         "sync:azure:user": "tsx scripts/sync-azure-user.ts",
         "deadcode:check": "knip --reporter=codeframe || true",
         "deadcode:json": "knip --reporter=json || true",
-        "openapi:gen": "tsx scripts/generate-openapi.ts",
+        "openapi:gen": "node scripts/generate-openapi.cjs",
         "test:e2e": "playwright test",
         "test:e2e:ui": "playwright test --ui"
     },

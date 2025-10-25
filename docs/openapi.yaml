@@ -1,0 +1,33 @@
+openapi: 3.1.0
+info:
+  title: AidIN API
+  version: 1.0.0
+paths:
+  /api/admin/modules:
+    get:
+      summary: List available modules
+      responses:
+        200:
+          description: OK
+  /api/admin/role-modules:
+    get:
+      summary: List role modules
+      responses:
+        200:
+          description: OK
+    put:
+      summary: Upsert role modules
+      responses:
+        200:
+          description: OK
+  /api/admin/user-modules:
+    get:
+      summary: Get user modules
+      responses:
+        200:
+          description: OK
+    put:
+      summary: Upsert user modules
+      responses:
+        200:
+          description: OK

@@ -798,3 +798,33 @@ model AidinChatMessage {
   @@index([sessionId, createdAt])
   @@map("aidin_chat_messages")
 }
+
+// ============================================================================
+// MVP Hardening: Audit Logging and Module Access Control
+// ============================================================================
+
+// Tamper-evident audit log with chained hashes
+
+// ============================================================================
+// MVP Hardening: Module Access Control
+// ============================================================================
+
+// Role-level module assignments (default access by role)
+model RoleModule {
+  role      String   @id                       // requester, staff, manager, admin
+  modules   String[]                           // Array of module keys
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("role_modules")
+}
+
+// User-level module overrides (takes precedence over role defaults)
+model UserModule {
+  userId    String   @id @map("user_id")
+  modules   String[]                           // Array of module keys
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("user_modules")
+}

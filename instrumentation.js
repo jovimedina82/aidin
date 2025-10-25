@@ -2,7 +2,7 @@
 // See: https://nextjs.org/docs/app/building-your-application/optimizing/instrumentation
 
 export async function register() {
-  // Only run on server side
+  // Only run on Node.js runtime (skip Edge runtime and client-side)
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     console.log('🚀 Initializing server components...')
 
@@ -31,14 +31,6 @@ export async function register() {
     console.log('🔒 Starting audit log cleanup scheduler...')
     auditLogCleanupScheduler.start()
 
-    // Start email polling service (if enabled)
-    const emailPollingEnabled = process.env.EMAIL_POLLING_ENABLED === 'true'
-    if (emailPollingEnabled) {
-      console.log('📬 Starting email polling service...')
-      const { startEmailPolling } = await import('./modules/email-polling/job.ts')
-      startEmailPolling()
-    } else {
-      console.log('⏸️  Email polling disabled (EMAIL_POLLING_ENABLED not set to true)')
-    }
+    // Email polling is started from server.js instead to avoid webpack bundling issues
   }
 }

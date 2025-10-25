@@ -44,6 +44,8 @@ const nextConfig = {
       'jspdf-autotable',
       'whatwg-url',
       'webidl-conversions',
+      '@prisma/client',
+      'node-cron',
     ],
     // Enable instrumentation for server initialization
     instrumentationHook: true,

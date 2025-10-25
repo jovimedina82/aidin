@@ -290,12 +290,35 @@ export async function POST(request, { params }) {
             ...ccRecipients.map(cc => ({ email: cc.email, name: cc.name || cc.email }))
           ]
 
-          // Separate recipients: the survey recipient goes in "to", others go in "cc"
+          // Separate recipients: the survey recipient and others
           const primaryRecipient = allRecipients.find(r => r.email === selectedSurveyRecipient)
           const otherRecipients = allRecipients.filter(r => r.email !== selectedSurveyRecipient)
 
-          // Build email payload for Microsoft Graph API
-          const emailPayload = {
+          // Build email body WITHOUT the "Mark as Solved" button for CC recipients
+          const htmlBodyWithoutButton = `
+<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+  <div style="background-color: #3d6964; padding: 15px; color: white;">
+    <h3 style="margin: 0;">Ticket #${fullTicket.ticketNumber}</h3>
+  </div>
+  <div style="padding: 20px; background-color: #fff;">
+    <p>Hello,</p>
+    <p><strong>${user.firstName} ${user.lastName}</strong> replied:</p>
+    <div style="background-color: #f5f5f5; padding: 12px; border-left: 3px solid #3d6964; margin: 15px 0;">
+      ${data.content.replace(/\n/g, '<br>')}
+    </div>
+    <p style="text-align: center; margin: 15px 0;">
+      <a href="${appUrl}/tickets/${params.id}" style="color: #3d6964; text-decoration: none;">View Full Ticket →</a>
+    </p>
+    <p style="font-size: 11px; color: #999; margin: 15px 0 0 0; border-top: 1px solid #eee; padding-top: 10px;">
+      Ticket ${fullTicket.ticketNumber} • AidIN Helpdesk
+    </p>
+  </div>
+</div>
+          `
+
+          // Send email WITH button to the selected survey recipient
+          console.log(`📧 Sending email WITH survey button to: ${primaryRecipient.email}`)
+          const emailPayloadWithButton = {
             message: {
               subject: `Re: ${fullTicket.title} [Ticket #${fullTicket.ticketNumber}]`,
               body: {
@@ -315,22 +338,7 @@ export async function POST(request, { params }) {
             saveToSentItems: true
           }
 
-          // Add other recipients as CC if any exist
-          if (otherRecipients.length > 0) {
-            emailPayload.message.ccRecipients = otherRecipients.map(recipient => ({
-              emailAddress: {
-                address: recipient.email,
-                name: recipient.name || undefined
-              }
-            }))
-            console.log(`📧 Email will include ${otherRecipients.length} CC recipient(s): ${otherRecipients.map(r => r.email).join(', ')}`)
-          }
-
-          console.log(`📧 Email will include ${emailAttachments.length} attachment(s)`)
-
-          // Send email using Microsoft Graph API
-          console.log(`🚀 Sending email via Microsoft Graph API to ${emailService.helpdeskEmail}`)
-          const response = await fetch(
+          const responseWithButton = await fetch(
             `https://graph.microsoft.com/v1.0/users/${emailService.helpdeskEmail}/sendMail`,
             {
               method: 'POST',
@@ -338,19 +346,66 @@ export async function POST(request, { params }) {
                 'Authorization': `Bearer ${accessToken}`,
                 'Content-Type': 'application/json'
               },
-              body: JSON.stringify(emailPayload)
+              body: JSON.stringify(emailPayloadWithButton)
             }
           )
 
-          console.log(`📡 Email API response status: ${response.status}`)
+          console.log(`📡 Email WITH button response status: ${responseWithButton.status}`)
 
-          if (!response.ok) {
-            const error = await response.text()
+          if (!responseWithButton.ok) {
+            const error = await responseWithButton.text()
             console.error(`❌ Email sending failed: ${error}`)
             throw new Error(`Failed to send email: ${error}`)
           }
 
-          console.log(`✅ Sent email notification for comment on ticket ${fullTicket.ticketNumber} to ${fullTicket.requester.email}`)
+          console.log(`✅ Sent email WITH survey button to ${primaryRecipient.email}`)
+
+          // Send email WITHOUT button to other recipients (CC)
+          if (otherRecipients.length > 0) {
+            console.log(`📧 Sending email WITHOUT survey button to ${otherRecipients.length} CC recipient(s): ${otherRecipients.map(r => r.email).join(', ')}`)
+
+            const emailPayloadWithoutButton = {
+              message: {
+                subject: `Re: ${fullTicket.title} [Ticket #${fullTicket.ticketNumber}]`,
+                body: {
+                  contentType: 'HTML',
+                  content: htmlBodyWithoutButton
+                },
+                toRecipients: otherRecipients.map(recipient => ({
+                  emailAddress: {
+                    address: recipient.email,
+                    name: recipient.name || undefined
+                  }
+                })),
+                attachments: emailAttachments
+              },
+              saveToSentItems: true
+            }
+
+            const responseWithoutButton = await fetch(
+              `https://graph.microsoft.com/v1.0/users/${emailService.helpdeskEmail}/sendMail`,
+              {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${accessToken}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(emailPayloadWithoutButton)
+              }
+            )
+
+            console.log(`📡 Email WITHOUT button response status: ${responseWithoutButton.status}`)
+
+            if (!responseWithoutButton.ok) {
+              const error = await responseWithoutButton.text()
+              console.error(`⚠️ Email to CC recipients failed: ${error}`)
+              // Don't throw - primary email was sent successfully
+            } else {
+              console.log(`✅ Sent email WITHOUT survey button to ${otherRecipients.length} CC recipient(s)`)
+            }
+          }
+
+          console.log(`✅ All email notifications sent for ticket ${fullTicket.ticketNumber}`)
 
           // Mark only successfully sent attachments as sent (not skipped ones)
           if (processedAttachmentIds.length > 0) {

@@ -203,6 +203,15 @@ export async function POST(request) {
     const body = await request.json()
     const { status, officeLocation, notes, startDate, endDate, userId } = body
 
+    console.log('📋 Creating staff presence:', {
+      userId: user.id,
+      status,
+      officeLocation,
+      startDate,
+      endDate,
+      hasNotes: !!notes
+    })
+
     // Validate required fields
     if (!status || !startDate) {
       return NextResponse.json(
@@ -308,8 +317,15 @@ export async function POST(request) {
 
     return NextResponse.json({ success: true, presence })
   } catch (error) {
-    console.error('Error creating staff presence:', error)
-    return NextResponse.json({ error: 'Failed to create staff presence' }, { status: 500 })
+    console.error('❌ Error creating staff presence:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    })
+    return NextResponse.json({
+      error: 'Failed to create staff presence',
+      details: error.message
+    }, { status: 500 })
   }
 }
 

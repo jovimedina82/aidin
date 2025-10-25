@@ -1,147 +1,68 @@
-/**
- * HTTP Middleware for audit logging
- * Captures request context for Next.js API routes
- */
+import { writeAudit, AuditEntry } from './logger';
+import { AuthContext } from '../auth/guards';
 
-import { NextRequest, NextResponse } from 'next/server';
-import type { NextApiRequest, NextApiResponse } from 'next';
-import { randomUUID } from 'crypto';
-import { setAuditContext, runWithAuditContext } from './context';
+export type RequestContext = {
+  auth: AuthContext;
+  before?: any;
+  after?: any;
+  entityId?: string;
+  ip?: string;
+  ua?: string;
+};
 
-/**
- * Next.js middleware for Edge/App Router
- */
-export function auditMiddleware(request: NextRequest) {
-  const requestId =
-    request.headers.get('x-request-id') ||
-    request.headers.get('x-correlation-id') ||
-    randomUUID();
-
-  const correlationId =
-    request.headers.get('x-correlation-id') || randomUUID();
-
-  // Extract IP from various headers (Cloudflare, nginx, etc.)
-  const ip =
-    request.headers.get('cf-connecting-ip') ||
-    request.headers.get('x-real-ip') ||
-    request.headers.get('x-forwarded-for')?.split(',')[0] ||
-    request.ip ||
-    null;
-
-  const userAgent = request.headers.get('user-agent') || null;
-
-  // Set context
-  setAuditContext({
-    requestId,
-    correlationId,
-    ip,
-    userAgent,
-  });
-
-  // Add request ID to response headers for tracing
-  const response = NextResponse.next();
-  response.headers.set('x-request-id', requestId);
-  response.headers.set('x-correlation-id', correlationId);
-
-  return response;
-}
+export type MutatingHandler = (args: {
+  req: Request;
+  ctx: RequestContext;
+}) => Promise<Response>;
 
 /**
- * API route wrapper for Pages Router
+ * Wrap a mutating API handler with audit logging
+ * Automatically logs the operation after successful completion
  */
 export function withAudit(
-  handler: (req: NextApiRequest, res: NextApiResponse) => Promise<void>
-) {
-  return async (req: NextApiRequest, res: NextApiResponse) => {
-    const requestId =
-      (req.headers['x-request-id'] as string) ||
-      (req.headers['x-correlation-id'] as string) ||
-      randomUUID();
-
-    const correlationId =
-      (req.headers['x-correlation-id'] as string) || randomUUID();
-
-    // Extract IP
-    const ip =
-      (req.headers['cf-connecting-ip'] as string) ||
-      (req.headers['x-real-ip'] as string) ||
-      (req.headers['x-forwarded-for'] as string)?.split(',')[0] ||
-      req.socket.remoteAddress ||
-      null;
-
-    const userAgent = (req.headers['user-agent'] as string) || null;
-
-    // Extract actor from session/auth (if available)
-    // This assumes you have auth middleware that sets req.user
-    const actorEmail = (req as any).user?.email || null;
-    const actorId = (req as any).user?.id || null;
-    const actorType = actorEmail ? 'human' : undefined;
-
-    // Set response headers
-    res.setHeader('x-request-id', requestId);
-    res.setHeader('x-correlation-id', correlationId);
-
-    // Run handler in audit context
-    return runWithAuditContext(
-      {
-        requestId,
-        correlationId,
-        ip,
-        userAgent,
-        actorEmail: actorEmail || undefined,
-        actorId: actorId || undefined,
-        actorType,
-      },
-      () => handler(req, res)
-    );
+  action: string,
+  entity: string,
+  handler: MutatingHandler
+): MutatingHandler {
+  return async ({ req, ctx }) => {
+    const before = ctx.before ?? null;
+    
+    // Execute the handler
+    const res = await handler({ req, ctx });
+    
+    // Only log if successful (2xx status)
+    if (res.status >= 200 && res.status < 300) {
+      try {
+        const after = ctx.after ?? null;
+        
+        await writeAudit({
+          actorId: ctx.auth.userId,
+          actorEmail: ctx.auth.email,
+          role: ctx.auth.role,
+          action,
+          entity,
+          entityId: ctx.entityId,
+          before,
+          after,
+          ip: ctx.ip,
+          ua: ctx.ua,
+        });
+      } catch (auditError) {
+        // Log audit failure but don't fail the request
+        console.error('Audit logging failed:', auditError);
+      }
+    }
+    
+    return res;
   };
 }
 
 /**
- * Express/Fastify-style middleware
+ * Extract IP and User-Agent from request headers
  */
-export function expressAuditMiddleware(
-  req: any,
-  res: any,
-  next: () => void
-) {
-  const requestId =
-    req.headers['x-request-id'] ||
-    req.headers['x-correlation-id'] ||
-    randomUUID();
-
-  const correlationId = req.headers['x-correlation-id'] || randomUUID();
-
-  const ip =
-    req.headers['cf-connecting-ip'] ||
-    req.headers['x-real-ip'] ||
-    req.headers['x-forwarded-for']?.split(',')[0] ||
-    req.ip ||
-    req.connection?.remoteAddress ||
-    null;
-
-  const userAgent = req.headers['user-agent'] || null;
-
-  const actorEmail = req.user?.email || null;
-  const actorId = req.user?.id || null;
-  const actorType = actorEmail ? 'human' : undefined;
-
-  // Set response headers
-  res.setHeader('x-request-id', requestId);
-  res.setHeader('x-correlation-id', correlationId);
-
-  // Set context
-  setAuditContext({
-    requestId,
-    correlationId,
-    ip,
-    userAgent,
-    actorEmail: actorEmail || undefined,
-    actorId: actorId || undefined,
-    actorType,
-  });
-
-  next();
+export function extractRequestMeta(req: Request): { ip?: string; ua?: string } {
+  return {
+    ip: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || undefined,
+    ua: req.headers.get('user-agent') || undefined,
+  };
 }
-
-export default auditMiddleware;

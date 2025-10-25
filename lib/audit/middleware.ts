@@ -144,4 +144,47 @@ export function expressAuditMiddleware(
   next();
 }
 
+/**
+ * App Router handler wrapper with audit context
+ * Sets audit context based on request headers and user
+ */
+export function withAppRouterAudit<T>(
+  handler: (request: Request, user: any) => Promise<T>
+) {
+  return async (request: Request, user: any): Promise<T> => {
+    const requestId =
+      request.headers.get('x-request-id') ||
+      request.headers.get('x-correlation-id') ||
+      randomUUID();
+
+    const correlationId =
+      request.headers.get('x-correlation-id') || randomUUID();
+
+    const ip =
+      request.headers.get('cf-connecting-ip') ||
+      request.headers.get('x-real-ip') ||
+      request.headers.get('x-forwarded-for')?.split(',')[0] ||
+      null;
+
+    const userAgent = request.headers.get('user-agent') || null;
+
+    const actorEmail = user?.email || null;
+    const actorId = user?.id || null;
+    const actorType = actorEmail ? 'human' : undefined;
+
+    return runWithAuditContext(
+      {
+        requestId,
+        correlationId,
+        ip,
+        userAgent,
+        actorEmail: actorEmail || undefined,
+        actorId: actorId || undefined,
+        actorType,
+      },
+      () => handler(request, user)
+    );
+  };
+}
+
 export default auditMiddleware;

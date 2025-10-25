@@ -48,7 +48,12 @@ export default function StaffPresenceSelector({ currentPresence, onUpdate, trigg
   const [status, setStatus] = useState(currentPresence?.status || 'AVAILABLE')
   const [officeLocation, setOfficeLocation] = useState(currentPresence?.officeLocation || '')
   const [notes, setNotes] = useState(currentPresence?.notes || '')
-  const [startDate, setStartDate] = useState(currentPresence?.startDate ? new Date(currentPresence.startDate) : new Date())
+  const [startDate, setStartDate] = useState(() => {
+    if (currentPresence?.startDate) {
+      return new Date(currentPresence.startDate)
+    }
+    return new Date()
+  })
   const [endDate, setEndDate] = useState(currentPresence?.endDate ? new Date(currentPresence.endDate) : null)
   const [startTime, setStartTime] = useState('09:00')
   const [endTime, setEndTime] = useState('17:00')
@@ -84,6 +89,11 @@ export default function StaffPresenceSelector({ currentPresence, onUpdate, trigg
   useEffect(() => {
     if (open) {
       fetchOfficeHours()
+      // Reset dates when dialog opens to ensure valid values
+      if (!startDate || !(startDate instanceof Date) || isNaN(startDate.getTime())) {
+        console.log('Resetting invalid startDate')
+        setStartDate(new Date())
+      }
     }
   }, [open])
 
@@ -124,6 +134,12 @@ export default function StaffPresenceSelector({ currentPresence, onUpdate, trigg
       return
     }
 
+    // Validate start date
+    if (!startDate || !(startDate instanceof Date) || isNaN(startDate.getTime())) {
+      toast.error('Please select a valid start date')
+      return
+    }
+
     // Combine date and time for start
     const startDateTime = new Date(startDate)
     const [startHours, startMinutes] = startTime.split(':')
@@ -132,6 +148,12 @@ export default function StaffPresenceSelector({ currentPresence, onUpdate, trigg
     // Combine date and time for end (if set)
     let endDateTime = null
     if (endDate) {
+      // Validate end date
+      if (!(endDate instanceof Date) || isNaN(endDate.getTime())) {
+        toast.error('Please select a valid end date')
+        return
+      }
+
       endDateTime = new Date(endDate)
       const [endHours, endMinutes] = endTime.split(':')
       endDateTime.setHours(parseInt(endHours), parseInt(endMinutes), 0, 0)
@@ -145,7 +167,7 @@ export default function StaffPresenceSelector({ currentPresence, onUpdate, trigg
 
     setLoading(true)
     try {
-      const response = await makeAuthenticatedRequest('/api/staff-presence', {
+      const response = await makeAuthenticatedRequest('/api/presence', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -160,7 +182,8 @@ export default function StaffPresenceSelector({ currentPresence, onUpdate, trigg
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to update presence')
+        const errorMsg = data.details ? `${data.error}: ${data.details}` : (data.error || 'Failed to update presence')
+        throw new Error(errorMsg)
       }
 
       toast.success('Your status has been updated')
@@ -171,7 +194,7 @@ export default function StaffPresenceSelector({ currentPresence, onUpdate, trigg
       }
     } catch (error) {
       console.error('Error updating presence:', error)
-      toast.error('Failed to update status')
+      toast.error(error.message || 'Failed to update status')
     } finally {
       setLoading(false)
     }
@@ -276,7 +299,7 @@ export default function StaffPresenceSelector({ currentPresence, onUpdate, trigg
                     className="w-full justify-start text-left font-normal"
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {startDate && startDate instanceof Date && !isNaN(startDate) ? format(startDate, 'MMM d, yyyy') : <span>Date</span>}
+                    {startDate && startDate instanceof Date && !isNaN(startDate.getTime()) ? format(startDate, 'MMM d, yyyy') : <span>Date</span>}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0 z-[100]" align="start">
@@ -312,7 +335,7 @@ export default function StaffPresenceSelector({ currentPresence, onUpdate, trigg
                     className="w-full justify-start text-left font-normal"
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {endDate && endDate instanceof Date && !isNaN(endDate) ? format(endDate, 'MMM d, yyyy') : <span>No end date</span>}
+                    {endDate && endDate instanceof Date && !isNaN(endDate.getTime()) ? format(endDate, 'MMM d, yyyy') : <span>No end date</span>}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0 z-[100]" align="start">
@@ -347,7 +370,7 @@ export default function StaffPresenceSelector({ currentPresence, onUpdate, trigg
                 />
               </div>
             </div>
-            {endDate && endDate instanceof Date && !isNaN(endDate) && startDate && startDate instanceof Date && !isNaN(startDate) && (
+            {endDate && endDate instanceof Date && !isNaN(endDate.getTime()) && startDate && startDate instanceof Date && !isNaN(startDate.getTime()) && (
               <p className="text-xs text-muted-foreground">
                 Specific schedule window: {format(startDate, 'MMM d')} at {startTime} → {format(endDate, 'MMM d')} at {endTime}
               </p>

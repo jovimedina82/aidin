@@ -108,9 +108,12 @@ jobs:
     if: always()
     steps:
       - name: Print results
-        run: echo "Lint: ${{ needs.lint_type.result }} | OpenAPI: ${{ needs.openapi.result }} | DeadCode: ${{ needs.deadcode.result }} | Build: ${{ needs.build_test.result }}"
+        shell: bash
+        run: |
+          echo "Lint: ${{ needs.lint_type.result }} | OpenAPI: ${{ needs.openapi.result }} | DeadCode: ${{ needs.deadcode.result }} | Build: ${{ needs.build_test.result }}"
       - name: Fail if critical jobs failed
-        if: ${{ needs.lint_type.result == 'failure' || needs.build_test.result == 'failure' }}
+        if: ${{ or(eq(needs.lint_type.result, 'failure'), eq(needs.build_test.result, 'failure')) }}
+        shell: bash
         run: |
           echo "CI Failed - Critical jobs failed"
           exit 1

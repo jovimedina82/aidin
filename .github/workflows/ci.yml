@@ -7,10 +7,83 @@ on:
     branches: ['**']
 
 jobs:
-  build-and-test:
+  lint:
+    name: Lint & Type Check
     runs-on: ubuntu-latest
 
-    # Use PostgreSQL service for database
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Run ESLint
+        run: npm run lint --if-present
+
+      - name: Run TypeScript type check
+        run: npm run type-check --if-present
+
+  openapi:
+    name: Generate & Validate OpenAPI
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Generate OpenAPI spec
+        run: npm run openapi:gen --if-present
+
+      - name: Upload OpenAPI artifact
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: openapi-spec
+          path: docs/openapi.yaml
+          retention-days: 30
+
+  deadcode:
+    name: Dead Code Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Run knip (dead code detection)
+        run: npm run deadcode:check --if-present
+        continue-on-error: true
+
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    needs: [lint]
+
     services:
       postgres:
         image: postgres:15
@@ -34,14 +107,17 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup Node.js 18.x
+    - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18.x'
+        node-version: '20.x'
         cache: 'npm'
 
     - name: Prepare CI environment
-      run: cp .env.ci .env.local
+      run: |
+        if [ -f .env.ci ]; then
+          cp .env.ci .env.local
+        fi
 
     - name: Install dependencies
       run: npm ci --legacy-peer-deps
@@ -52,8 +128,104 @@ jobs:
     - name: Setup PostgreSQL schema
       run: npx prisma db push --accept-data-loss
 
-    - name: Run linter
-      run: npm run lint --if-present
-
     - name: Build application
       run: npm run build
+
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: nextjs-build
+        path: .next/
+        retention-days: 7
+
+  test-e2e:
+    name: E2E Tests (Playwright)
+    runs-on: ubuntu-latest
+    needs: [build-and-test]
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: aidin_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    env:
+      CI: true
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/aidin_test?schema=public
+      BASE_URL: http://localhost:3000
+      TEST_ADMIN_EMAIL: test-admin@example.com
+      TEST_ADMIN_PASSWORD: test123
+      TEST_MANAGER_EMAIL: test-manager@example.com
+      TEST_MANAGER_PASSWORD: test123
+      TEST_STAFF_EMAIL: test-staff@example.com
+      TEST_STAFF_PASSWORD: test123
+      TEST_REQUESTER_EMAIL: test-requester@example.com
+      TEST_REQUESTER_PASSWORD: test123
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Setup database
+        run: npx prisma db push --accept-data-loss
+
+      - name: Run Playwright tests
+        run: npm run test:e2e --if-present
+        continue-on-error: true
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30
+
+  summary:
+    name: CI Summary
+    runs-on: ubuntu-latest
+    needs: [lint, openapi, deadcode, build-and-test, test-e2e]
+    if: always()
+
+    steps:
+      - name: Check job statuses
+        run: |
+          echo "Lint: ${{ needs.lint.result }}"
+          echo "OpenAPI: ${{ needs.openapi.result }}"
+          echo "Dead Code: ${{ needs.deadcode.result }}"
+          echo "Build & Test: ${{ needs.build-and-test.result }}"
+          echo "E2E Tests: ${{ needs.test-e2e.result }}"
+
+      - name: Determine overall status
+        run: |
+          if [[ "${{ needs.lint.result }}" == "failure" ]] || [[ "${{ needs.build-and-test.result }}" == "failure" ]]; then
+            echo "❌ CI Failed - Critical jobs failed"
+            exit 1
+          else
+            echo "✅ CI Passed - All critical jobs succeeded"
+          fi

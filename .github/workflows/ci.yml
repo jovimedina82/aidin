@@ -111,8 +111,8 @@ jobs:
       - name: Check critical jobs
         run: |
           if [[ "${{ needs.lint_type.result }}" == "failure" ]] || [[ "${{ needs.build_test.result }}" == "failure" ]]; then
-            echo "❌ CI Failed - Critical jobs failed"
+            echo "CI Failed - Critical jobs failed"
             exit 1
           else
-            echo "✅ CI Passed"
+            echo "CI Passed"
           fi

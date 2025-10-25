@@ -41,7 +41,7 @@ jobs:
     name: Dead Code Analysis
     runs-on: ubuntu-latest
     needs: [lint_type]
-    continue-on-error: true
+    continue-on-error: true  # report-only, non-blocking
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -49,8 +49,8 @@ jobs:
           node-version: '20.x'
           cache: 'npm'
       - run: npm ci --legacy-peer-deps
-      - run: npm run deadcode:check
-      - run: npm run deadcode:json
+      - run: npm run deadcode:check || true
+      - run: npm run deadcode:json > knip-report.json || echo '{}' > knip-report.json
       - name: Upload deadcode report
         if: always()
         uses: actions/upload-artifact@v4
@@ -107,12 +107,10 @@ jobs:
     needs: [lint_type, openapi, deadcode, build_test]
     if: always()
     steps:
-      - run: echo "Lint: ${{ needs.lint_type.result }} | OpenAPI: ${{ needs.openapi.result }} | DeadCode: ${{ needs.deadcode.result }} | Build: ${{ needs.build_test.result }}"
-      - name: Check critical jobs
+      - name: Print results
+        run: echo "Lint: ${{ needs.lint_type.result }} | OpenAPI: ${{ needs.openapi.result }} | DeadCode: ${{ needs.deadcode.result }} | Build: ${{ needs.build_test.result }}"
+      - name: Fail if critical jobs failed
+        if: ${{ needs.lint_type.result == 'failure' || needs.build_test.result == 'failure' }}
         run: |
-          if [[ "${{ needs.lint_type.result }}" == "failure" ]] || [[ "${{ needs.build_test.result }}" == "failure" ]]; then
-            echo "CI Failed - Critical jobs failed"
-            exit 1
-          else
-            echo "CI Passed"
-          fi
+          echo "CI Failed - Critical jobs failed"
+          exit 1

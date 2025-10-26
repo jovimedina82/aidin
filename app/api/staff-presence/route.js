@@ -195,6 +195,11 @@ export async function GET(request) {
 
     const uniquePresences = Array.from(userPresenceMap.values())
 
+    console.log(`✅ Returning ${uniquePresences.length} unique staff presences to client`)
+    uniquePresences.forEach((p, i) => {
+      console.log(`  ${i + 1}. ${p.user.firstName} ${p.user.lastName} - ${p.status} at ${p.officeLocation || 'N/A'}`)
+    })
+
     return NextResponse.json({ presences: uniquePresences })
   } catch (error) {
     console.error('Error fetching staff presence:', error)

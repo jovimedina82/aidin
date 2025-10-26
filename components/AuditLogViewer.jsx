@@ -325,7 +325,7 @@ export default function AuditLogViewer() {
                   <TableHead className="text-sm min-w-[120px]">Action</TableHead>
                   <TableHead className="text-sm min-w-[180px]">Actor</TableHead>
                   <TableHead className="text-sm w-20">Type</TableHead>
-                  <TableHead className="text-sm min-w-[140px]">Entity</TableHead>
+                  <TableHead className="text-sm min-w-[140px] max-w-[200px]">Entity</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -356,16 +356,18 @@ export default function AuditLogViewer() {
                         {log.actorType}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-sm min-w-[140px]">
+                    <TableCell className="text-sm min-w-[140px] max-w-[200px]">
                       {log.entityType === 'comment' && log.metadata?.ticketNumber ? (
                         <div className="flex flex-col">
-                          <span>{log.entityType}: {log.entityId.substring(0, 8)}...</span>
+                          <span className="truncate">{log.entityType}: {log.entityId.substring(0, 8)}...</span>
                           <span className="text-xs text-muted-foreground">
                             Ticket: {log.metadata.ticketNumber}
                           </span>
                         </div>
                       ) : (
-                        <span>{log.entityType}: {log.entityId}</span>
+                        <span className="truncate" title={`${log.entityType}: ${log.entityId}`}>
+                          {log.entityType}: {log.entityId.length > 15 ? log.entityId.substring(0, 12) + '...' : log.entityId}
+                        </span>
                       )}
                     </TableCell>
                   </TableRow>

@@ -733,28 +733,7 @@ export default function AdminPage() {
                   className="w-full justify-start px-4 py-3 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-md"
                 >
                   <Users className="h-4 w-4 mr-3" />
-                  User Management
-                </TabsTrigger>
-                <TabsTrigger
-                  value="modules"
-                  className="w-full justify-start px-4 py-3 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-md"
-                >
-                  <Shield className="h-4 w-4 mr-3" />
-                  Module Permissions
-                </TabsTrigger>
-                <TabsTrigger
-                  value="tickets"
-                  className="w-full justify-start px-4 py-3 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-md"
-                >
-                  <Ticket className="h-4 w-4 mr-3" />
-                  All Tickets
-                </TabsTrigger>
-                <TabsTrigger
-                  value="tags"
-                  className="w-full justify-start px-4 py-3 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-md"
-                >
-                  <FileText className="h-4 w-4 mr-3" />
-                  Tag Management
+                  Users
                 </TabsTrigger>
                 <TabsTrigger
                   value="departments"
@@ -764,18 +743,39 @@ export default function AdminPage() {
                   Departments
                 </TabsTrigger>
                 <TabsTrigger
-                  value="ai-admin"
+                  value="modules"
                   className="w-full justify-start px-4 py-3 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-md"
                 >
-                  <Brain className="h-4 w-4 mr-3" />
-                  AI Administration
+                  <Shield className="h-4 w-4 mr-3" />
+                  Roles & Permissions
+                </TabsTrigger>
+                <TabsTrigger
+                  value="tags"
+                  className="w-full justify-start px-4 py-3 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-md"
+                >
+                  <FileText className="h-4 w-4 mr-3" />
+                  Tags
+                </TabsTrigger>
+                <TabsTrigger
+                  value="tickets"
+                  className="w-full justify-start px-4 py-3 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-md"
+                >
+                  <Ticket className="h-4 w-4 mr-3" />
+                  Tickets
+                </TabsTrigger>
+                <TabsTrigger
+                  value="integrations"
+                  className="w-full justify-start px-4 py-3 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-md"
+                >
+                  <Settings className="h-4 w-4 mr-3" />
+                  Integrations
                 </TabsTrigger>
                 <TabsTrigger
                   value="azure-sync"
                   className="w-full justify-start px-4 py-3 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-md"
                 >
                   <Shield className="h-4 w-4 mr-3" />
-                  Azure AD Sync
+                  Azure AD
                 </TabsTrigger>
                 <TabsTrigger
                   value="audit"
@@ -789,14 +789,14 @@ export default function AdminPage() {
                   className="w-full justify-start px-4 py-3 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-md"
                 >
                   <Settings className="h-4 w-4 mr-3" />
-                  System Settings
+                  Settings
                 </TabsTrigger>
                 <TabsTrigger
-                  value="integrations"
+                  value="ai-admin"
                   className="w-full justify-start px-4 py-3 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-md"
                 >
-                  <Settings className="h-4 w-4 mr-3" />
-                  Integrations
+                  <Brain className="h-4 w-4 mr-3" />
+                  AI Admin
                 </TabsTrigger>
               </TabsList>
           </div>

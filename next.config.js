@@ -35,7 +35,7 @@ const nextConfig = {
   compress: true, // Enable gzip compression
 
   experimental: {
-    // Remove if not using Server Components
+    // Externalize server-only packages to prevent client bundling
     serverComponentsExternalPackages: [
       'mongodb',
       'jsdom',
@@ -44,6 +44,8 @@ const nextConfig = {
       'jspdf-autotable',
       'whatwg-url',
       'webidl-conversions',
+      '@prisma/client', // Externalize Prisma to prevent node: imports in client
+      'node-cron',      // Externalize node-cron to prevent node: imports in client
     ],
     // Enable instrumentation for server initialization
     instrumentationHook: true,
@@ -59,7 +61,64 @@ const nextConfig = {
     },
   },
 
-  webpack(config, { dev, isServer }) {
+  webpack(config, { dev, isServer, webpack }) {
+    // 1) Intercept and normalize 'node:' URI scheme imports BEFORE resolution
+    config.plugins.push(
+      new webpack.NormalModuleReplacementPlugin(
+        /^node:/,
+        (resource) => {
+          resource.request = resource.request.replace(/^node:/, '');
+        }
+      )
+    );
+
+    // 2) Fallback alias normalization (backup layer)
+    config.resolve.alias = {
+      ...(config.resolve.alias || {}),
+      'node:buffer': 'buffer',
+      'node:crypto': 'crypto',
+      'node:stream': 'stream',
+      'node:path': 'path',
+      'node:url': 'url',
+      'node:util': 'util',
+      'node:events': 'events',
+      'node:fs': 'fs',
+      'node:fs/promises': 'fs/promises',
+      'node:os': 'os',
+      'node:child_process': 'child_process',
+      'node:tty': 'tty',
+    };
+
+    // 3) For client bundles: set Node core module fallbacks to false
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...(config.resolve.fallback || {}),
+        fs: false,
+        'fs/promises': false,
+        net: false,
+        tls: false,
+        crypto: false,
+        stream: false,
+        path: false,
+        url: false,
+        util: false,
+        events: false,
+        os: false,
+        buffer: false,
+        child_process: false,
+        tty: false,
+      };
+
+      // Externalize Prisma and node-cron for client builds
+      config.externals = config.externals || [];
+      if (Array.isArray(config.externals)) {
+        config.externals.push({
+          '@prisma/client': 'commonjs @prisma/client',
+          'node-cron': 'commonjs node-cron',
+        });
+      }
+    }
+
     if (dev) {
       // Reduce CPU/memory from file watching
       config.watchOptions = {

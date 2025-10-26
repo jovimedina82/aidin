@@ -30,7 +30,6 @@ import { useAuth } from './AuthProvider'
 
 const STATUS_OPTIONS = [
   { value: 'AVAILABLE', label: 'Available', icon: Check, description: 'Ready to help' },
-  { value: 'IN_OFFICE', label: 'In Office', icon: MapPin, description: 'Working from office' },
   { value: 'REMOTE', label: 'Working Remote', icon: Home, description: 'Working from home' },
   { value: 'VACATION', label: 'On Vacation', icon: Coffee, description: 'Out of office' },
   { value: 'SICK', label: 'Out Sick', icon: HeartPulse, description: 'Medical leave' },
@@ -38,7 +37,7 @@ const STATUS_OPTIONS = [
 ]
 
 const OFFICE_LOCATIONS = [
-  { value: 'NEWPORT', label: 'Newport' },
+  { value: 'NEWPORT_BEACH', label: 'Newport Beach' },
   { value: 'LAGUNA_BEACH', label: 'Laguna Beach' },
   { value: 'DANA_POINT', label: 'Dana Point' }
 ]
@@ -129,7 +128,7 @@ export default function StaffPresenceSelector({ currentPresence, onUpdate, trigg
       return
     }
 
-    if ((status === 'IN_OFFICE' || status === 'AVAILABLE') && !officeLocation) {
+    if (status === 'AVAILABLE' && !officeLocation) {
       toast.error('Please select an office location')
       return
     }
@@ -158,6 +157,22 @@ export default function StaffPresenceSelector({ currentPresence, onUpdate, trigg
       const [endHours, endMinutes] = endTime.split(':')
       endDateTime.setHours(parseInt(endHours), parseInt(endMinutes), 0, 0)
 
+      // Check if start and end are on the same day
+      const isSameDay = startDate.getFullYear() === endDate.getFullYear() &&
+                        startDate.getMonth() === endDate.getMonth() &&
+                        startDate.getDate() === endDate.getDate()
+
+      // If same day, ensure it doesn't go past end of that day
+      if (isSameDay) {
+        // Cap at 23:59:59 of the selected day to prevent bleeding into next day
+        const maxEndTime = new Date(endDate)
+        maxEndTime.setHours(23, 59, 59, 999)
+
+        if (endDateTime > maxEndTime) {
+          endDateTime = maxEndTime
+        }
+      }
+
       // Validate end is after start
       if (endDateTime <= startDateTime) {
         toast.error('End date/time must be after start date/time')
@@ -172,7 +187,7 @@ export default function StaffPresenceSelector({ currentPresence, onUpdate, trigg
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           status,
-          officeLocation: (status === 'IN_OFFICE' || status === 'AVAILABLE') ? officeLocation : null,
+          officeLocation: status === 'AVAILABLE' ? officeLocation : null,
           notes,
           startDate: startDateTime.toISOString(),
           endDate: endDateTime ? endDateTime.toISOString() : null
@@ -257,8 +272,8 @@ export default function StaffPresenceSelector({ currentPresence, onUpdate, trigg
             </Select>
           </div>
 
-          {/* Office Location (for AVAILABLE and IN_OFFICE) */}
-          {(status === 'AVAILABLE' || status === 'IN_OFFICE') && (
+          {/* Office Location (for AVAILABLE only) */}
+          {status === 'AVAILABLE' && (
             <div className="space-y-2">
               <Label>Office Location *</Label>
               <Select value={officeLocation} onValueChange={setOfficeLocation}>
@@ -308,6 +323,14 @@ export default function StaffPresenceSelector({ currentPresence, onUpdate, trigg
                     selected={startDate}
                     onSelect={setStartDate}
                     initialFocus
+                    disabled={(date) => {
+                      const today = new Date()
+                      today.setHours(0, 0, 0, 0)
+                      const oneMonthFromNow = new Date()
+                      oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1)
+                      oneMonthFromNow.setHours(23, 59, 59, 999)
+                      return date < today || date > oneMonthFromNow
+                    }}
                   />
                 </PopoverContent>
               </Popover>
@@ -344,7 +367,12 @@ export default function StaffPresenceSelector({ currentPresence, onUpdate, trigg
                     selected={endDate}
                     onSelect={setEndDate}
                     initialFocus
-                    disabled={(date) => date < startDate}
+                    disabled={(date) => {
+                      const oneMonthFromNow = new Date()
+                      oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1)
+                      oneMonthFromNow.setHours(23, 59, 59, 999)
+                      return date < startDate || date > oneMonthFromNow
+                    }}
                   />
                   <div className="p-2 border-t">
                     <Button

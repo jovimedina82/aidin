@@ -67,7 +67,7 @@ export async function POST(request: Request) {
     // 6. Audit log
     await logEvent({
       action: 'presence.admin.create_office',
-      entityType: 'presence_office_location',
+      entityType: 'setting',
       entityId: office.id,
       actorEmail: currentUser.email,
       actorId: currentUser.id,
@@ -124,7 +124,7 @@ export async function PATCH(request: Request) {
     // 5. Audit log
     await logEvent({
       action: 'presence.admin.update_office',
-      entityType: 'presence_office_location',
+      entityType: 'setting',
       entityId: office.id,
       actorEmail: currentUser.email,
       actorId: currentUser.id,

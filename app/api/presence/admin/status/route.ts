@@ -75,7 +75,7 @@ export async function POST(request: Request) {
     // 6. Audit log
     await logEvent({
       action: 'presence.admin.create_status',
-      entityType: 'presence_status_type',
+      entityType: 'setting',
       entityId: status.id,
       actorEmail: currentUser.email,
       actorId: currentUser.id,
@@ -132,7 +132,7 @@ export async function PATCH(request: Request) {
     // 5. Audit log
     await logEvent({
       action: 'presence.admin.update_status',
-      entityType: 'presence_status_type',
+      entityType: 'setting',
       entityId: status.id,
       actorEmail: currentUser.email,
       actorId: currentUser.id,

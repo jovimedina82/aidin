@@ -135,7 +135,9 @@ export async function validateSegments(segments: Segment[]): Promise<void> {
   // 2. Check for overlaps
   for (let i = 0; i < segments.length; i++) {
     for (let j = i + 1; j < segments.length; j++) {
-      if (rangesOverlap(segments[i], segments[j])) {
+      const segI = segments[i] as { from: string; to: string }
+      const segJ = segments[j] as { from: string; to: string }
+      if (rangesOverlap(segI, segJ)) {
         errors.push({
           field: `segments[${j}]`,
           message: `Overlaps with segment ${i + 1} (${segments[i].from}–${segments[i].to})`,

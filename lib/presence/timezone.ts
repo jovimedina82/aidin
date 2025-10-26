@@ -86,3 +86,59 @@ export function utcToLocalDate(utcDate: Date, timezone: string = DEFAULT_TZ): st
 export function crossesMidnight(from: string, to: string): boolean {
   return to <= from
 }
+
+/* --- Compatibility wrappers for Presence V2 (do NOT remove existing exports) --- */
+
+/**
+ * Convert a local date+time to a UTC Date
+ * Wrapper for localToUTC with combined date+time parameters
+ *
+ * @param dateStr - Local date YYYY-MM-DD
+ * @param timeStr - Local time HH:mm
+ * @param timezone - Optional timezone (defaults to APP_TZ)
+ * @returns UTC Date object
+ */
+export function toUTC(
+  dateStr: string,
+  timeStr: string,
+  timezone: string = DEFAULT_TZ
+): Date {
+  return localToUTC(dateStr, timeStr, timezone)
+}
+
+/**
+ * Convert a UTC Date to an ISO string in the local timezone
+ * Used for formatting database timestamps back to local time
+ *
+ * @param utcDate - UTC Date object
+ * @param timezone - Optional timezone (defaults to APP_TZ)
+ * @returns ISO string in local timezone (YYYY-MM-DDTHH:mm:ss.sssZ format)
+ */
+export function fromUTC(utcDate: Date, timezone: string = DEFAULT_TZ): string {
+  const zonedDate = toZonedTime(utcDate, timezone)
+  return format(zonedDate, "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+}
+
+/**
+ * Get UTC instant representing 00:00 of the given local day
+ *
+ * @param dateStr - Local date YYYY-MM-DD
+ * @param timezone - Optional timezone (defaults to APP_TZ)
+ * @returns UTC Date object for start of day
+ */
+export function startOfDayUTC(dateStr: string, timezone: string = DEFAULT_TZ): Date {
+  const { start } = getLocalDayWindow(dateStr, timezone)
+  return start
+}
+
+/**
+ * Get UTC instant representing 23:59:59.999 of the given local day
+ *
+ * @param dateStr - Local date YYYY-MM-DD
+ * @param timezone - Optional timezone (defaults to APP_TZ)
+ * @returns UTC Date object for end of day
+ */
+export function endOfDayUTC(dateStr: string, timezone: string = DEFAULT_TZ): Date {
+  const { end } = getLocalDayWindow(dateStr, timezone)
+  return end
+}

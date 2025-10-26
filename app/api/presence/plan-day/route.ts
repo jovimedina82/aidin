@@ -132,7 +132,7 @@ export async function POST(request: Request) {
     // 7. Audit log
     await logEvent({
       action: 'presence.plan_day',
-      entityType: 'staff_presence',
+      entityType: 'user',
       entityId: createdIds[0] || 'bulk',
       actorEmail: currentUser.email,
       actorId: currentUser.id,

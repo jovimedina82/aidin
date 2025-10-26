@@ -53,12 +53,12 @@ export async function DELETE(
     // 5. Audit log
     await logEvent({
       action: 'presence.delete_segment',
-      entityType: 'staff_presence',
+      entityType: 'user',
       entityId: segmentId,
       actorEmail: currentUser.email,
       actorId: currentUser.id,
       actorType: 'human',
-      oldValues: {
+      prevValues: {
         status: segment.status.label,
         startAt: segment.startAt,
         endAt: segment.endAt,

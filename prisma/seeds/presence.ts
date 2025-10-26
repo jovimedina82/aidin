@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient } from '../../lib/generated/prisma'
 
 const prisma = new PrismaClient()
 
@@ -86,8 +86,8 @@ export async function seedPresenceModule() {
   console.log('✅ Presence Module seeded successfully')
 }
 
-// Run if called directly
-if (require.main === module) {
+// Run if called directly (ES module check)
+if (import.meta.url.endsWith(process.argv[1])) {
   seedPresenceModule()
     .catch((e) => {
       console.error('❌ Error seeding Presence Module:', e)

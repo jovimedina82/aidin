@@ -400,7 +400,7 @@ export default function AidinChatPage() {
             </button>
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto p-6 pb-24">
               {!currentSession && messages.length === 0 ? (
                 <div className="h-full flex items-center justify-center">
                   <div className="text-center max-w-md">
@@ -512,8 +512,8 @@ export default function AidinChatPage() {
               )}
             </div>
 
-            {/* Input Area */}
-            <div className="border-t border-gray-200 p-4 bg-gray-50">
+            {/* Input Area - Fixed at bottom */}
+            <div className="fixed bottom-0 right-0 left-0 border-t border-gray-200 p-4 bg-gray-50 z-20 transition-all duration-300" style={{ left: sidebarOpen ? '256px' : '0' }}>
               <form onSubmit={sendMessage} className="max-w-3xl mx-auto">
                 <div className="flex items-center space-x-2">
                   <Input

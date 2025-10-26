@@ -714,54 +714,97 @@ export default function AdminPage() {
   }
 
   return (
+    <>
     <SidebarLayout>
-      <div className="px-4 sm:px-6 md:px-8 pt-4 pb-4 sm:pb-6 md:pb-8">
-        {/* Header */}
-        <div className="mb-6 sm:mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <Settings className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
-            <h1 className="text-2xl sm:text-3xl font-bold">Admin Settings</h1>
+      <Tabs defaultValue="users" className="flex flex-col md:flex-row min-h-screen bg-gray-50" orientation="vertical">
+        {/* Sidebar Navigation */}
+        <aside className="md:w-64 bg-white border-r border-gray-200">
+          <div className="sticky top-0 p-6">
+            <div className="flex items-center gap-3 mb-6 pb-4 border-b">
+              <Settings className="h-6 w-6 text-primary" />
+              <div>
+                <h1 className="text-xl font-bold">Admin Settings</h1>
+                <p className="text-xs text-muted-foreground">System Configuration</p>
+              </div>
+            </div>
+              <TabsList className="flex flex-col w-full h-auto space-y-1 bg-transparent p-0">
+                <TabsTrigger
+                  value="users"
+                  className="w-full justify-start px-4 py-3 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-md"
+                >
+                  <Users className="h-4 w-4 mr-3" />
+                  User Management
+                </TabsTrigger>
+                <TabsTrigger
+                  value="modules"
+                  className="w-full justify-start px-4 py-3 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-md"
+                >
+                  <Shield className="h-4 w-4 mr-3" />
+                  Module Permissions
+                </TabsTrigger>
+                <TabsTrigger
+                  value="tickets"
+                  className="w-full justify-start px-4 py-3 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-md"
+                >
+                  <Ticket className="h-4 w-4 mr-3" />
+                  All Tickets
+                </TabsTrigger>
+                <TabsTrigger
+                  value="tags"
+                  className="w-full justify-start px-4 py-3 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-md"
+                >
+                  <FileText className="h-4 w-4 mr-3" />
+                  Tag Management
+                </TabsTrigger>
+                <TabsTrigger
+                  value="departments"
+                  className="w-full justify-start px-4 py-3 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-md"
+                >
+                  <Building2 className="h-4 w-4 mr-3" />
+                  Departments
+                </TabsTrigger>
+                <TabsTrigger
+                  value="ai-admin"
+                  className="w-full justify-start px-4 py-3 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-md"
+                >
+                  <Brain className="h-4 w-4 mr-3" />
+                  AI Administration
+                </TabsTrigger>
+                <TabsTrigger
+                  value="azure-sync"
+                  className="w-full justify-start px-4 py-3 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-md"
+                >
+                  <Shield className="h-4 w-4 mr-3" />
+                  Azure AD Sync
+                </TabsTrigger>
+                <TabsTrigger
+                  value="audit"
+                  className="w-full justify-start px-4 py-3 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-md"
+                >
+                  <FileText className="h-4 w-4 mr-3" />
+                  Audit Log
+                </TabsTrigger>
+                <TabsTrigger
+                  value="settings"
+                  className="w-full justify-start px-4 py-3 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-md"
+                >
+                  <Settings className="h-4 w-4 mr-3" />
+                  System Settings
+                </TabsTrigger>
+                <TabsTrigger
+                  value="integrations"
+                  className="w-full justify-start px-4 py-3 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-md"
+                >
+                  <Settings className="h-4 w-4 mr-3" />
+                  Integrations
+                </TabsTrigger>
+              </TabsList>
           </div>
-          <p className="text-sm sm:text-base text-muted-foreground">
-            Manage users, roles, and system configuration
-          </p>
-        </div>
+        </aside>
 
-        <Tabs defaultValue="users" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-10 gap-1 h-auto p-1">
-            <TabsTrigger value="users" className="text-[10px] leading-tight py-2 px-1 sm:text-sm sm:py-2 sm:px-3 whitespace-normal min-h-[44px]">
-              User Management
-            </TabsTrigger>
-            <TabsTrigger value="modules" className="text-[10px] leading-tight py-2 px-1 sm:text-sm sm:py-2 sm:px-3 whitespace-normal min-h-[44px]">
-              Module Permissions
-            </TabsTrigger>
-            <TabsTrigger value="tickets" className="text-[10px] leading-tight py-2 px-1 sm:text-sm sm:py-2 sm:px-3 whitespace-normal min-h-[44px]">
-              All Tickets
-            </TabsTrigger>
-            <TabsTrigger value="tags" className="text-[10px] leading-tight py-2 px-1 sm:text-sm sm:py-2 sm:px-3 whitespace-normal min-h-[44px]">
-              Tag Management
-            </TabsTrigger>
-            <TabsTrigger value="departments" className="text-[10px] leading-tight py-2 px-1 sm:text-sm sm:py-2 sm:px-3 whitespace-normal min-h-[44px]">
-              Departments
-            </TabsTrigger>
-            <TabsTrigger value="ai-admin" className="text-[10px] leading-tight py-2 px-1 sm:text-sm sm:py-2 sm:px-3 whitespace-normal min-h-[44px]">
-              AI Admin
-            </TabsTrigger>
-            <TabsTrigger value="azure-sync" className="text-[10px] leading-tight py-2 px-1 sm:text-sm sm:py-2 sm:px-3 whitespace-normal min-h-[44px]">
-              Azure AD
-            </TabsTrigger>
-            <TabsTrigger value="audit" className="text-[10px] leading-tight py-2 px-1 sm:text-sm sm:py-2 sm:px-3 whitespace-normal min-h-[44px]">
-              Audit Log
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="text-[10px] leading-tight py-2 px-1 sm:text-sm sm:py-2 sm:px-3 whitespace-normal min-h-[44px]">
-              Settings
-            </TabsTrigger>
-            <TabsTrigger value="integrations" className="text-[10px] leading-tight py-2 px-1 sm:text-sm sm:py-2 sm:px-3 whitespace-normal min-h-[44px]">
-              Integrations
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="users" className="space-y-6">
+        {/* Main Content Area */}
+        <main className="flex-1 p-6 md:p-8 overflow-auto">
+          <TabsContent value="users" className="mt-0">
             <Card>
               <CardHeader>
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -829,93 +872,38 @@ export default function AdminPage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="overflow-x-auto -mx-4 sm:mx-0">
-                    <div className="inline-block min-w-full align-middle">
-                      <div className="overflow-hidden">
-                        <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-8 sm:w-12">
-                          <Checkbox
-                            checked={selectedUsers.length === filteredUsers.length && filteredUsers.length > 0}
-                            onCheckedChange={handleSelectAll}
-                          />
-                        </TableHead>
-                        <TableHead className="text-xs sm:text-sm">Name</TableHead>
-                        <TableHead className="text-xs sm:text-sm hidden md:table-cell">Email</TableHead>
-                        <TableHead className="text-xs sm:text-sm hidden lg:table-cell">Department</TableHead>
-                        <TableHead className="text-xs sm:text-sm">Roles</TableHead>
-                        <TableHead className="text-xs sm:text-sm hidden sm:table-cell">Status</TableHead>
-                        <TableHead className="text-xs sm:text-sm">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-10">
+                            <Checkbox
+                              checked={selectedUsers.length === filteredUsers.length && filteredUsers.length > 0}
+                              onCheckedChange={handleSelectAll}
+                            />
+                          </TableHead>
+                          <TableHead className="text-sm min-w-[140px]">Name</TableHead>
+                          <TableHead className="text-sm min-w-[200px]">Email</TableHead>
+                          <TableHead className="text-sm min-w-[100px]">Roles</TableHead>
+                          <TableHead className="text-sm w-16">Status</TableHead>
+                          <TableHead className="text-sm w-20 text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
                     <TableBody>
                       {filteredUsers.map((user) => (
                         <TableRow key={user.id}>
-                          <TableCell>
+                          <TableCell className="w-10">
                             <Checkbox
                               checked={selectedUsers.includes(user.id)}
                               onCheckedChange={(checked) => handleSelectUser(user.id, checked)}
                             />
                           </TableCell>
-                          <TableCell className="font-medium text-xs sm:text-sm">
-                            <div className="min-w-[100px]">
-                              {user.firstName} {user.lastName}
-                            </div>
-                            <div className="md:hidden text-xs text-muted-foreground mt-1">{user.email}</div>
+                          <TableCell className="font-medium text-sm min-w-[140px]">
+                            {user.firstName} {user.lastName}
                           </TableCell>
-                          <TableCell className="hidden md:table-cell text-xs sm:text-sm">{user.email}</TableCell>
-                          <TableCell className="hidden lg:table-cell">
-                            <div className="space-y-1 min-w-[150px]">
-                              <div className="flex flex-wrap gap-1 min-h-[20px]">
-                                {user.departments?.length > 0 ? (
-                                  user.departments.map((userDept) => (
-                                    <Badge key={userDept.department.id} variant="secondary" className="text-xs">
-                                      {userDept.department.name}
-                                      <button
-                                        onClick={() => {
-                                          const currentDeptIds = user.departments.map(d => d.department.id)
-                                          const newDeptIds = currentDeptIds.filter(id => id !== userDept.department.id)
-                                          handleEditUser(user.id, { departmentIds: newDeptIds })
-                                        }}
-                                        className="ml-1 text-red-500 hover:text-red-700"
-                                      >
-                                        ×
-                                      </button>
-                                    </Badge>
-                                  ))
-                                ) : (
-                                  <span className="text-gray-400 text-xs">No departments</span>
-                                )}
-                              </div>
-                              <Select
-                                value=""
-                                onValueChange={(departmentId) => {
-                                  if (departmentId && departmentId !== "0") {
-                                    const currentDeptIds = user.departments?.map(d => d.department.id) || []
-                                    if (!currentDeptIds.includes(departmentId)) {
-                                      handleEditUser(user.id, { departmentIds: [...currentDeptIds, departmentId] })
-                                    }
-                                  }
-                                }}
-                              >
-                                <SelectTrigger className="w-36 h-6 text-xs">
-                                  <SelectValue placeholder="+ Add dept" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {departments.filter(dept =>
-                                    !user.departments?.some(userDept => userDept.department.id === dept.id)
-                                  ).map((dept) => (
-                                    <SelectItem key={dept.id} value={dept.id.toString()}>
-                                      {dept.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-1 flex-wrap min-w-[80px]">
+                          <TableCell className="text-sm min-w-[200px]">{user.email}</TableCell>
+                          <TableCell className="min-w-[100px]">
+                            <div className="flex gap-1 flex-wrap">
                               {user.roles?.map((roleAssignment) => (
                                 <Badge key={roleAssignment.role.name} variant="outline" className="text-xs">
                                   {roleAssignment.role.name}
@@ -923,89 +911,75 @@ export default function AdminPage() {
                               ))}
                             </div>
                           </TableCell>
-                          <TableCell className="hidden sm:table-cell">
+                          <TableCell className="w-16">
                             <Badge variant={user.isActive ? "default" : "secondary"} className="text-xs">
                               {user.isActive ? "Active" : "Inactive"}
                             </Badge>
                           </TableCell>
-                          <TableCell>
-                            <div className="flex gap-1 sm:gap-2 flex-wrap min-w-[100px] sm:min-w-[200px]">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
+                          <TableCell className="w-20 text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => {
                                   setEditingUser(user)
                                   setIsEditDialogOpen(true)
-                                }}
-                                className="h-8 w-8 p-0 sm:h-9 sm:w-9"
-                              >
-                                <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
-                              </Button>
-                              <Select
-                                onValueChange={(role) => {
-                                  const currentRoles = user.roles?.map(r => r.role.name) || []
-                                  const newRoles = currentRoles.includes(role)
-                                    ? currentRoles.filter(r => r !== role)
-                                    : [...currentRoles, role]
-                                  updateUserRoles(user.id, newRoles)
-                                }}
-                              >
-                                <SelectTrigger className="w-20 h-8 text-xs sm:w-32 sm:h-9 sm:text-sm">
-                                  <SelectValue placeholder="Role" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="Admin">Admin</SelectItem>
-                                  <SelectItem value="Manager">Manager</SelectItem>
-                                  <SelectItem value="Staff">Staff</SelectItem>
-                                  <SelectItem value="Requester">Requester</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
+                                }}>
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  Edit User
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => {
                                   handleEditUser(user.id, { isActive: !user.isActive })
-                                }}
-                                className="h-8 w-8 p-0 sm:h-9 sm:w-9"
-                              >
-                                {user.isActive ? (
-                                  <UserX className="h-3 w-3 sm:h-4 sm:w-4 text-orange-500" />
-                                ) : (
-                                  <UserCheck className="h-3 w-3 sm:h-4 sm:w-4 text-green-500" />
-                                )}
-                              </Button>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 sm:h-9 sm:w-9">
-                                    <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 text-red-500" />
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent className="max-w-[90vw] sm:max-w-lg">
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Delete User</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Are you sure you want to delete {user.firstName} {user.lastName}? This action cannot be undone.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction
-                                      onClick={() => handleDeleteUser(user.id)}
-                                      className="bg-red-600 hover:bg-red-700"
-                                    >
-                                      Delete User
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </div>
+                                }}>
+                                  {user.isActive ? (
+                                    <>
+                                      <UserX className="mr-2 h-4 w-4 text-orange-500" />
+                                      Deactivate
+                                    </>
+                                  ) : (
+                                    <>
+                                      <UserCheck className="mr-2 h-4 w-4 text-green-500" />
+                                      Activate
+                                    </>
+                                  )}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem asChild>
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <div className="flex items-center cursor-pointer text-red-600 focus:text-red-600">
+                                        <Trash2 className="mr-2 h-4 w-4" />
+                                        Delete User
+                                      </div>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent className="max-w-[90vw] sm:max-w-lg">
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>Delete User</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          Are you sure you want to delete {user.firstName} {user.lastName}? This action cannot be undone.
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction
+                                          onClick={() => handleDeleteUser(user.id)}
+                                          className="bg-red-600 hover:bg-red-700"
+                                        >
+                                          Delete User
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
-                  </Table>
-                      </div>
-                    </div>
+                    </Table>
                   </div>
                 )}
               </CardContent>
@@ -1894,9 +1868,11 @@ export default function AdminPage() {
               </CardContent>
             </Card>
           </TabsContent>
-        </Tabs>
+        </main>
+      </Tabs>
+    </SidebarLayout>
 
-        {/* Add User Dialog */}
+      {/* Add User Dialog */}
         <Dialog open={isAddUserDialogOpen} onOpenChange={setIsAddUserDialogOpen}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
@@ -2148,7 +2124,6 @@ export default function AdminPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-      </div>
-    </SidebarLayout>
+    </>
   )
 }

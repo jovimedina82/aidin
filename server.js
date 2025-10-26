@@ -43,6 +43,17 @@ app.prepare().then(async () => {
     console.log('> Email webhook: DISABLED (using polling only)')
   }
 
+  // Initialize Email Polling
+  if (process.env.EMAIL_POLLING_ENABLED === 'true') {
+    try {
+      const { startEmailPolling } = await import('./lib/start-email-polling.js')
+      startEmailPolling()
+    } catch (error) {
+      console.error('Failed to start email polling:', error.message)
+      console.error(error.stack)
+    }
+  }
+
   server.listen(port, hostname, (err) => {
     if (err) throw err
     console.log(`> Ready on http://${hostname}:${port}`)

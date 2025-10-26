@@ -42,7 +42,6 @@ model User {
   manager            User?                @relation("UserManager", fields: [managerId], references: [id])
   directReports      User[]               @relation("UserManager")
   staffPresence      StaffPresence[]
-  officeHours        OfficeHours[]
 
   @@map("users")
 }
@@ -623,11 +622,11 @@ model Module {
   icon        String?                              // Icon name for UI (e.g., "Ticket", "BarChart3")
   route       String?                              // Primary route path (e.g., "/tickets", "/reports")
   category    String?                              // Module category (e.g., "core", "admin", "features")
-  isCore      Boolean  @default(false)            // Core modules can't be disabled (Dashboard, Profile)
-  isActive    Boolean  @default(true)             // Module is active and available
-  sortOrder   Int      @default(0)                // Display order in UI
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  isCore      Boolean  @default(false) @map("is_core")      // Core modules can't be disabled (Dashboard, Profile)
+  isActive    Boolean  @default(true) @map("is_active")   // Module is active and available
+  sortOrder   Int      @default(0) @map("sort_order")     // Display order in UI
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   userModuleAccess UserModuleAccess[]
   roleModuleAccess RoleModuleAccess[]
@@ -642,8 +641,8 @@ model UserModuleAccess {
   id        String   @id @default(uuid())
   userId    String   @map("user_id")
   moduleId  String   @map("module_id")
-  hasAccess Boolean  @default(true)              // Grant or deny access
-  grantedBy String?  @map("granted_by")          // Admin who granted/revoked access
+  hasAccess Boolean  @default(true) @map("has_access")  // Grant or deny access
+  grantedBy String?  @map("granted_by")                 // Admin who granted/revoked access
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -661,7 +660,7 @@ model RoleModuleAccess {
   id        String   @id @default(uuid())
   roleId    String   @map("role_id")
   moduleId  String   @map("module_id")
-  hasAccess Boolean  @default(true)              // Grant or deny access
+  hasAccess Boolean  @default(true) @map("has_access")  // Grant or deny access
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -701,74 +700,64 @@ enum AssetVariant {
   thumb
 }
 
-enum PresenceStatus {
-  AVAILABLE
-  VACATION
-  SICK
-  REMOTE
-  IN_OFFICE
-  AFTER_HOURS
-}
+// ==============================================
+// PRESENCE MODULE - Data-driven, Extensible
+// ==============================================
 
-enum OfficeLocation {
-  NEWPORT
-  LAGUNA_BEACH
-  DANA_POINT
-}
-
-// Staff presence tracking - where staff members are and their availability
-model StaffPresence {
+// Status lookup table - replaces hard-coded PresenceStatus enum
+model PresenceStatusType {
   id             String          @id @default(uuid())
-  userId         String          @map("user_id")
-  status         PresenceStatus
-  officeLocation OfficeLocation? @map("office_location") // Only set when status is IN_OFFICE
-  notes          String?                                // Optional context (e.g., "Back on Monday")
-  startDate      DateTime        @map("start_date")     // When this status becomes effective
-  endDate        DateTime?       @map("end_date")       // When this status ends (null = indefinite)
-  isActive       Boolean         @default(true)         @map("is_active") // Only one active status per user
-  createdAt      DateTime        @default(now())        @map("created_at")
-  updatedAt      DateTime        @updatedAt             @map("updated_at")
-  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code           String          @unique                    // e.g., "AVAILABLE", "VACATION", "REMOTE"
+  label          String                                     // Display name: "Available", "Vacation"
+  category       String          @default("presence")        // Category for grouping
+  requiresOffice Boolean         @default(false)            // Whether this status requires an office location
+  color          String?                                    // Hex color for UI (e.g., "#22c55e")
+  icon           String?                                    // Icon name for UI (e.g., "Check", "Plane")
+  isActive       Boolean         @default(true)             // Soft-disable instead of delete
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  staffPresence  StaffPresence[]
 
-  @@index([userId, isActive])
-  @@index([startDate, endDate])
-  @@index([status])
-  @@map("staff_presence")
-}
-
-// Office hours - each user's working schedule (e.g., 9-5 Monday-Friday)
-model OfficeHours {
-  id        String   @id @default(uuid())
-  userId    String   @map("user_id")
-  dayOfWeek Int      @map("day_of_week") // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-  startTime String   @map("start_time")  // HH:MM format (e.g., "09:00")
-  endTime   String   @map("end_time")    // HH:MM format (e.g., "17:00")
-  isActive  Boolean  @default(true)      @map("is_active") // Allow disabling specific days
-  createdAt DateTime @default(now())     @map("created_at")
-  updatedAt DateTime @updatedAt          @map("updated_at")
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, dayOfWeek])
-  @@index([userId, isActive])
-  @@index([dayOfWeek])
-  @@map("office_hours")
-}
-
-// Company holidays - specific dates when the office is closed
-model Holiday {
-  id          String   @id @default(uuid())
-  name        String                             // e.g., "Thanksgiving"
-  description String?                            // Optional details
-  startDate   DateTime @map("start_date")        // When holiday starts
-  endDate     DateTime @map("end_date")          // When holiday ends (at 5pm)
-  isActive    Boolean  @default(true)            @map("is_active") // Can disable without deleting
-  createdBy   String   @map("created_by")        // Admin who created it
-  createdAt   DateTime @default(now())           @map("created_at")
-  updatedAt   DateTime @updatedAt                @map("updated_at")
-
-  @@index([startDate, endDate])
   @@index([isActive])
-  @@map("holidays")
+  @@index([code])
+  @@map("presence_status_types")
+}
+
+// Office location lookup table - replaces hard-coded OfficeLocation enum
+model PresenceOfficeLocation {
+  id            String          @id @default(uuid())
+  code          String          @unique                    // e.g., "NEWPORT_BEACH", "LAGUNA_BEACH"
+  name          String                                     // Display name: "Newport Beach"
+  isActive      Boolean         @default(true)             // Soft-disable instead of delete
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  staffPresence StaffPresence[]
+
+  @@index([isActive])
+  @@index([code])
+  @@map("presence_office_locations")
+}
+
+// Staff presence - multi-segment daily schedules with 8h cap
+model StaffPresence {
+  id               String                    @id @default(uuid())
+  userId           String                    @map("user_id")
+  statusId         String                    @map("status_id")
+  officeLocationId String?                   @map("office_location_id")
+  notes            String?                                         // Max 500 chars, validated in app
+  startAt          DateTime                  @map("start_at")      // UTC timestamp
+  endAt            DateTime                  @map("end_at")        // UTC timestamp
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+  user             User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status           PresenceStatusType        @relation(fields: [statusId], references: [id], onDelete: Restrict)
+  officeLocation   PresenceOfficeLocation?   @relation(fields: [officeLocationId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, startAt, endAt, statusId, officeLocationId])
+  @@index([userId, startAt])
+  @@index([statusId])
+  @@index([officeLocationId])
+  @@map("staff_presence")
 }
 
 // AidIN Chat Sessions - AI assistant conversations for staff members

@@ -82,6 +82,12 @@ export async function GET(request, { params }) {
           orderBy: {
             receivedAt: 'desc'
           }
+        },
+        // Include CC recipients
+        cc: {
+          orderBy: {
+            addedAt: 'asc'
+          }
         }
       }
     })

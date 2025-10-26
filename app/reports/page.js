@@ -633,7 +633,6 @@ export default function ReportsPage() {
                           ))}
                         </Pie>
                         <Tooltip formatter={(value, name) => [`${value} tickets`, name]} />
-                        <Legend />
                       </PieChart>
                     </ResponsiveContainer>
                   </div>

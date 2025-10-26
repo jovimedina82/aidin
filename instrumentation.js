@@ -2,8 +2,8 @@
 // See: https://nextjs.org/docs/app/building-your-application/optimizing/instrumentation
 
 export async function register() {
-  // Only run on server side
-  if (process.env.NEXT_RUNTIME === 'nodejs') {
+  // Only run on server side (or when manually called from server.js)
+  if (process.env.NEXT_RUNTIME === 'nodejs' || process.env.NODE_ENV === 'production') {
     console.log('🚀 Initializing server components...')
 
     // Import and start the Azure AD sync scheduler
@@ -31,14 +31,6 @@ export async function register() {
     console.log('🔒 Starting audit log cleanup scheduler...')
     auditLogCleanupScheduler.start()
 
-    // Start email polling service (if enabled)
-    const emailPollingEnabled = process.env.EMAIL_POLLING_ENABLED === 'true'
-    if (emailPollingEnabled) {
-      console.log('📬 Starting email polling service...')
-      const { startEmailPolling } = await import('./modules/email-polling/job.ts')
-      startEmailPolling()
-    } else {
-      console.log('⏸️  Email polling disabled (EMAIL_POLLING_ENABLED not set to true)')
-    }
+    // Email polling is started from server.js instead to avoid webpack bundling issues
   }
 }

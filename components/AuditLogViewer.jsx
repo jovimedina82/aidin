@@ -8,6 +8,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -310,32 +318,31 @@ export default function AuditLogViewer() {
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left p-2">Timestamp</th>
-                  <th className="text-left p-2">Action</th>
-                  <th className="text-left p-2">Actor</th>
-                  <th className="text-left p-2">Type</th>
-                  <th className="text-left p-2">Entity</th>
-                  <th className="text-left p-2">Details</th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-sm min-w-[160px]">Timestamp</TableHead>
+                  <TableHead className="text-sm min-w-[120px]">Action</TableHead>
+                  <TableHead className="text-sm min-w-[180px]">Actor</TableHead>
+                  <TableHead className="text-sm w-20">Type</TableHead>
+                  <TableHead className="text-sm min-w-[140px]">Entity</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {logs.map((log) => (
-                  <tr
+                  <TableRow
                     key={log.id}
-                    className="border-b hover:bg-muted cursor-pointer"
+                    className="cursor-pointer"
                     onClick={() => setSelectedLog(log)}
                   >
-                    <td className="p-2 text-sm">
+                    <TableCell className="text-sm min-w-[160px]">
                       {new Date(log.ts).toLocaleString()}
-                    </td>
-                    <td className="p-2">
-                      <Badge variant="outline">{log.action}</Badge>
-                    </td>
-                    <td className="p-2 text-sm">{log.actorEmail}</td>
-                    <td className="p-2">
+                    </TableCell>
+                    <TableCell className="min-w-[120px]">
+                      <Badge variant="outline" className="text-xs">{log.action}</Badge>
+                    </TableCell>
+                    <TableCell className="text-sm min-w-[180px]">{log.actorEmail}</TableCell>
+                    <TableCell className="w-20">
                       <Badge
                         variant={
                           log.actorType === 'human'
@@ -344,32 +351,27 @@ export default function AuditLogViewer() {
                             ? 'secondary'
                             : 'outline'
                         }
+                        className="text-xs"
                       >
                         {log.actorType}
                       </Badge>
-                    </td>
-                    <td className="p-2 text-sm">
+                    </TableCell>
+                    <TableCell className="text-sm min-w-[140px]">
                       {log.entityType === 'comment' && log.metadata?.ticketNumber ? (
-                        <>
-                          {log.entityType}: {log.entityId.substring(0, 8)}...
-                          <br />
+                        <div className="flex flex-col">
+                          <span>{log.entityType}: {log.entityId.substring(0, 8)}...</span>
                           <span className="text-xs text-muted-foreground">
                             Ticket: {log.metadata.ticketNumber}
                           </span>
-                        </>
+                        </div>
                       ) : (
-                        <>
-                          {log.entityType}: {log.entityId}
-                        </>
+                        <span>{log.entityType}: {log.entityId}</span>
                       )}
-                    </td>
-                    <td className="p-2 text-sm text-muted-foreground">
-                      {log.requestId?.substring(0, 8)}...
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
 
           {/* Pagination */}

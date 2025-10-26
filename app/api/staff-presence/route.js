@@ -62,13 +62,21 @@ export async function GET(request) {
 
     // Otherwise, get all staff presences (only staff members)
     const now = new Date()
+    const futureDate = new Date()
+    futureDate.setDate(futureDate.getDate() + 7) // Include presences up to 7 days in the future
+
+    console.log('🔍 Staff Presence Query:', {
+      now: now.toISOString(),
+      futureDate: futureDate.toISOString()
+    })
+
     const allPresence = await prisma.staffPresence.findMany({
       where: {
         isActive: true,
-        startDate: { lte: now }, // Status has started
+        startDate: { lte: futureDate }, // Include upcoming presences within next 7 days
         OR: [
           { endDate: null }, // No end date (indefinite)
-          { endDate: { gte: now } } // Or end date is in the future
+          { endDate: { gte: now } } // Or end date is in the future (not expired)
         ],
         user: {
           roles: {
@@ -108,6 +116,11 @@ export async function GET(request) {
         { status: 'asc' },
         { user: { lastName: 'asc' } }
       ]
+    })
+
+    console.log(`📊 Found ${allPresence.length} staff presence records`)
+    allPresence.forEach((p, i) => {
+      console.log(`  ${i + 1}. ${p.user.firstName} ${p.user.lastName} - ${p.status} (start: ${p.startDate}, end: ${p.endDate})`)
     })
 
     // Check if each staff member is currently after hours
@@ -202,6 +215,15 @@ export async function POST(request) {
 
     const body = await request.json()
     const { status, officeLocation, notes, startDate, endDate, userId } = body
+
+    console.log('📋 Creating staff presence:', {
+      userId: user.id,
+      status,
+      officeLocation,
+      startDate,
+      endDate,
+      hasNotes: !!notes
+    })
 
     // Validate required fields
     if (!status || !startDate) {
@@ -308,8 +330,15 @@ export async function POST(request) {
 
     return NextResponse.json({ success: true, presence })
   } catch (error) {
-    console.error('Error creating staff presence:', error)
-    return NextResponse.json({ error: 'Failed to create staff presence' }, { status: 500 })
+    console.error('❌ Error creating staff presence:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    })
+    return NextResponse.json({
+      error: 'Failed to create staff presence',
+      details: error.message
+    }, { status: 500 })
   }
 }
 

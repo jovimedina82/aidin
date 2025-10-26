@@ -274,7 +274,7 @@ ${similarResolvedTickets.map((ticket, index) => {
     // Add Staff Presence Information to context
     if (isStaffLocationQuery && staffPresenceInfo.length > 0) {
       const OFFICE_LOCATIONS = {
-        NEWPORT: 'Newport Office',
+        NEWPORT_BEACH: 'Newport Beach Office',
         LAGUNA_BEACH: 'Laguna Beach Office',
         DANA_POINT: 'Dana Point Office'
       }

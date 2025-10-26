@@ -62,18 +62,15 @@ export async function GET(request) {
 
     // Otherwise, get all staff presences (only staff members)
     const now = new Date()
-    const futureDate = new Date()
-    futureDate.setDate(futureDate.getDate() + 7) // Include presences up to 7 days in the future
 
     console.log('🔍 Staff Presence Query:', {
-      now: now.toISOString(),
-      futureDate: futureDate.toISOString()
+      now: now.toISOString()
     })
 
     const allPresence = await prisma.staffPresence.findMany({
       where: {
         isActive: true,
-        startDate: { lte: futureDate }, // Include upcoming presences within next 7 days
+        startDate: { lte: now }, // Only show presences that have already started (current status)
         OR: [
           { endDate: null }, // No end date (indefinite)
           { endDate: { gte: now } } // Or end date is in the future (not expired)

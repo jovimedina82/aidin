@@ -152,20 +152,91 @@ export async function GET(request) {
       count
     }))
 
-    // Generate SLA compliance data (simplified)
-    const slaCompliance = [
-      { period: 'Week 1', compliance: 85 },
-      { period: 'Week 2', compliance: 92 },
-      { period: 'Week 3', compliance: 78 },
-      { period: 'Week 4', compliance: 88 }
-    ]
+    // Define SLA targets (in hours) for each priority level
+    const SLA_TARGETS = {
+      URGENT: 4,    // 4 hours to resolve
+      HIGH: 8,      // 8 hours to resolve
+      NORMAL: 24,   // 24 hours to resolve
+      LOW: 72       // 72 hours to resolve
+    }
 
-    // Generate response times data (simplified)
-    const responseTimes = [
-      { category: 'High Priority', avgTime: 2.5 },
-      { category: 'Normal Priority', avgTime: 8.2 },
-      { category: 'Low Priority', avgTime: 24.1 }
-    ]
+    // Calculate real SLA compliance per day (last 7 days)
+    const slaCompliance = []
+    const last7Days = Math.min(7, daysInRange)
+
+    for (let i = 0; i < last7Days; i++) {
+      const currentDate = new Date(endDate)
+      currentDate.setDate(endDate.getDate() - (last7Days - 1 - i))
+      const nextDate = new Date(currentDate)
+      nextDate.setDate(currentDate.getDate() + 1)
+
+      // Get tickets resolved on this day
+      const resolvedOnDay = tickets.filter(t => {
+        if (!t.resolvedAt) return false
+        const resolvedDate = new Date(t.resolvedAt)
+        return resolvedDate >= currentDate && resolvedDate < nextDate
+      })
+
+      if (resolvedOnDay.length > 0) {
+        let metSLA = 0
+
+        resolvedOnDay.forEach(ticket => {
+          const resolutionTimeMs = new Date(ticket.resolvedAt) - new Date(ticket.createdAt)
+          const resolutionTimeHours = resolutionTimeMs / (1000 * 60 * 60)
+          const slaTarget = SLA_TARGETS[ticket.priority] || SLA_TARGETS.NORMAL
+
+          if (resolutionTimeHours <= slaTarget) {
+            metSLA++
+          }
+        })
+
+        const compliance = Math.round((metSLA / resolvedOnDay.length) * 100)
+        slaCompliance.push({
+          date: currentDate.toISOString().split('T')[0],
+          compliance
+        })
+      } else {
+        // No tickets resolved on this day
+        slaCompliance.push({
+          date: currentDate.toISOString().split('T')[0],
+          compliance: null
+        })
+      }
+    }
+
+    // Calculate real response times (MTTR - Mean Time To Resolution) per day (last 7 days)
+    const responseTimes = []
+
+    for (let i = 0; i < last7Days; i++) {
+      const currentDate = new Date(endDate)
+      currentDate.setDate(endDate.getDate() - (last7Days - 1 - i))
+      const nextDate = new Date(currentDate)
+      nextDate.setDate(currentDate.getDate() + 1)
+
+      // Get tickets resolved on this day
+      const resolvedOnDay = tickets.filter(t => {
+        if (!t.resolvedAt) return false
+        const resolvedDate = new Date(t.resolvedAt)
+        return resolvedDate >= currentDate && resolvedDate < nextDate
+      })
+
+      if (resolvedOnDay.length > 0) {
+        let totalHours = 0
+
+        resolvedOnDay.forEach(ticket => {
+          const resolutionTimeMs = new Date(ticket.resolvedAt) - new Date(ticket.createdAt)
+          const resolutionTimeHours = resolutionTimeMs / (1000 * 60 * 60)
+          totalHours += resolutionTimeHours
+        })
+
+        const avgHours = Math.round((totalHours / resolvedOnDay.length) * 10) / 10
+        responseTimes.push({
+          date: currentDate.toISOString().split('T')[0],
+          avgHours,
+          ticketCount: resolvedOnDay.length
+        })
+      }
+    }
 
     const analytics = {
       ticketTrends,

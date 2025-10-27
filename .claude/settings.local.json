@@ -191,7 +191,8 @@
       "Bash(node /tmp/check-jovi.js:*)",
       "Bash(node /tmp/check-schedules.js:*)",
       "Bash(node /opt/apps/Aidin/check-schedules.js:*)",
-      "Bash(node /opt/apps/Aidin/check-schedules.mjs:*)"
+      "Bash(node /opt/apps/Aidin/check-schedules.mjs:*)",
+      "Bash(node -e:*)"
     ],
     "deny": [],
     "ask": []

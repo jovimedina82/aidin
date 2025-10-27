@@ -14,24 +14,19 @@ import { resolveStatus, resolveOffice } from './registry'
 import { crossesMidnight } from './timezone'
 import { add } from 'date-fns'
 
-export const MAX_DAY_MINUTES = parseInt(process.env.MAX_DAY_MINUTES || '480', 10) // 8 hours
-export const MAX_RANGE_DAYS = parseInt(process.env.MAX_RANGE_DAYS || '30', 10)
+// Re-export client-safe utilities
+export {
+  MAX_DAY_MINUTES,
+  MAX_RANGE_DAYS,
+  SegmentZ,
+  calculateTotalMinutes,
+  calculateRemainingMinutes,
+  formatDuration,
+  type Segment,
+} from './validation-utils'
 
-// HH:mm regex
-const TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/
-
-/**
- * Base segment schema
- */
-export const SegmentZ = z.object({
-  statusCode: z.string().min(1, 'Status code is required'),
-  officeCode: z.string().optional(),
-  from: z.string().regex(TIME_REGEX, 'Invalid time format. Use HH:mm'),
-  to: z.string().regex(TIME_REGEX, 'Invalid time format. Use HH:mm'),
-  notes: z.string().max(500, 'Notes must be ≤500 characters').optional(),
-})
-
-export type Segment = z.infer<typeof SegmentZ>
+import { SegmentZ, MAX_DAY_MINUTES, MAX_RANGE_DAYS } from './validation-utils'
+import type { Segment } from './validation-utils'
 
 /**
  * Plan day schema (before business rule validation)
@@ -134,11 +129,20 @@ export async function validateSegments(segments: Segment[]): Promise<void> {
 
   // 2. Check for overlaps
   for (let i = 0; i < segments.length; i++) {
+    const segI = segments[i]
+    if (!segI.from || !segI.to) continue // Skip invalid segments
+
     for (let j = i + 1; j < segments.length; j++) {
-      if (rangesOverlap(segments[i], segments[j])) {
+      const segJ = segments[j]
+      if (!segJ.from || !segJ.to) continue // Skip invalid segments
+
+      if (rangesOverlap(
+        { from: segI.from, to: segI.to },
+        { from: segJ.from, to: segJ.to }
+      )) {
         errors.push({
           field: `segments[${j}]`,
-          message: `Overlaps with segment ${i + 1} (${segments[i].from}–${segments[i].to})`,
+          message: `Overlaps with segment ${i + 1} (${segI.from}–${segI.to})`,
         })
       }
     }
@@ -146,6 +150,7 @@ export async function validateSegments(segments: Segment[]): Promise<void> {
 
   // 3. Check daily duration cap
   const totalMinutes = segments.reduce((sum, seg) => {
+    if (!seg.from || !seg.to) return sum // Skip invalid segments
     return sum + calculateDuration(seg.from, seg.to)
   }, 0)
 
@@ -202,33 +207,4 @@ export async function validatePlanDay(plan: PlanDay): Promise<void> {
   if (errors.length > 0) {
     throw errors
   }
-}
-
-/**
- * Calculate total minutes for segments
- */
-export function calculateTotalMinutes(segments: Segment[]): number {
-  return segments.reduce((sum, seg) => {
-    return sum + calculateDuration(seg.from, seg.to)
-  }, 0)
-}
-
-/**
- * Calculate remaining minutes before hitting cap
- */
-export function calculateRemainingMinutes(segments: Segment[]): number {
-  const total = calculateTotalMinutes(segments)
-  return Math.max(0, MAX_DAY_MINUTES - total)
-}
-
-/**
- * Format minutes as "Xh Ym" or "Xh" or "Ym"
- */
-export function formatDuration(minutes: number): string {
-  const hours = Math.floor(minutes / 60)
-  const mins = minutes % 60
-
-  if (hours === 0) return `${mins}m`
-  if (mins === 0) return `${hours}h`
-  return `${hours}h ${mins}m`
 }

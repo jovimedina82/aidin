@@ -44,6 +44,9 @@ const nextConfig = {
       'jspdf-autotable',
       'whatwg-url',
       'webidl-conversions',
+      '@prisma/client',
+      'prisma',
+      'node-cron',
     ],
     // Enable instrumentation for server initialization
     instrumentationHook: true,
@@ -85,6 +88,22 @@ const nextConfig = {
         jsdom: false,
         'whatwg-url': false,
         'webidl-conversions': false,
+      };
+    } else {
+      // Client-side: exclude Node.js built-in modules
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+        crypto: false,
+        path: false,
+        os: false,
+        stream: false,
+        http: false,
+        https: false,
+        zlib: false,
+        child_process: false,
       };
     }
 

@@ -39,7 +39,7 @@ export async function POST(request: Request) {
         actorId: user.id,
         actorEmail: user.email,
         actorType: 'human',
-        entityType: 'auth',
+        entityType: 'user',
         entityId: user.id,
         metadata: {
           reason: 'not_admin',
@@ -86,7 +86,7 @@ export async function POST(request: Request) {
       actorId: user.id,
       actorEmail: user.email,
       actorType: 'human',
-      entityType: 'auth',
+      entityType: 'user',
       entityId: user.id,
       metadata: {
         expiresIn: '30m',

@@ -34,13 +34,8 @@ export async function GET(request: NextRequest) {
 
     const targetUserId = userIdParam || currentUser.id
 
-    // 3. Authorization: can only view own schedule unless admin
-    if (targetUserId !== currentUser.id && !isAdmin(currentUser)) {
-      return NextResponse.json(
-        { error: 'Forbidden: You can only view your own schedule' },
-        { status: 403 }
-      )
-    }
+    // 3. Authorization: All authenticated users can VIEW schedules (read-only)
+    // Editing restrictions are enforced in POST/DELETE endpoints
 
     // 4. Fetch segments for the day
     const dayWindow = getLocalDayWindow(dateParam)

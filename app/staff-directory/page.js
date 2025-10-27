@@ -271,15 +271,29 @@ function StaffDirectoryPage() {
               Staff Directory
             </h1>
             <p className="text-muted-foreground mt-2">
-              View staff availability, contact information, and schedules
+              View staff availability, contact information, and schedules. Click "My Schedule" to manage your own schedule.
             </p>
           </div>
-          {isAdmin && (
-            <Button onClick={() => setAddStaffModalOpen(true)} className="flex items-center gap-2">
-              <UserPlus className="h-4 w-4" />
-              Add Staff Member
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {/* My Schedule Button for All Staff */}
+            {currentUser && (
+              <Button
+                onClick={() => openPresenceModal(currentUser)}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <Calendar className="h-4 w-4" />
+                My Schedule
+              </Button>
+            )}
+            {/* Add Staff Member Button for Admins */}
+            {isAdmin && (
+              <Button onClick={() => setAddStaffModalOpen(true)} className="flex items-center gap-2">
+                <UserPlus className="h-4 w-4" />
+                Add Staff Member
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Search */}

@@ -33,14 +33,16 @@ interface Segment {
 interface PresenceDirectoryViewProps {
   userId?: string
   canEdit?: boolean
+  onScheduleChange?: () => void
 }
 
-export default function PresenceDirectoryView({ userId, canEdit = false }: PresenceDirectoryViewProps) {
+export default function PresenceDirectoryView({ userId, canEdit = false, onScheduleChange }: PresenceDirectoryViewProps) {
   const [date, setDate] = useState<Date>(new Date())
   const [segments, setSegments] = useState<Segment[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string>('')
   const [plannerOpen, setPlannerOpen] = useState(false)
+  const [calendarOpen, setCalendarOpen] = useState(false)
 
   useEffect(() => {
     fetchSegments()
@@ -94,8 +96,13 @@ export default function PresenceDirectoryView({ userId, canEdit = false }: Prese
         return
       }
 
-      // Refresh segments
+      // Refresh segments for this view
       fetchSegments()
+
+      // Notify parent to refresh user list (in case user's last schedule was deleted)
+      if (onScheduleChange) {
+        onScheduleChange()
+      }
     } catch (err: any) {
       alert(err.message || 'Failed to delete segment')
     }
@@ -106,7 +113,7 @@ export default function PresenceDirectoryView({ userId, canEdit = false }: Prese
       {/* Header with Date Picker and Actions */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Popover>
+          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
             <PopoverTrigger asChild>
               <Button variant="outline">
                 <CalendarIcon className="mr-2 h-4 w-4" />
@@ -114,7 +121,17 @@ export default function PresenceDirectoryView({ userId, canEdit = false }: Prese
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
-              <Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} initialFocus />
+              <Calendar
+                mode="single"
+                selected={date}
+                onSelect={(d) => {
+                  if (d) {
+                    setDate(d)
+                    setCalendarOpen(false)
+                  }
+                }}
+                initialFocus
+              />
             </PopoverContent>
           </Popover>
 
@@ -213,7 +230,12 @@ export default function PresenceDirectoryView({ userId, canEdit = false }: Prese
           isOpen={plannerOpen}
           onClose={() => setPlannerOpen(false)}
           userId={userId}
-          onSuccess={fetchSegments}
+          onSuccess={() => {
+            fetchSegments()
+            if (onScheduleChange) {
+              onScheduleChange()
+            }
+          }}
         />
       )}
     </div>

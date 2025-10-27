@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth'
-import { isAdmin } from '@/lib/role-utils'
+import { isRequester, canEditSchedule } from '@/lib/role-utils'
 import { prisma } from '@/lib/prisma'
 import { logEvent } from '@/lib/audit/logger'
 
@@ -37,8 +37,15 @@ export async function DELETE(
       return NextResponse.json({ error: 'Segment not found' }, { status: 404 })
     }
 
-    // 3. Authorization: must be owner or admin
-    if (segment.userId !== currentUser.id && !isAdmin(currentUser)) {
+    // 3. Authorization: Requesters cannot delete, Staff can delete own, Admins can delete any
+    if (isRequester(currentUser)) {
+      return NextResponse.json(
+        { error: 'Forbidden: Requesters cannot delete schedules' },
+        { status: 403 }
+      )
+    }
+
+    if (!canEditSchedule(currentUser, segment.userId)) {
       return NextResponse.json(
         { error: 'Forbidden: You can only delete your own segments' },
         { status: 403 }
@@ -53,12 +60,12 @@ export async function DELETE(
     // 5. Audit log
     await logEvent({
       action: 'presence.delete_segment',
-      entityType: 'staff_presence',
+      entityType: 'user',
       entityId: segmentId,
       actorEmail: currentUser.email,
       actorId: currentUser.id,
       actorType: 'human',
-      oldValues: {
+      prevValues: {
         status: segment.status.label,
         startAt: segment.startAt,
         endAt: segment.endAt,

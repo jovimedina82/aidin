@@ -139,6 +139,7 @@ export async function GET(request) {
         where: {
           ...accessWhere,
           status: 'SOLVED',
+          assigneeId: { not: null }, // Company views require assignee
           updatedAt: {
             gte: oneMonthAgo // Last 1 month (matches frontend)
           }
@@ -148,6 +149,7 @@ export async function GET(request) {
         where: {
           ...accessWhere,
           status: 'SOLVED',
+          assigneeId: { not: null }, // Company views require assignee
           updatedAt: {
             lt: oneMonthAgo // Older than 1 month (matches frontend)
           }

@@ -11,49 +11,57 @@ export async function GET(request) {
     }
 
     // Get all employees (not clients) with their relationships and departments
-    const employees = await prisma.user.findMany({
-      where: {
-        userType: 'Employee',
-        isActive: true
-      },
-      include: {
-        manager: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true
+    // Optimized: Don't include directReports since we'll build hierarchy from managerId
+    const [employees, departmentCounts] = await Promise.all([
+      prisma.user.findMany({
+        where: {
+          userType: 'Employee',
+          isActive: true
+        },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          managerId: true,
+          manager: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true
+            }
+          },
+          departments: {
+            include: {
+              department: true
+            }
+          },
+          roles: {
+            include: {
+              role: true
+            }
           }
         },
-        directReports: {
-          where: {
+        orderBy: [
+          { firstName: 'asc' },
+          { lastName: 'asc' }
+        ]
+      }),
+      // Get department statistics from database instead of calculating in memory
+      prisma.userDepartment.groupBy({
+        by: ['departmentId'],
+        _count: {
+          userId: true
+        },
+        where: {
+          user: {
             userType: 'Employee',
             isActive: true
-          },
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            userType: true
-          }
-        },
-        departments: {
-          include: {
-            department: true
-          }
-        },
-        roles: {
-          include: {
-            role: true
           }
         }
-      },
-      orderBy: [
-        { firstName: 'asc' },
-        { lastName: 'asc' }
-      ]
-    })
+      })
+    ])
 
     // Build hierarchical structure
     const employeeMap = new Map()
@@ -126,20 +134,21 @@ export async function GET(request) {
       })
     }
 
-    // Get department statistics
-    const departmentStats = {}
+    // Get department statistics from the aggregated query
+    const departmentMap = new Map()
     employees.forEach(emp => {
       emp.departments.forEach(ud => {
-        const deptName = ud.department.name
-        if (!departmentStats[deptName]) {
-          departmentStats[deptName] = {
-            name: deptName,
-            count: 0,
-            color: getDepartmentColor(deptName)
-          }
-        }
-        departmentStats[deptName].count++
+        departmentMap.set(ud.departmentId, ud.department)
       })
+    })
+
+    const departmentStats = departmentCounts.map(stat => {
+      const dept = departmentMap.get(stat.departmentId)
+      return {
+        name: dept?.name || 'Unknown',
+        count: stat._count.userId,
+        color: getDepartmentColor(dept?.name || 'Unknown')
+      }
     })
 
     return NextResponse.json({

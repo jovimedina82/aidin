@@ -9,72 +9,67 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get ticket to verify access
-    const ticket = await prisma.ticket.findUnique({
-      where: { id: params.id },
-      select: { id: true }
-    })
+    // Batch all queries in parallel for better performance
+    const [ticketDetails, auditLogs, comments, attachments] = await Promise.all([
+      // Get ticket details (also verifies access)
+      prisma.ticket.findUnique({
+        where: { id: params.id },
+        select: {
+          id: true,
+          createdAt: true,
+          resolvedAt: true,
+          ticketNumber: true
+        }
+      }),
+      // Fetch all audit logs related to this ticket
+      prisma.auditLog.findMany({
+        where: {
+          OR: [
+            { entityId: params.id },  // Direct ticket actions
+            { targetId: params.id }   // Actions that reference the ticket
+          ]
+        },
+        orderBy: { ts: 'asc' }
+      }),
+      // Fetch comments with timestamps
+      prisma.ticketComment.findMany({
+        where: { ticketId: params.id },
+        select: {
+          id: true,
+          createdAt: true,
+          isPublic: true,
+          user: {
+            select: {
+              firstName: true,
+              lastName: true,
+              email: true
+            }
+          }
+        },
+        orderBy: { createdAt: 'asc' }
+      }),
+      // Fetch attachments with timestamps
+      prisma.attachment.findMany({
+        where: { ticketId: params.id },
+        select: {
+          id: true,
+          fileName: true,
+          uploadedAt: true,
+          user: {
+            select: {
+              firstName: true,
+              lastName: true,
+              email: true
+            }
+          }
+        },
+        orderBy: { uploadedAt: 'asc' }
+      })
+    ])
 
-    if (!ticket) {
+    if (!ticketDetails) {
       return NextResponse.json({ error: 'Ticket not found' }, { status: 404 })
     }
-
-    // Fetch all audit logs related to this ticket
-    const auditLogs = await prisma.auditLog.findMany({
-      where: {
-        OR: [
-          { entityId: params.id },  // Direct ticket actions
-          { targetId: params.id }   // Actions that reference the ticket
-        ]
-      },
-      orderBy: { ts: 'asc' }
-    })
-
-    // Fetch comments with timestamps
-    const comments = await prisma.ticketComment.findMany({
-      where: { ticketId: params.id },
-      select: {
-        id: true,
-        createdAt: true,
-        isPublic: true,
-        user: {
-          select: {
-            firstName: true,
-            lastName: true,
-            email: true
-          }
-        }
-      },
-      orderBy: { createdAt: 'asc' }
-    })
-
-    // Fetch attachments with timestamps
-    const attachments = await prisma.attachment.findMany({
-      where: { ticketId: params.id },
-      select: {
-        id: true,
-        fileName: true,
-        uploadedAt: true,
-        user: {
-          select: {
-            firstName: true,
-            lastName: true,
-            email: true
-          }
-        }
-      },
-      orderBy: { uploadedAt: 'asc' }
-    })
-
-    // Get ticket creation and resolution times
-    const ticketDetails = await prisma.ticket.findUnique({
-      where: { id: params.id },
-      select: {
-        createdAt: true,
-        resolvedAt: true,
-        ticketNumber: true
-      }
-    })
 
     // Build a unified timeline
     const timeline = []

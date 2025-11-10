@@ -112,3 +112,13 @@ credentials/
 POSTGRESQL_SETUP_SUMMARY.md
 docs/DEV_VS_PRODUCTION_SETUP.md
 scripts/sync-prod-to-dev.sh
+
+# Screenshots and temporary documentation
+images/Screenshot*.png
+DEPLOYMENT_SUMMARY.md
+EMAIL_POLLING_FIX_COMPLETE.md
+tickets.md
+
+# Manual SQL migration files (use Prisma migrations instead)
+add_performance_indexes.sql
+prisma/migrations/*.sql

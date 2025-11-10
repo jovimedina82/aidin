@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth"
+import { extractRoleNames } from "@/lib/role-utils"
 
 
 export async function GET(request) {
@@ -10,10 +11,7 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const userRoles = user?.roles || []
-    const roleNames = userRoles.map(role =>
-      typeof role === 'string' ? role : (role.role?.name || role.name)
-    )
+    const roleNames = extractRoleNames(user?.roles)
     const isAdmin = roleNames.includes('Admin')
     const isManager = roleNames.includes('Manager')
 
@@ -77,37 +75,49 @@ export async function GET(request) {
       // Get all users in the reporting hierarchy
       const accessibleUserIds = new Set([user.id])
 
-      // Add direct reports
-      for (const report of currentUserWithHierarchy.directReports) {
-        accessibleUserIds.add(report.id)
+      // Collect all manager IDs and department IDs for batch queries
+      const reportIds = currentUserWithHierarchy.directReports.map(r => r.id)
+      const departmentIds = currentUserWithHierarchy.departments.map(d => d.departmentId)
 
-        // Add their direct reports (2 levels down)
-        const subReports = await prisma.user.findMany({
-          where: { managerId: report.id },
-          select: { id: true }
-        })
-        subReports.forEach(subReport => accessibleUserIds.add(subReport.id))
-      }
+      // Add direct reports to accessible set
+      reportIds.forEach(id => accessibleUserIds.add(id))
 
-      // Add manager and manager's other direct reports (peers)
+      // Batch query: Get all sub-reports, peers, and department users in parallel
+      const [subReports, peers, deptUsers] = await Promise.all([
+        // Get all sub-reports (2 levels down) in one query
+        reportIds.length > 0
+          ? prisma.user.findMany({
+              where: { managerId: { in: reportIds } },
+              select: { id: true }
+            })
+          : Promise.resolve([]),
+
+        // Get peers (manager's other direct reports) if user has a manager
+        currentUserWithHierarchy.manager
+          ? prisma.user.findMany({
+              where: { managerId: currentUserWithHierarchy.manager.id },
+              select: { id: true }
+            })
+          : Promise.resolve([]),
+
+        // Get all department users in one query
+        departmentIds.length > 0
+          ? prisma.userDepartment.findMany({
+              where: { departmentId: { in: departmentIds } },
+              select: { userId: true }
+            })
+          : Promise.resolve([])
+      ])
+
+      // Add manager to accessible set
       if (currentUserWithHierarchy.manager) {
         accessibleUserIds.add(currentUserWithHierarchy.manager.id)
-
-        const peers = await prisma.user.findMany({
-          where: { managerId: currentUserWithHierarchy.manager.id },
-          select: { id: true }
-        })
-        peers.forEach(peer => accessibleUserIds.add(peer.id))
       }
 
-      // Add users from same departments
-      for (const userDept of currentUserWithHierarchy.departments) {
-        const deptUsers = await prisma.userDepartment.findMany({
-          where: { departmentId: userDept.departmentId },
-          select: { userId: true }
-        })
-        deptUsers.forEach(deptUser => accessibleUserIds.add(deptUser.userId))
-      }
+      // Add all collected IDs to the accessible set
+      subReports.forEach(subReport => accessibleUserIds.add(subReport.id))
+      peers.forEach(peer => accessibleUserIds.add(peer.id))
+      deptUsers.forEach(deptUser => accessibleUserIds.add(deptUser.userId))
 
       // Fetch the accessible users with full details
       users = await prisma.user.findMany({

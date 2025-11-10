@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth"
 import { QueryOptimizations } from '../../../../lib/performance.js'
+import { extractRoleNames } from '../../../../lib/role-utils.js'
 import {
   ApiError,
   ApiSuccess,
@@ -33,10 +34,7 @@ export async function PUT(request, { params }) {
     }
 
     // Check if user has permission to update users
-    const userRoles = user?.roles || []
-    const roleNames = userRoles.map(role =>
-      typeof role === 'string' ? role : (role.role?.name || role.name)
-    )
+    const roleNames = extractRoleNames(user?.roles)
     const isAdmin = roleNames.includes('Admin')
     const isManager = roleNames.includes('Manager')
 
@@ -46,7 +44,6 @@ export async function PUT(request, { params }) {
 
     const data = await request.json()
     const { firstName, lastName, email, phone, userType, isActive, departmentIds, departmentId } = data
-    console.log('DEBUG: Received departmentId:', departmentId, 'Type:', typeof departmentId)
 
     // Check if target user exists
     const existingUser = await prisma.user.findUnique({
@@ -77,13 +74,13 @@ export async function PUT(request, { params }) {
         where: { userId: params.id }
       })
 
-      // Create new department assignments
-      for (const departmentId of departmentIds) {
-        await prisma.userDepartment.create({
-          data: {
+      // Create new department assignments in batch (optimized)
+      if (departmentIds.length > 0) {
+        await prisma.userDepartment.createMany({
+          data: departmentIds.map(departmentId => ({
             userId: params.id,
             departmentId: departmentId.toString()
-          }
+          }))
         })
       }
     } else if (departmentId !== undefined) {
@@ -95,7 +92,6 @@ export async function PUT(request, { params }) {
 
       // Create new department assignment if not null
       if (departmentId !== null) {
-        console.log('DEBUG: Creating userDepartment with departmentId:', departmentId.toString())
         await prisma.userDepartment.create({
           data: {
             userId: params.id,
@@ -137,19 +133,13 @@ export async function PUT(request, { params }) {
 
 export async function DELETE(request, { params }) {
   try {
-    console.log('DEBUG: Delete user request for ID:', params.id)
     const user = await getCurrentUser(request)
     if (!user) {
-      console.log('DEBUG: No authenticated user found')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    console.log('DEBUG: Authenticated user:', user.email, 'ID:', user.id)
 
     // Check if user has permission to delete users
-    const userRoles = user?.roles || []
-    const roleNames = userRoles.map(role =>
-      typeof role === 'string' ? role : (role.role?.name || role.name)
-    )
+    const roleNames = extractRoleNames(user?.roles)
     const isAdmin = roleNames.includes('Admin')
 
     if (!isAdmin) {
@@ -161,7 +151,6 @@ export async function DELETE(request, { params }) {
     const { newManagerId } = body
 
     // Check if user exists and get their direct reports
-    console.log('DEBUG: Looking for user with ID:', params.id)
     const targetUser = await prisma.user.findUnique({
       where: { id: params.id },
       include: {
@@ -171,20 +160,16 @@ export async function DELETE(request, { params }) {
     })
 
     if (!targetUser) {
-      console.log('DEBUG: Target user not found')
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
-    console.log('DEBUG: Target user found:', targetUser.email, 'Direct reports:', targetUser.directReports.length)
 
     // Prevent self-deletion
     if (params.id === user.id) {
-      console.log('DEBUG: Self-deletion attempt prevented')
       return NextResponse.json({ error: 'Cannot delete your own account' }, { status: 400 })
     }
 
     // If user has direct reports, require manager reassignment
     if (targetUser.directReports.length > 0 && !newManagerId) {
-      console.log('DEBUG: Manager reassignment required for user with direct reports')
       return NextResponse.json({
         error: 'Manager reassignment required',
         requiresManagerReassignment: true,
@@ -193,7 +178,6 @@ export async function DELETE(request, { params }) {
     }
 
     // Delete user with proper cleanup of related records
-    console.log('DEBUG: Starting user deletion transaction')
     await prisma.$transaction(async (prisma) => {
       // 1. Delete user roles
       await prisma.userRole.deleteMany({
@@ -227,7 +211,6 @@ export async function DELETE(request, { params }) {
       // 4. Handle ticket comments (RESTRICT constraint)
       // Since userId is NOT NULL in schema, we need to delete comments to allow user deletion
       // Note: This removes comment history - consider making userId nullable for better audit trail
-      console.log('DEBUG: Deleting ticket comments to resolve constraint')
       await prisma.ticketComment.deleteMany({
         where: { userId: params.id }
       })
@@ -256,22 +239,17 @@ export async function DELETE(request, { params }) {
       }
 
       // 6. Finally, delete the user
-      console.log('DEBUG: Deleting user from database')
       await prisma.user.delete({
         where: { id: params.id }
       })
-      console.log('DEBUG: User deletion transaction completed successfully')
     })
 
-    console.log('DEBUG: User deletion completed successfully')
     return NextResponse.json({
       message: 'User deleted successfully',
       reassignedReports: targetUser.directReports.length
     })
   } catch (error) {
-    console.error('DEBUG: Error deleting user:', error)
-    console.error('DEBUG: Error details:', error.message)
-    console.error('DEBUG: Error stack:', error.stack)
+    console.error('Error deleting user:', error)
 
     // Check if user not found
     if (error.code === 'P2025') {

@@ -84,6 +84,8 @@ model UserRole {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
   @@map("user_roles")
 }
 
@@ -123,7 +125,22 @@ model Ticket {
   childTickets         Ticket[]         @relation("TicketThread")
   requester            User?            @relation("TicketRequester", fields: [requesterId], references: [id])
 
+  // Performance indexes for common query patterns
+  @@index([status])
+  @@index([assigneeId])
+  @@index([requesterId])
+  @@index([departmentId])
+  @@index([createdAt])
+  @@index([updatedAt])
+  @@index([resolvedAt])
   @@index([parentTicketId])
+  // Composite indexes for complex queries
+  @@index([status, assigneeId])
+  @@index([status, requesterId])
+  @@index([status, departmentId])
+  @@index([status, updatedAt])
+  @@index([priority, createdAt])
+  @@index([emailConversationId])
   @@map("tickets")
 }
 
@@ -139,6 +156,8 @@ model TicketComment {
   user        User         @relation(fields: [userId], references: [id])
   attachments Attachment[]
 
+  @@index([ticketId, createdAt])
+  @@index([userId])
   @@map("ticket_comments")
 }
 
@@ -200,6 +219,8 @@ model UserDepartment {
   user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, departmentId])
+  @@index([userId])
+  @@index([departmentId])
   @@map("user_departments")
 }
 

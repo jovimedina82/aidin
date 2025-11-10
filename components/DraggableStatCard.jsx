@@ -2,10 +2,12 @@
 import { memo } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { useRouter } from 'next/navigation'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { GripVertical } from 'lucide-react'
 
 function DraggableStatCard({ id, title, value, description, icon: Icon, color = 'text-muted-foreground', loading }) {
+  const router = useRouter()
   const {
     attributes,
     listeners,
@@ -21,13 +23,39 @@ function DraggableStatCard({ id, title, value, description, icon: Icon, color = 
     opacity: isDragging ? 0.5 : 1,
   }
 
+  // Map stat card IDs to ticket views
+  const getTicketView = (cardId) => {
+    const viewMap = {
+      'total': 'all',
+      'open': 'company-open',
+      'pending': 'company-pending',
+      'solved': 'company-solved',
+      'onHold': 'company-on-hold',
+      'new': 'company-new'
+    }
+    return viewMap[cardId] || 'all'
+  }
+
+  const handleCardClick = (e) => {
+    // Don't navigate if clicking on drag handle
+    if (e.target.closest('[data-drag-handle]')) {
+      return
+    }
+    const view = getTicketView(id)
+    router.push(`/tickets?view=${view}`)
+  }
+
   return (
     <div ref={setNodeRef} style={style}>
-      <Card className="relative group cursor-move hover:shadow-md transition-shadow">
+      <Card
+        className="relative group cursor-pointer hover:shadow-md transition-shadow"
+        onClick={handleCardClick}
+      >
         {/* Drag Handle */}
         <div
           {...attributes}
           {...listeners}
+          data-drag-handle
           className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing z-10"
         >
           <GripVertical className="h-4 w-4 text-muted-foreground" />

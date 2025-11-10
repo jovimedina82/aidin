@@ -129,20 +129,6 @@ export default function PresencePlannerModal({
   const [existingMinutes, setExistingMinutes] = useState(0)
   const [loadingExisting, setLoadingExisting] = useState(false)
 
-  // Reset form only when modal opens (not when it closes)
-  const prevOpen = useRef(false)
-  useEffect(() => {
-    if (isOpen && !prevOpen.current) {
-      // Modal just opened, reset to defaults
-      setDate(new Date())
-      setRepeatUntil(undefined)
-      setSegments([newSegment()])
-      setServerErrors([])
-      setGeneralError('')
-    }
-    prevOpen.current = isOpen
-  }, [isOpen])
-
   // Fetch options upon open
   useEffect(() => {
     if (!isOpen) return
@@ -402,13 +388,15 @@ export default function PresencePlannerModal({
     }
   }
 
-  function handleClose() {
-    // reset state on close to avoid sticky UI
-    setServerErrors([])
-    setGeneralError('')
-    setRepeatUntil(undefined)
-    setSegments([newSegment()])
-    onClose()
+  function handleClose(open: boolean) {
+    if (!open) {
+      // Only reset errors and segments when closing, NOT the date
+      setServerErrors([])
+      setGeneralError('')
+      setRepeatUntil(undefined)
+      setSegments([newSegment()])
+      onClose()
+    }
   }
 
   /* --------------------------------- UI ---------------------------------- */

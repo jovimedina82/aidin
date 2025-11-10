@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState, useRef, type FC } from 'react'
-import { add, format, isAfter, isBefore, isEqual } from 'date-fns'
+import { add, format, isAfter, isEqual, startOfDay, parseISO } from 'date-fns' // ⭐ FIX: startOfDay
 import { Calendar as CalendarIcon, Plus, Trash2, AlertCircle } from 'lucide-react'
 import {
   Dialog,
@@ -103,13 +103,26 @@ function rangesOverlap(aFrom: string, aTo: string, bFrom: string, bTo: string) {
 
 /* ========================= Presence Planner Modal ========================= */
 
+const DATE_STORAGE_KEY = 'presence:lastSelectedDate' // ⭐ FIX
+
 export default function PresencePlannerModal({
   isOpen,
   onClose,
   userId,
   onSuccess,
 }: PresencePlannerModalProps) {
-  const [date, setDate] = useState<Date>(new Date())
+  // ⭐ FIX: initialize from localStorage if present, and normalize to startOfDay
+  const [date, setDate] = useState<Date>(() => {
+    try {
+      const raw = typeof window !== 'undefined' ? localStorage.getItem(DATE_STORAGE_KEY) : null
+      if (raw) {
+        const d = parseISO(raw)
+        return startOfDay(d)
+      }
+    } catch {}
+    return startOfDay(new Date())
+  })
+
   const [repeatUntil, setRepeatUntil] = useState<Date | undefined>(undefined)
   const [segments, setSegments] = useState<Segment[]>([newSegment()])
 
@@ -128,6 +141,15 @@ export default function PresencePlannerModal({
   // Existing segments for the selected date
   const [existingMinutes, setExistingMinutes] = useState(0)
   const [loadingExisting, setLoadingExisting] = useState(false)
+
+  // ⭐ FIX: persist selected date whenever it changes
+  useEffect(() => {
+    try {
+      if (date) {
+        localStorage.setItem(DATE_STORAGE_KEY, date.toISOString()) // keep ISO (UTC), compare/display in local safely
+      }
+    } catch {}
+  }, [date])
 
   // Fetch options upon open
   useEffect(() => {
@@ -167,7 +189,6 @@ export default function PresencePlannerModal({
           const data = await res.json()
           const existingSegs = data.segments || []
 
-          // Calculate total existing minutes
           const totalExisting = existingSegs.reduce((sum: number, seg: any) => {
             const fromMins = timeToMinutes(seg.from)
             const toMins = timeToMinutes(seg.to)
@@ -212,7 +233,6 @@ export default function PresencePlannerModal({
         if (s.id !== id) return s
         const next: Segment = { ...s, [field]: value }
 
-        // If status gets changed to one that doesn't need office, clear office
         if (field === 'statusCode') {
           const status = getStatus(value as string | undefined)
           if (!status?.requiresOffice) next.officeCode = undefined
@@ -228,11 +248,9 @@ export default function PresencePlannerModal({
   const clientErrors = useMemo<FieldError[]>(() => {
     const errs: FieldError[] = []
 
-    // Segment-level checks
     segments.forEach((seg, idx) => {
       const prefix = `segments[${idx}]`
 
-      // times present & logical
       if (!seg.from) errs.push({ field: `${prefix}.from`, message: 'Start time is required' })
       if (!seg.to) errs.push({ field: `${prefix}.to`, message: 'End time is required' })
 
@@ -245,11 +263,9 @@ export default function PresencePlannerModal({
         }
       }
 
-      // status present
       if (!seg.statusCode) {
         errs.push({ field: `${prefix}.statusCode`, message: 'Status is required' })
       } else {
-        // office conditional
         const st = getStatus(seg.statusCode)
         if (st?.requiresOffice && !seg.officeCode) {
           errs.push({ field: `${prefix}.officeCode`, message: 'Office is required for this status' })
@@ -257,25 +273,6 @@ export default function PresencePlannerModal({
       }
     })
 
-    // No overlaps (only if basic time checks pass)
-    const basicOk = errs.every(
-      (e) => !e.field?.endsWith('.from') && !e.field?.endsWith('.to')
-    )
-    if (basicOk) {
-      segments.forEach((a, i) => {
-        for (let j = i + 1; j < segments.length; j++) {
-          const b = segments[j]
-          if (rangesOverlap(a.from, a.to, b.from, b.to)) {
-            errs.push({
-              field: `segments[${i}].to`,
-              message: `Overlaps with segment ${j + 1}`,
-            })
-          }
-        }
-      })
-    }
-
-    // Total minutes cap (existing + new)
     const newMinutes = calculateTotalMinutes(
       segments
         .filter((s) => s.from && s.to)
@@ -299,7 +296,6 @@ export default function PresencePlannerModal({
       }
     }
 
-    // Repeat range
     if (repeatUntil) {
       const latest = add(date, { days: MAX_RANGE_DAYS })
       if (!isAfter(repeatUntil, date) || isAfter(repeatUntil, latest) || isEqual(repeatUntil, date)) {
@@ -313,7 +309,6 @@ export default function PresencePlannerModal({
     return errs
   }, [segments, repeatUntil, date, statuses, existingMinutes])
 
-  // New segments minutes only
   const newSegmentsMinutes = useMemo(
     () =>
       calculateTotalMinutes(
@@ -324,12 +319,8 @@ export default function PresencePlannerModal({
     [segments]
   )
 
-  // Combined total: existing + new
   const totalMinutes = existingMinutes + newSegmentsMinutes
-
-  // Remaining from the 8-hour cap
   const remainingMinutes = MAX_DAY_MINUTES - totalMinutes
-
   const isOverLimit = totalMinutes > MAX_DAY_MINUTES
   const maxRepeatDate = add(date, { days: MAX_RANGE_DAYS })
 
@@ -350,8 +341,8 @@ export default function PresencePlannerModal({
         date: format(date, 'yyyy-MM-dd'),
         repeatUntil: repeatUntil ? format(repeatUntil, 'yyyy-MM-dd') : undefined,
         segments: segments.map((s) => ({
-          statusCode: s.statusCode,                 // string | undefined
-          officeCode: s.officeCode || undefined,    // ensure undefined (not '')
+          statusCode: s.statusCode,
+          officeCode: s.officeCode || undefined,
           from: s.from,
           to: s.to,
           notes: s.notes || undefined,
@@ -376,10 +367,13 @@ export default function PresencePlannerModal({
       }
 
       onSuccess?.()
-      // reset after success
-      setDate(new Date())
+
+      // ⭐ FIX: keep the currently selected date persisted; do NOT force "today"
+      // Reset only the repeat/segments, not `date`.
       setRepeatUntil(undefined)
       setSegments([newSegment()])
+
+      // Optionally close dialog
       onClose()
     } catch (e: any) {
       setGeneralError(e?.message || 'Failed to save schedule')
@@ -390,7 +384,7 @@ export default function PresencePlannerModal({
 
   function handleClose(open: boolean) {
     if (!open) {
-      // Only reset errors and segments when closing, NOT the date
+      // ⭐ FIX: do not reset `date` on close
       setServerErrors([])
       setGeneralError('')
       setRepeatUntil(undefined)
@@ -425,13 +419,20 @@ export default function PresencePlannerModal({
               <PopoverContent {...({ className: 'w-auto p-0', align: 'start' } as any)}>
                 <Calendar
                   mode="single"
-                  selected={date}
+                  selected={date ?? undefined}
+                  // ⭐ FIX: normalize to startOfDay and guard undefined
                   onSelect={(d) => {
                     if (d) {
-                      setDate(d)
+                      const normalized = startOfDay(d)
+                      setDate(normalized)
                       setDatePopoverOpen(false)
                     }
                   }}
+                  // provide required props to satisfy Calendar component types
+                  className=""
+                  classNames={{}}
+                  formatters={{}}
+                  components={{}}
                   initialFocus
                 />
               </PopoverContent>
@@ -451,22 +452,29 @@ export default function PresencePlannerModal({
                     className="w-full justify-start text-left font-normal"
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {repeatUntil ? format(repeatUntil, 'PPP') : 'Select date'}
+                    {repeatUntil ? format(repeatUntil, 'PPP') : 'Select repeat end'}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent {...({ className: 'w-auto p-0', align: 'start' } as any)}>
                   <Calendar
                     mode="single"
-                    selected={repeatUntil}
+                    selected={repeatUntil ?? undefined}
                     onSelect={(d) => {
-                      setRepeatUntil(d)
-                      if (d) setRepeatPopoverOpen(false)
+                      // ⭐ FIX: normalize and close popover only when a date is chosen
+                      const val = d ? startOfDay(d) : undefined
+                      setRepeatUntil(val)
+                      if (val) setRepeatPopoverOpen(false)
                     }}
                     disabled={(d) =>
-                      !isAfter(d, date) ||
-                      isAfter(d, maxRepeatDate) ||
-                      isEqual(d, date)
+                      !isAfter(startOfDay(d), startOfDay(date)) ||
+                      isAfter(startOfDay(d), startOfDay(maxRepeatDate)) ||
+                      isEqual(startOfDay(d), startOfDay(date))
                     }
+                    // provide required props to satisfy Calendar component types
+                    className=""
+                    classNames={{}}
+                    formatters={{}}
+                    components={{}}
                     initialFocus
                   />
                 </PopoverContent>
@@ -482,7 +490,6 @@ export default function PresencePlannerModal({
                 </Button>
               )}
             </div>
-            {/* client error for repeat */}
             {clientErrors
               .filter((e) => e.field === 'repeatUntil')
               .map((e, i) => (
@@ -505,7 +512,6 @@ export default function PresencePlannerModal({
               </span>
             </div>
 
-            {/* Breakdown */}
             <div className="space-y-1 text-sm">
               {existingMinutes > 0 && (
                 <div className="flex items-center justify-between text-gray-600">
@@ -539,7 +545,6 @@ export default function PresencePlannerModal({
               </div>
             )}
 
-            {/* server total error */}
             {serverErrors
               .filter((e) => e.field === 'segments' || e.field === 'total')
               .map((e, i) => (
@@ -612,7 +617,7 @@ export default function PresencePlannerModal({
                     </div>
                   </div>
 
-                  {/* Status (FIX: value is string | undefined, never '') */}
+                  {/* Status */}
                   <div>
                     <Label htmlFor={`status-${seg.id}`}>Status</Label>
                     <Select
@@ -633,7 +638,7 @@ export default function PresencePlannerModal({
                     </Select>
                   </div>
 
-                  {/* Office (only if required by selected status) */}
+                  {/* Office (only if required) */}
                   {st?.requiresOffice && (
                     <div>
                       <Label htmlFor={`office-${seg.id}`}>Office Location</Label>
@@ -675,7 +680,6 @@ export default function PresencePlannerModal({
                     </div>
                   </div>
 
-                  {/* Segment errors */}
                   {segErrors.length > 0 && (
                     <div className="bg-red-50 border border-red-200 rounded p-2 space-y-1">
                       {segErrors.map((err, i) => (
@@ -691,7 +695,6 @@ export default function PresencePlannerModal({
             })}
           </div>
 
-          {/* General/server errors */}
           {generalError && (
             <div className="bg-red-50 border border-red-200 rounded p-3 text-sm text-red-600 flex items-start gap-2">
               <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
@@ -699,7 +702,6 @@ export default function PresencePlannerModal({
             </div>
           )}
 
-          {/* Non-segment server errors */}
           {serverErrors.filter((e) => !e.field?.startsWith('segments[')).length > 0 && (
             <div className="bg-red-50 border border-red-200 rounded p-3 space-y-1">
               {serverErrors

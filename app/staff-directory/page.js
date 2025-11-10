@@ -138,7 +138,7 @@ function StaffDirectoryPage() {
           firstName: newStaff.firstName,
           lastName: newStaff.lastName,
           phone: newStaff.phone,
-          departmentId: newStaff.departmentId || undefined,
+          departmentId: (newStaff.departmentId && newStaff.departmentId !== 'none') ? newStaff.departmentId : null,
           userType: 'Staff',
           isActive: true,
           title: newStaff.title
@@ -545,7 +545,7 @@ function StaffDirectoryPage() {
                   <SelectValue placeholder="Select department (optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="none">None</SelectItem>
                   {departments.map((dept) => (
                     <SelectItem key={dept.id} value={dept.id}>
                       {dept.name}

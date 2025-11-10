@@ -430,10 +430,6 @@ export default function PresencePlannerModal({
                       setDatePopoverOpen(false)
                     }
                   }}
-                  className=""
-                  classNames={{}}
-                  formatters={{}}
-                  components={{}}
                   initialFocus
                 />
               </PopoverContent>
@@ -469,10 +465,6 @@ export default function PresencePlannerModal({
                       isAfter(d, maxRepeatDate) ||
                       isEqual(d, date)
                     }
-                    className=""
-                    classNames={{}}
-                    formatters={{}}
-                    components={{}}
                     initialFocus
                   />
                 </PopoverContent>

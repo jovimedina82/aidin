@@ -129,6 +129,17 @@ export default function PresencePlannerModal({
   const [existingMinutes, setExistingMinutes] = useState(0)
   const [loadingExisting, setLoadingExisting] = useState(false)
 
+  // Reset form when modal closes (cleanup for next open)
+  useEffect(() => {
+    if (!isOpen) {
+      setDate(new Date())
+      setRepeatUntil(undefined)
+      setSegments([newSegment()])
+      setServerErrors([])
+      setGeneralError('')
+    }
+  }, [isOpen])
+
   // Fetch options upon open
   useEffect(() => {
     if (!isOpen) return

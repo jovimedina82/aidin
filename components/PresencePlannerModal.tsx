@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState, type FC } from 'react'
+import { useEffect, useMemo, useState, useRef, type FC } from 'react'
 import { add, format, isAfter, isBefore, isEqual } from 'date-fns'
 import { Calendar as CalendarIcon, Plus, Trash2, AlertCircle } from 'lucide-react'
 import {
@@ -129,15 +129,18 @@ export default function PresencePlannerModal({
   const [existingMinutes, setExistingMinutes] = useState(0)
   const [loadingExisting, setLoadingExisting] = useState(false)
 
-  // Reset form when modal closes (cleanup for next open)
+  // Reset form only when modal opens (not when it closes)
+  const prevOpen = useRef(false)
   useEffect(() => {
-    if (!isOpen) {
+    if (isOpen && !prevOpen.current) {
+      // Modal just opened, reset to defaults
       setDate(new Date())
       setRepeatUntil(undefined)
       setSegments([newSegment()])
       setServerErrors([])
       setGeneralError('')
     }
+    prevOpen.current = isOpen
   }, [isOpen])
 
   // Fetch options upon open

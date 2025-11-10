@@ -192,7 +192,9 @@
       "Bash(node /tmp/check-schedules.js:*)",
       "Bash(node /opt/apps/Aidin/check-schedules.js:*)",
       "Bash(node /opt/apps/Aidin/check-schedules.mjs:*)",
-      "Bash(node -e:*)"
+      "Bash(node -e:*)",
+      "Bash(npx pm2 status)",
+      "Bash(npx pm2 list)"
     ],
     "deny": [],
     "ask": []

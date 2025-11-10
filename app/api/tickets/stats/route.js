@@ -234,7 +234,7 @@ export async function GET(request) {
         'company-pending': companyPending,
         'company-on-hold': companyOnHold,
         'company-solved': companySolvedRecent,
-        'company-solved-history': companySolvedHistory
+        'solved-history': companySolvedHistory  // Changed from 'company-solved-history' to match frontend view.id
       } : {},
       departments: departmentCounts,
       totalPersonal: personalNew + personalOpen + personalPending + personalOnHold,

@@ -26,53 +26,74 @@ export async function GET(request) {
     const isStaff = roleNames.some(role => ['Admin', 'Manager', 'Staff'].includes(role))
 
     // Build all query promises
+    const oneMonthAgo = new Date()
+    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1)
+
     const personalQueries = [
-      // Personal counts
+      // Personal counts (tickets user created OR is assigned to)
       prisma.ticket.count({
         where: {
           ...accessWhere,
-          assigneeId: user.id,
+          OR: [
+            { assigneeId: user.id },
+            { requesterId: user.id }
+          ],
           status: 'NEW'
         }
       }),
       prisma.ticket.count({
         where: {
           ...accessWhere,
-          assigneeId: user.id,
+          OR: [
+            { assigneeId: user.id },
+            { requesterId: user.id }
+          ],
           status: 'OPEN'
         }
       }),
       prisma.ticket.count({
         where: {
           ...accessWhere,
-          assigneeId: user.id,
+          OR: [
+            { assigneeId: user.id },
+            { requesterId: user.id }
+          ],
           status: 'PENDING'
         }
       }),
       prisma.ticket.count({
         where: {
           ...accessWhere,
-          assigneeId: user.id,
+          OR: [
+            { assigneeId: user.id },
+            { requesterId: user.id }
+          ],
           status: 'ON_HOLD'
         }
       }),
       prisma.ticket.count({
         where: {
           ...accessWhere,
-          assigneeId: user.id,
+          OR: [
+            { assigneeId: user.id },
+            { requesterId: user.id }
+          ],
           status: 'SOLVED',
-          resolvedAt: {
-            gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days
+          updatedAt: {
+            gte: oneMonthAgo // Last 1 month (matches frontend)
           }
         }
       }),
       prisma.ticket.count({
         where: {
           ...accessWhere,
-          assigneeId: user.id,
+          OR: [
+            { assigneeId: user.id },
+            { requesterId: user.id }
+          ],
           status: 'SOLVED',
-          resolvedAt: {
-            lt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Older than 7 days
+          updatedAt: {
+            lt: oneMonthAgo // Older than 1 month (matches frontend)
           }
         }
       })
@@ -118,8 +139,8 @@ export async function GET(request) {
         where: {
           ...accessWhere,
           status: 'SOLVED',
-          resolvedAt: {
-            gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days
+          updatedAt: {
+            gte: oneMonthAgo // Last 1 month (matches frontend)
           }
         }
       }),
@@ -127,8 +148,8 @@ export async function GET(request) {
         where: {
           ...accessWhere,
           status: 'SOLVED',
-          resolvedAt: {
-            lt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Older than 7 days
+          updatedAt: {
+            lt: oneMonthAgo // Older than 1 month (matches frontend)
           }
         }
       })

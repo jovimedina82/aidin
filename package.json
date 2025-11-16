@@ -6,7 +6,7 @@
     "scripts": {
         "dev": "NODE_OPTIONS='--max-old-space-size=2048' next dev --hostname 0.0.0.0 --port 3000",
         "build": "next build",
-        "start": "node server.js",
+        "start": "tsx server.js",
         "start:default": "next start",
         "lint": "eslint .",
         "type-check": "tsc -p tsconfig.json --noEmit",
@@ -52,6 +52,7 @@
         "@tanstack/react-query": "^5.90.2",
         "@tanstack/react-query-devtools": "^5.90.2",
         "@tanstack/react-table": "^8.21.3",
+        "@tanstack/react-virtual": "^3.13.12",
         "@tiptap/extension-color": "^3.7.2",
         "@tiptap/extension-font-family": "^3.7.2",
         "@tiptap/extension-link": "^3.7.2",

@@ -17,6 +17,7 @@ model User {
   phone              String?
   userType           String               @default("Client")
   managerId          String?
+  organizationId     String?              @map("organization_id")
   isActive           Boolean              @default(true)
   lastLoginAt        DateTime?
   createdAt          DateTime             @default(now())
@@ -42,8 +43,22 @@ model User {
   manager            User?                @relation("UserManager", fields: [managerId], references: [id])
   directReports      User[]               @relation("UserManager")
   staffPresence      StaffPresence[]
+  organization       Organization?        @relation(fields: [organizationId], references: [id])
 
   @@map("users")
+}
+
+model Organization {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  domain      String?
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  users       User[]
+  tickets     Ticket[]
+
+  @@map("organizations")
 }
 
 model UserEmail {
@@ -100,6 +115,7 @@ model Ticket {
   requesterId          String?
   assigneeId           String?
   departmentId         String?
+  organizationId       String?              @map("organization_id")
   emailConversationId  String?
   parentTicketId       String?
   aiDraftResponse      String?
@@ -124,6 +140,7 @@ model Ticket {
   parentTicket         Ticket?          @relation("TicketThread", fields: [parentTicketId], references: [id])
   childTickets         Ticket[]         @relation("TicketThread")
   requester            User?            @relation("TicketRequester", fields: [requesterId], references: [id])
+  organization         Organization?    @relation(fields: [organizationId], references: [id])
 
   // Performance indexes for common query patterns
   @@index([status])
@@ -807,4 +824,32 @@ model AidinChatMessage {
 
   @@index([sessionId, createdAt])
   @@map("aidin_chat_messages")
+}
+
+// In-app notification system for users
+model Notification {
+  id          String             @id @default(uuid())
+  userId      String             @map("user_id")
+  type        String                                        // "system", "ticket", "mention", "alert", etc.
+  title       String
+  message     String
+  severity    NotificationSeverity @default(INFO)
+  isRead      Boolean            @default(false)           @map("is_read")
+  readAt      DateTime?                                     @map("read_at")
+  actionUrl   String?                                       @map("action_url")  // Optional link to related resource
+  metadata    Json?                                         // Additional context (ticket ID, etc.)
+  createdAt   DateTime           @default(now())           @map("created_at")
+  expiresAt   DateTime?                                     @map("expires_at")  // Optional expiration
+
+  @@index([userId, isRead, createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([expiresAt])
+  @@map("notifications")
+}
+
+enum NotificationSeverity {
+  INFO
+  WARNING
+  ERROR
+  CRITICAL
 }

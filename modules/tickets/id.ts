@@ -12,9 +12,7 @@
  * - Fallback to GN (General) for unknown departments
  */
 
-import { PrismaClient } from '@/lib/generated/prisma';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 /**
  * Department code to prefix mapping

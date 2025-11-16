@@ -1,6 +1,11 @@
 const nextConfig = {
   // output: 'standalone', // Temporarily commented out to fix static file serving
 
+  // Make JWT_SECRET available in Edge Runtime (middleware)
+  env: {
+    JWT_SECRET: process.env.JWT_SECRET,
+  },
+
   // Optimize images
   images: {
     unoptimized: false, // Enable Next.js image optimization
@@ -53,6 +58,11 @@ const nextConfig = {
     // Optimize package imports
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
   },
+
+  // Enable strict CSP with nonces (Next.js 14+ feature)
+  // This automatically adds nonces to inline scripts
+  // Note: Requires setting up nonce in middleware
+  // See: https://nextjs.org/docs/app/building-your-application/configuring/content-security-policy
 
   // Modularize imports for tree-shaking
   modularizeImports: {
@@ -147,24 +157,43 @@ const nextConfig = {
     pagesBufferLength: 2, // Only keep 2 pages in buffer
   },
   async headers() {
+    // NOTE: CSP is set dynamically in middleware.ts
+    // Static security headers are set here, CSP is set per-request in middleware
     return [
       {
         source: "/(.*)",
         headers: [
+          // Strict Transport Security (HSTS) - CRITICAL for security score
+          // max-age=31536000 = 1 year
+          // includeSubDomains = applies to all subdomains
+          // preload = eligible for browser preload lists
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=31536000; includeSubDomains; preload"
+          },
           // Prevent clickjacking attacks
           { key: "X-Frame-Options", value: "DENY" },
-          // Content Security Policy - restrict frame ancestors to self only
-          { key: "Content-Security-Policy", value: "frame-ancestors 'self';" },
+          // NOTE: Content-Security-Policy is set in middleware.ts with nonces
           // CORS - Only allow specific origins (never use '*' in production)
           { key: "Access-Control-Allow-Origin", value: "https://helpdesk.surterreproperties.com:3011" },
           { key: "Access-Control-Allow-Methods", value: "GET, POST, PUT, PATCH, DELETE, OPTIONS" },
           // Only allow specific headers (never use '*')
-          { key: "Access-Control-Allow-Headers", value: "Content-Type, Authorization, X-Requested-With" },
+          { key: "Access-Control-Allow-Headers", value: "Content-Type, Authorization, X-Requested-With, X-CSRF-Token" },
           { key: "Access-Control-Allow-Credentials", value: "true" },
-          // Additional security headers
+          // Prevent MIME type sniffing
           { key: "X-Content-Type-Options", value: "nosniff" },
+          // XSS Protection (legacy but still useful)
           { key: "X-XSS-Protection", value: "1; mode=block" },
+          // Control referrer information
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          // Permissions Policy (formerly Feature-Policy)
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+          },
+          // Cross-Origin policies for additional security
+          { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+          { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
         ],
       },
     ];

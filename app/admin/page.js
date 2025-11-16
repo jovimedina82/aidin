@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../components/AuthProvider'
-import SidebarLayout from '../../components/SidebarLayout'
+import DashboardLayout from '../../components/DashboardLayout'
 import { extractRoleNames, isAdmin as checkIsAdmin } from '../../lib/role-utils'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -697,26 +697,29 @@ export default function AdminPage() {
 
   if (!isAdmin) {
     return (
-      <SidebarLayout>
-        <div className="flex items-center justify-center h-full">
-          <Card className="w-full max-w-md">
-            <CardContent className="p-8 text-center">
-              <Shield className="h-12 w-12 mx-auto mb-4 text-red-500" />
-              <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
-              <p className="text-muted-foreground">
-                You need Admin privileges to access this page.
-              </p>
-            </CardContent>
-          </Card>
+      <DashboardLayout>
+        <div className="container mx-auto px-4 pt-4 pb-8">
+          <div className="flex items-center justify-center h-64">
+            <Card className="w-full max-w-md">
+              <CardContent className="p-8 text-center">
+                <Shield className="h-12 w-12 mx-auto mb-4 text-red-500" />
+                <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
+                <p className="text-muted-foreground">
+                  You need Admin privileges to access this page.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
         </div>
-      </SidebarLayout>
+      </DashboardLayout>
     )
   }
 
   return (
     <>
-    <SidebarLayout>
-      <Tabs defaultValue="users" className="flex flex-col md:flex-row min-h-screen bg-gray-50" orientation="vertical">
+    <DashboardLayout>
+      <div className="container mx-auto px-4 pt-4 pb-8">
+      <Tabs defaultValue="users" className="flex flex-col md:flex-row min-h-[calc(100vh-120px)] bg-gray-50 rounded-lg shadow-sm border" orientation="vertical">
         {/* Sidebar Navigation */}
         <aside className="md:w-64 bg-white border-r border-gray-200">
           <div className="sticky top-0 p-6">
@@ -741,6 +744,13 @@ export default function AdminPage() {
                 >
                   <Building2 className="h-4 w-4 mr-3" />
                   Departments
+                </TabsTrigger>
+                <TabsTrigger
+                  value="organizations"
+                  className="w-full justify-start px-4 py-3 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-md"
+                >
+                  <Building2 className="h-4 w-4 mr-3" />
+                  Organizations
                 </TabsTrigger>
                 <TabsTrigger
                   value="modules"
@@ -1176,6 +1186,32 @@ export default function AdminPage() {
               </CardHeader>
               <CardContent>
                 <DepartmentManagement makeAuthenticatedRequest={makeAuthenticatedRequest} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="organizations" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5" />
+                  Organization Management
+                </CardTitle>
+                <CardDescription>
+                  Manage company organizations and group users by company
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8">
+                  <Building2 className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <h3 className="text-lg font-medium mb-2">Organizations</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Manage organizations to group users and track tickets by company.
+                  </p>
+                  <Button onClick={() => window.location.href = '/organizations'}>
+                    Go to Organizations
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -1870,7 +1906,8 @@ export default function AdminPage() {
           </TabsContent>
         </main>
       </Tabs>
-    </SidebarLayout>
+      </div>
+    </DashboardLayout>
 
       {/* Add User Dialog */}
         <Dialog open={isAddUserDialogOpen} onOpenChange={setIsAddUserDialogOpen}>

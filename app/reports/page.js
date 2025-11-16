@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../components/AuthProvider'
-import SidebarLayout from '../../components/SidebarLayout'
+import DashboardLayout from '../../components/DashboardLayout'
 import { toast } from 'sonner'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -302,8 +302,8 @@ export default function ReportsPage() {
 
   if (!hasAccess) {
     return (
-      <SidebarLayout>
-        <div className="p-8">
+      <DashboardLayout>
+        <div className="container mx-auto px-4 pt-4 pb-8">
           <div className="flex items-center justify-center h-64">
             <Card className="w-full max-w-md">
               <CardContent className="p-8 text-center">
@@ -316,7 +316,7 @@ export default function ReportsPage() {
             </Card>
           </div>
         </div>
-      </SidebarLayout>
+      </DashboardLayout>
     )
   }
 
@@ -356,8 +356,8 @@ export default function ReportsPage() {
   // })
 
   return (
-    <SidebarLayout>
-      <div className="p-8">
+    <DashboardLayout>
+      <div className="container mx-auto px-4 pt-4 pb-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -615,26 +615,55 @@ export default function ReportsPage() {
                   </div>
                 ) : analytics?.categoryBreakdown && analytics.categoryBreakdown.length > 0 ? (
                   <div>
-                    <ResponsiveContainer width="100%" height={300}>
-                      <PieChart>
-                        <Pie
-                          data={analytics.categoryBreakdown}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
-                          outerRadius={100}
-                          fill="#8884d8"
-                          dataKey="count"
-                          nameKey="category"
-                        >
-                          {analytics.categoryBreakdown.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip formatter={(value, name) => [`${value} tickets`, name]} />
-                      </PieChart>
-                    </ResponsiveContainer>
+                    {(() => {
+                      // Sort by count descending - show ALL categories with scroll
+                      const sorted = [...analytics.categoryBreakdown].sort((a, b) => b.count - a.count)
+                      const total = sorted.reduce((sum, item) => sum + item.count, 0)
+                      const chartHeight = Math.max(300, sorted.length * 32)
+
+                      return (
+                        <>
+                          <div className="mb-4 text-sm text-gray-600">
+                            {sorted.length} categories total
+                          </div>
+                          <div className="overflow-y-auto max-h-[400px] border rounded-lg">
+                            <div style={{ height: chartHeight, minHeight: '300px' }}>
+                              <ResponsiveContainer width="100%" height="100%">
+                                <BarChart
+                                  data={sorted}
+                                  layout="vertical"
+                                  margin={{ top: 5, right: 60, left: 20, bottom: 5 }}
+                                >
+                                  <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
+                                  <XAxis type="number" />
+                                  <YAxis
+                                    type="category"
+                                    dataKey="category"
+                                    width={150}
+                                    tick={{ fontSize: 11 }}
+                                  />
+                                  <Tooltip
+                                    formatter={(value) => [`${value} tickets (${((value / total) * 100).toFixed(1)}%)`, 'Count']}
+                                  />
+                                  <Bar
+                                    dataKey="count"
+                                    fill="#3b82f6"
+                                    radius={[0, 4, 4, 0]}
+                                  >
+                                    {sorted.map((entry, index) => (
+                                      <Cell
+                                        key={`cell-${index}`}
+                                        fill={COLORS[index % COLORS.length]}
+                                      />
+                                    ))}
+                                  </Bar>
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </div>
+                        </>
+                      )
+                    })()}
                   </div>
                 ) : (
                   <div className="h-64 flex items-center justify-center text-muted-foreground">
@@ -908,7 +937,7 @@ export default function ReportsPage() {
                                   </p>
                                   <div className="text-xs mt-2 pt-2 border-t">
                                     <div className="font-medium mb-1">Distribution:</div>
-                                    {[5, 4, 3, 2, 1].map(rating => (
+                                    {data.distribution && [5, 4, 3, 2, 1].map(rating => (
                                       data.distribution[rating] > 0 && (
                                         <div key={rating} className="flex justify-between">
                                           <span>{rating}★:</span>
@@ -1095,6 +1124,6 @@ export default function ReportsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </SidebarLayout>
+    </DashboardLayout>
   )
 }

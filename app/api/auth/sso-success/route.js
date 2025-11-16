@@ -20,6 +20,11 @@ export async function GET(request) {
       // Verify the token is valid
       const decoded = verifyToken(token)
 
+      if (!decoded) {
+        console.error('SSO Success: Token verification returned null')
+        return NextResponse.redirect(`${BASE_URL}/login?error=invalid_token`)
+      }
+
       // Set the auth cookie and redirect immediately to dashboard
       const response = NextResponse.redirect(`${BASE_URL}/dashboard`, 302)
 
@@ -30,9 +35,11 @@ export async function GET(request) {
         maxAge: 60 * 60 * 24 * 7 // 7 days
       })
 
+      console.log('SSO Success: Cookie set for user', decoded.email || decoded.userId)
       return response
 
     } catch (tokenError) {
+      console.error('SSO Success: Token verification error', tokenError)
       return NextResponse.redirect(`${BASE_URL}/login?error=invalid_token`)
     }
 

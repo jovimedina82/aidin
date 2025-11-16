@@ -130,19 +130,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 5. Idempotency check (Message-ID)
-    const existing = await prisma.emailIngest.findUnique({
-      where: { messageId }
-    });
-
-    if (existing) {
-      console.log(`✓ Duplicate email (Message-ID: ${messageId})`);
-      return NextResponse.json({
-        status: 'duplicate',
-        ticketId: existing.ticketId,
-        messageId
-      });
-    }
+    // 5. Idempotency check (Message-ID) - MOVED to database constraint
+    // NOTE: We no longer do a preliminary check here to avoid TOCTOU race condition.
+    // Instead, we rely on the unique constraint on messageId and handle P2002 error.
+    // This ensures atomicity even under high concurrency.
 
     // 6. Thread detection (reject replies)
     // Check if this is a reply by looking for:
@@ -303,100 +294,159 @@ export async function POST(request: NextRequest) {
       .update(`${messageId}|${from}|${subject}`)
       .digest('hex');
 
-    const emailIngest = await prisma.emailIngest.create({
-      data: {
-        messageId,
-        inReplyTo,
-        references: references ? JSON.stringify(references) : null,
-        conversationId,
-        from,
-        to,
-        cc: cc ? JSON.stringify(cc) : null,
-        subject,
-        html: sanitizedHtml,
-        text: plainText,
-        snippet,
-        rawHeaders: JSON.stringify(request.headers),
-        dedupeHash,
-        processedAt: new Date()
-      }
-    });
+    // CRITICAL: Wrap all database operations in a transaction to ensure atomicity
+    // This prevents orphaned records if any step fails
+    let ticket: any;
+    let emailIngest: any;
 
-    // 14. Create Ticket
-    const ticket = await prisma.ticket.create({
-      data: {
-        ticketNumber,
-        title: subject,
-        description: ticketBody,
-        status: 'NEW',
-        priority: 'NORMAL',
-        category: classification.tags[0] || 'General',
-        requesterId: requester.id,
-        emailConversationId: conversationId
-      }
-    });
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        // Step 1: Create EmailIngest record
+        const newEmailIngest = await tx.emailIngest.create({
+          data: {
+            messageId,
+            inReplyTo,
+            references: references ? JSON.stringify(references) : null,
+            conversationId,
+            from,
+            to,
+            cc: cc ? JSON.stringify(cc) : null,
+            subject,
+            html: sanitizedHtml,
+            text: plainText,
+            snippet,
+            rawHeaders: JSON.stringify(request.headers),
+            dedupeHash,
+            processedAt: new Date()
+          }
+        });
 
-    // Link EmailIngest to Ticket
-    await prisma.emailIngest.update({
-      where: { id: emailIngest.id },
-      data: { ticketId: ticket.id }
-    });
+        // Step 2: Create Ticket
+        const newTicket = await tx.ticket.create({
+          data: {
+            ticketNumber,
+            title: subject,
+            description: ticketBody,
+            status: 'NEW',
+            priority: 'NORMAL',
+            category: classification.tags[0] || 'General',
+            requesterId: requester.id,
+            emailConversationId: conversationId
+          }
+        });
 
-    // 15. Resolve CID references in HTML (inline images)
-    const { resolveCidReferences } = await import('@/lib/email/cid-resolver');
-    const htmlWithResolvedCids = resolveCidReferences(sanitizedHtml || '', uploadedAttachments);
+        // Step 3: Link EmailIngest to Ticket
+        await tx.emailIngest.update({
+          where: { id: newEmailIngest.id },
+          data: { ticketId: newTicket.id }
+        });
 
-    // 16. Create TicketMessage
-    await prisma.ticketMessage.create({
-      data: {
-        ticketId: ticket.id,
-        kind: 'email',
-        authorEmail: from,
-        authorName: `${requester.firstName} ${requester.lastName}`,
-        html: htmlWithResolvedCids,
-        text: plainText,
-        subject,
-        metadata: JSON.stringify({
-          emailIngestId: emailIngest.id,
-          attachmentCount: uploadedAttachments.length
-        })
-      }
-    });
+        // Step 4: Resolve CID references in HTML (inline images)
+        const { resolveCidReferences } = await import('@/lib/email/cid-resolver');
+        const htmlWithResolvedCids = resolveCidReferences(sanitizedHtml || '', uploadedAttachments);
 
-    // 17. Save attachments
-    for (const att of uploadedAttachments) {
-      // Create EmailAttachment record (for tracking)
-      await prisma.emailAttachment.create({
-        data: {
-          emailIngestId: emailIngest.id,
-          filename: att.filename,
-          contentType: att.contentType,
-          size: att.size,
-          storageKey: att.storageKey,
-          storageUrl: att.cdnUrl,
-          isInline: att.inline || false,
-          cid: att.cid,
-          virusScanStatus: 'pending'
+        // Step 5: Create TicketMessage
+        await tx.ticketMessage.create({
+          data: {
+            ticketId: newTicket.id,
+            kind: 'email',
+            authorEmail: from,
+            authorName: `${requester.firstName} ${requester.lastName}`,
+            html: htmlWithResolvedCids,
+            text: plainText,
+            subject,
+            metadata: JSON.stringify({
+              emailIngestId: newEmailIngest.id,
+              attachmentCount: uploadedAttachments.length
+            })
+          }
+        });
+
+        // Step 6: Save attachments
+        for (const att of uploadedAttachments) {
+          // Create EmailAttachment record (for tracking)
+          await tx.emailAttachment.create({
+            data: {
+              emailIngestId: newEmailIngest.id,
+              filename: att.filename,
+              contentType: att.contentType,
+              size: att.size,
+              storageKey: att.storageKey,
+              storageUrl: att.cdnUrl,
+              isInline: att.inline || false,
+              cid: att.cid,
+              virusScanStatus: 'pending'
+            }
+          });
+
+          // Also create Attachment record so it appears in the ticket's Attachments section
+          await tx.attachment.create({
+            data: {
+              ticketId: newTicket.id,
+              userId: requester.id,
+              fileName: att.filename,
+              fileSize: att.size,
+              mimeType: att.contentType,
+              filePath: att.cdnUrl, // Use CDN URL as the file path
+              expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year expiry
+              sentInEmail: true // Email attachments came FROM an email, don't send them back
+            }
+          });
         }
+
+        // Step 7: Apply tags (within transaction)
+        // Get or create tags
+        for (const tagName of classification.tags) {
+          let tag = await tx.tag.findFirst({
+            where: { name: tagName }
+          });
+
+          if (!tag) {
+            tag = await tx.tag.create({
+              data: { name: tagName, displayName: tagName }
+            });
+          }
+
+          // Link tag to ticket
+          await tx.ticketTag.create({
+            data: {
+              ticketId: newTicket.id,
+              tagId: tag.id
+            }
+          }).catch(() => {
+            // Ignore if tag already linked (shouldn't happen but defensive)
+          });
+        }
+
+        return { ticket: newTicket, emailIngest: newEmailIngest };
+      }, {
+        maxWait: 10000, // 10 seconds max wait for transaction
+        timeout: 30000  // 30 seconds max transaction duration
       });
 
-      // Also create Attachment record so it appears in the ticket's Attachments section
-      await prisma.attachment.create({
-        data: {
-          ticketId: ticket.id,
-          userId: requester.id,
-          fileName: att.filename,
-          fileSize: att.size,
-          mimeType: att.contentType,
-          filePath: att.cdnUrl, // Use CDN URL as the file path
-          expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year expiry
-          sentInEmail: true // Email attachments came FROM an email, don't send them back
-        }
-      });
+      ticket = result.ticket;
+      emailIngest = result.emailIngest;
+
+    } catch (createError: any) {
+      // Handle unique constraint violation (P2002) - duplicate messageId
+      if (createError.code === 'P2002') {
+        console.log(`✓ Duplicate email detected via constraint (Message-ID: ${messageId})`);
+        const existing = await prisma.emailIngest.findUnique({
+          where: { messageId },
+          select: { ticketId: true }
+        });
+        return NextResponse.json({
+          status: 'duplicate',
+          ticketId: existing?.ticketId,
+          messageId
+        });
+      }
+      // Re-throw other errors - transaction will auto-rollback
+      console.error('Transaction failed during email ingestion:', createError);
+      throw createError;
     }
 
-    // 18. Apply tags
-    await applyTagsToTicket(ticket.id, classification.tags);
+    // Operations outside transaction (non-critical, can fail independently)
 
     // 19. Capture CC recipients from incoming email
     if (cc) {

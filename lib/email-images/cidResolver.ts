@@ -3,10 +3,8 @@
  * Maps content IDs to signed asset URLs
  */
 
-import { PrismaClient } from '@/lib/generated/prisma';
+import { prisma } from '@/lib/prisma';
 import { createAssetToken } from './hash';
-
-const prisma = new PrismaClient();
 
 /**
  * Build CID map for a message (contentId -> signed URL)

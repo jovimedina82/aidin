@@ -4,10 +4,55 @@ import { getCurrentUser } from "@/lib/auth"
 import { logEvent } from '@/lib/audit'
 import EmailService from '@/lib/services/EmailService'
 import { generateEmailActionToken } from '@/lib/email-token'
+import { escapeHtmlWithBreaks } from '@/lib/utils/html-escape'
 
 
 export async function GET(request, { params }) {
   try {
+    // SECURITY: Require authentication to view comments
+    const user = await getCurrentUser(request)
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
+
+    // Verify user has access to this ticket
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: params.id },
+      select: {
+        requesterId: true,
+        assigneeId: true,
+        departmentId: true
+      }
+    })
+
+    if (!ticket) {
+      return NextResponse.json(
+        { error: 'Ticket not found' },
+        { status: 404 }
+      )
+    }
+
+    // Check user has permission to view this ticket's comments
+    const userRoles = user.roles?.map(role =>
+      typeof role === 'string' ? role : (role.role?.name || role.name)
+    ) || []
+
+    const isAdmin = userRoles.includes('Admin')
+    const isAgent = userRoles.includes('Agent') || userRoles.includes('Support')
+    const isRequester = ticket.requesterId === user.id
+    const isAssignee = ticket.assigneeId === user.id
+
+    // Allow access if: admin, agent, ticket requester, or ticket assignee
+    if (!isAdmin && !isAgent && !isRequester && !isAssignee) {
+      return NextResponse.json(
+        { error: 'You do not have permission to view this ticket' },
+        { status: 403 }
+      )
+    }
+
     const comments = await prisma.ticketComment.findMany({
       where: {
         ticketId: params.id
@@ -157,7 +202,7 @@ export async function POST(request, { params }) {
     <p>Hello ${fullTicket.requester.firstName || 'there'},</p>
     <p><strong>${user.firstName} ${user.lastName}</strong> replied:</p>
     <div style="background-color: #f5f5f5; padding: 12px; border-left: 3px solid #3d6964; margin: 15px 0;">
-      ${data.content.replace(/\n/g, '<br>')}
+      ${escapeHtmlWithBreaks(data.content || '')}
     </div>
     <div style="background-color: #f0fdf4; border: 2px solid #22c55e; border-radius: 6px; padding: 15px; margin: 20px 0; text-align: center;">
       <p style="margin: 0 0 12px 0; font-weight: bold; color: #166534;">Issue Resolved?</p>
@@ -222,7 +267,15 @@ export async function POST(request, { params }) {
                   fileBuffer = Buffer.from(arrayBuffer)
                 } else {
                   // Read from local filesystem (manual uploads)
-                  const absolutePath = path.join(process.cwd(), 'uploads', 'attachments', attachment.filePath)
+                  // SECURITY: Validate path to prevent directory traversal
+                  const baseDir = path.join(process.cwd(), 'uploads', 'attachments')
+                  const absolutePath = path.resolve(baseDir, attachment.filePath)
+
+                  // Ensure the resolved path is within the allowed base directory
+                  if (!absolutePath.startsWith(baseDir)) {
+                    throw new Error(`Invalid file path: attempted directory traversal`)
+                  }
+
                   console.log(`   Reading attachment from disk: ${attachment.fileName} from ${absolutePath}`)
                   fileBuffer = await fs.readFile(absolutePath)
                 }
@@ -304,7 +357,7 @@ export async function POST(request, { params }) {
     <p>Hello,</p>
     <p><strong>${user.firstName} ${user.lastName}</strong> replied:</p>
     <div style="background-color: #f5f5f5; padding: 12px; border-left: 3px solid #3d6964; margin: 15px 0;">
-      ${data.content.replace(/\n/g, '<br>')}
+      ${escapeHtmlWithBreaks(data.content || '')}
     </div>
     <p style="text-align: center; margin: 15px 0;">
       <a href="${appUrl}/tickets/${params.id}" style="color: #3d6964; text-decoration: none;">View Full Ticket →</a>

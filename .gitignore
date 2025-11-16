@@ -4,6 +4,9 @@
 .idea/
 .vscode/
 
+# Claude Code local settings (may contain secrets)
+.claude/settings.local.json
+
 # Dependencies
 node_modules/
 /node_modules

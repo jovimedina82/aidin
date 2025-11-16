@@ -3,7 +3,7 @@
  * Handles complete email processing pipeline with image extraction and CID resolution
  */
 
-import { PrismaClient } from '@/lib/generated/prisma';
+import { prisma } from '@/lib/prisma';
 import { parseEmail, extractInlineImages, extractImageAttachments } from './emailParser';
 import { processImageAsset, isImageMime, getExtensionFromMime } from './assetStore';
 import {
@@ -15,8 +15,6 @@ import {
 } from './htmlSanitizer';
 import { buildCidMap, createSignedAssetUrl } from './cidResolver';
 import { processTnefParts } from './tnef';
-
-const prisma = new PrismaClient();
 
 export interface ProcessEmailOptions {
   ticketId: string;

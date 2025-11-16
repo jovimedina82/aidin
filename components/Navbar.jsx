@@ -35,6 +35,9 @@ import {
   LogOut,
   UserCheck,
   Sparkles,
+  Building2,
+  UsersRound,
+  LineChart,
 } from 'lucide-react'
 
 export default function Navbar() {
@@ -79,7 +82,7 @@ export default function Navbar() {
   const navItems = [
     { href: '/dashboard', label: 'Dashboard', tooltip: 'View tickets overview and statistics', icon: BarChart3, show: true },
     { href: '/tickets', label: 'Tickets', tooltip: 'Manage and view all support tickets', icon: Ticket, show: true },
-    { href: '/knowledge-base', label: 'Knowledge Base', tooltip: 'Browse help articles and solutions', icon: Book, show: true },
+    { href: '/knowledge-base', label: 'K/B', tooltip: 'Browse help articles and solutions', icon: Book, show: true },
     { href: '/staff-directory', label: 'Staff Directory', tooltip: 'View staff availability and locations', icon: UserCheck, show: true },
     { href: '/aidin-chat', label: 'AidIN Chat', tooltip: 'AI assistant for technical support and queries', icon: Sparkles, show: isStaff },
   ]
@@ -87,6 +90,7 @@ export default function Navbar() {
   // Admin navigation items - shown in dropdown menu
   const adminItems = [
     { href: '/users', label: 'User Management', icon: Users, show: isStaff },
+    { href: '/reports', label: 'Reports', icon: LineChart, show: isStaff },
     { href: '/admin', label: 'Settings', icon: Settings, show: isAdmin },
     { href: '/admin/blocked-domains', label: 'Blocked Senders', icon: Ban, show: isAdmin },
   ]

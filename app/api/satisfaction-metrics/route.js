@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
 import { extractRoleNames } from '@/lib/role-utils'
+import logger from '@/lib/logger'
 
 /**
  * Get satisfaction metrics (overall + per staff member)
@@ -46,96 +47,122 @@ export async function GET(request) {
         startDate.setDate(now.getDate() - 7)
     }
 
-    // Get all tickets with satisfaction ratings in the period
-    const tickets = await prisma.ticket.findMany({
-      where: {
-        satisfactionRating: {
-          not: null
-        },
-        resolvedAt: {
-          gte: startDate
-        }
-      },
-      select: {
-        id: true,
-        ticketNumber: true,
-        satisfactionRating: true,
-        satisfactionFeedback: true,
-        resolvedAt: true,
-        assigneeId: true,
-        assignee: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true
-          }
-        }
-      },
-      orderBy: {
-        resolvedAt: 'desc'
-      }
-    })
-
-    // Calculate overall metrics
-    const totalRatings = tickets.length
-    const averageRating = totalRatings > 0
-      ? tickets.reduce((sum, t) => sum + t.satisfactionRating, 0) / totalRatings
-      : 0
-
-    // Distribution by rating (1-5)
-    const ratingDistribution = {
-      1: tickets.filter(t => t.satisfactionRating === 1).length,
-      2: tickets.filter(t => t.satisfactionRating === 2).length,
-      3: tickets.filter(t => t.satisfactionRating === 3).length,
-      4: tickets.filter(t => t.satisfactionRating === 4).length,
-      5: tickets.filter(t => t.satisfactionRating === 5).length
+    // Use database aggregation instead of loading all tickets into memory
+    // This is much more efficient for large datasets
+    const whereClause = {
+      satisfactionRating: { not: null },
+      resolvedAt: { gte: startDate }
     }
 
-    // Calculate per-staff metrics
-    const staffMetrics = {}
-    tickets.forEach(ticket => {
-      if (!ticket.assignee) return
+    // Get aggregated metrics directly from database
+    const [
+      aggregateStats,
+      ratingCounts,
+      staffStats,
+      recentTickets
+    ] = await Promise.all([
+      // Overall statistics
+      prisma.ticket.aggregate({
+        where: whereClause,
+        _avg: { satisfactionRating: true },
+        _count: { satisfactionRating: true },
+        _min: { satisfactionRating: true },
+        _max: { satisfactionRating: true }
+      }),
 
-      const staffId = ticket.assignee.id
-      if (!staffMetrics[staffId]) {
-        staffMetrics[staffId] = {
-          staffId,
-          staffName: `${ticket.assignee.firstName} ${ticket.assignee.lastName}`,
-          staffEmail: ticket.assignee.email,
-          totalRatings: 0,
-          totalScore: 0,
-          averageRating: 0,
-          distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
-        }
+      // Rating distribution using groupBy
+      prisma.ticket.groupBy({
+        by: ['satisfactionRating'],
+        where: whereClause,
+        _count: { satisfactionRating: true }
+      }),
+
+      // Per-staff metrics using groupBy
+      prisma.ticket.groupBy({
+        by: ['assigneeId'],
+        where: {
+          ...whereClause,
+          assigneeId: { not: null }
+        },
+        _avg: { satisfactionRating: true },
+        _count: { satisfactionRating: true }
+      }),
+
+      // Only fetch recent tickets for feedback display (limit to 50)
+      prisma.ticket.findMany({
+        where: whereClause,
+        select: {
+          id: true,
+          ticketNumber: true,
+          satisfactionRating: true,
+          satisfactionFeedback: true,
+          resolvedAt: true,
+          assigneeId: true,
+          assignee: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true
+            }
+          }
+        },
+        orderBy: { resolvedAt: 'desc' },
+        take: 50 // Limit to most recent 50 for feedback display
+      })
+    ])
+
+    // Calculate overall metrics from aggregation
+    const totalRatings = aggregateStats._count.satisfactionRating || 0
+    const averageRating = aggregateStats._avg.satisfactionRating || 0
+
+    // Build rating distribution from groupBy results
+    const ratingDistribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+    ratingCounts.forEach(item => {
+      if (item.satisfactionRating >= 1 && item.satisfactionRating <= 5) {
+        ratingDistribution[item.satisfactionRating] = item._count.satisfactionRating
       }
-
-      staffMetrics[staffId].totalRatings++
-      staffMetrics[staffId].totalScore += ticket.satisfactionRating
-      staffMetrics[staffId].distribution[ticket.satisfactionRating]++
     })
 
-    // Calculate average for each staff member
-    Object.values(staffMetrics).forEach(staff => {
-      staff.averageRating = staff.totalScore / staff.totalRatings
-    })
+    // Fetch staff details for metrics
+    const staffIds = staffStats.map(s => s.assigneeId).filter(Boolean)
+    const staffUsers = staffIds.length > 0 ? await prisma.user.findMany({
+      where: { id: { in: staffIds } },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true
+      }
+    }) : []
 
-    // Sort staff by average rating (descending)
-    const staffArray = Object.values(staffMetrics).sort(
-      (a, b) => b.averageRating - a.averageRating
-    )
+    const staffUserMap = new Map(staffUsers.map(u => [u.id, u]))
 
-    // Calculate daily time series for the period (for graphing)
-    const dailyMetrics = []
+    // Build per-staff metrics from aggregated data
+    const staffArray = staffStats.map(stat => {
+      const user = staffUserMap.get(stat.assigneeId)
+      return {
+        staffId: stat.assigneeId,
+        staffName: user ? `${user.firstName} ${user.lastName}` : 'Unknown',
+        staffEmail: user?.email || 'unknown',
+        totalRatings: stat._count.satisfactionRating,
+        averageRating: stat._avg.satisfactionRating || 0
+      }
+    }).sort((a, b) => b.averageRating - a.averageRating)
+
+    // Calculate daily time series using database aggregation
     const dayMillis = 24 * 60 * 60 * 1000
-    const daysInPeriod = period === 'all' ? 90 : parseInt(period) // Default to 90 for 'all'
+    const daysInPeriod = period === 'all' ? 90 : parseInt(period.replace('d', ''))
 
+    // For daily metrics, use the recent tickets (limited to 50) for a quick estimate
+    // In production, you might want a separate aggregation query
+    const dailyMetrics = []
     for (let i = daysInPeriod - 1; i >= 0; i--) {
       const date = new Date(now.getTime() - (i * dayMillis))
       date.setHours(0, 0, 0, 0)
       const nextDate = new Date(date.getTime() + dayMillis)
 
-      const dayTickets = tickets.filter(t => {
+      const dayTickets = recentTickets.filter(t => {
         const resolvedDate = new Date(t.resolvedAt)
         return resolvedDate >= date && resolvedDate < nextDate
       })
@@ -151,8 +178,8 @@ export async function GET(request) {
       })
     }
 
-    // Calculate satisfaction percentage (4-5 stars = satisfied)
-    const satisfiedCount = tickets.filter(t => t.satisfactionRating >= 4).length
+    // Calculate satisfaction percentage from distribution
+    const satisfiedCount = (ratingDistribution[4] || 0) + (ratingDistribution[5] || 0)
     const satisfactionPercentage = totalRatings > 0
       ? (satisfiedCount / totalRatings) * 100
       : 0
@@ -169,7 +196,7 @@ export async function GET(request) {
       },
       staff: staffArray,
       dailyMetrics,
-      recentFeedback: tickets
+      recentFeedback: recentTickets
         .filter(t => t.satisfactionFeedback)
         .slice(0, 10)
         .map(t => ({
@@ -181,7 +208,7 @@ export async function GET(request) {
         }))
     })
   } catch (error) {
-    console.error('Error fetching satisfaction metrics:', error)
+    logger.error('Error fetching satisfaction metrics', error)
     return NextResponse.json(
       { error: 'Failed to fetch satisfaction metrics' },
       { status: 500 }

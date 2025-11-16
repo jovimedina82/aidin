@@ -10,9 +10,7 @@
  * - Returns retry-after header value
  */
 
-import { PrismaClient } from '@/lib/generated/prisma';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 const WINDOW_MS = parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10); // 1 minute
 const MAX_REQUESTS = parseInt(process.env.RATE_LIMIT_MAX_REQUESTS_PER_WINDOW || '20', 10);

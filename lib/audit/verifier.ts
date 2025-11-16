@@ -3,13 +3,11 @@
  * Runs periodically to verify audit log integrity
  */
 
-import { PrismaClient } from '@/lib/generated/prisma';
+import { prisma } from '@/lib/prisma';
 import { verifyChain } from './hash';
 import type { AuditLogEntry, ChainVerificationResult } from './types';
 import { logEvent } from './logger';
 import { withSystemActor } from './context';
-
-const prisma = new PrismaClient();
 
 /**
  * Verify hash chain for a date range
@@ -178,30 +176,50 @@ export async function retryDLQEvents(maxRetries = 3): Promise<void> {
       orderBy: { failedAt: 'asc' },
     });
 
+    // Batch process - collect resolved and failed IDs
+    const resolvedIds: string[] = [];
+    const failedUpdates: Array<{ id: string; error: string; retryCount: number }> = [];
+
     for (const dlqEntry of failedEvents) {
       try {
         const event = JSON.parse(dlqEntry.eventData);
         await logEvent(event);
-
-        // Mark as resolved
-        await prisma.auditLogDLQ.update({
-          where: { id: dlqEntry.id },
-          data: {
-            resolved: true,
-            resolvedAt: new Date(),
-          },
-        });
+        resolvedIds.push(dlqEntry.id);
       } catch (error) {
-        // Increment retry count
-        await prisma.auditLogDLQ.update({
-          where: { id: dlqEntry.id },
-          data: {
-            retryCount: dlqEntry.retryCount + 1,
-            lastRetryAt: new Date(),
-            error: error instanceof Error ? error.message : String(error),
-          },
+        failedUpdates.push({
+          id: dlqEntry.id,
+          error: error instanceof Error ? error.message : String(error),
+          retryCount: dlqEntry.retryCount + 1,
         });
       }
+    }
+
+    // Batch update resolved entries
+    if (resolvedIds.length > 0) {
+      await prisma.auditLogDLQ.updateMany({
+        where: { id: { in: resolvedIds } },
+        data: {
+          resolved: true,
+          resolvedAt: new Date(),
+        },
+      });
+    }
+
+    // Update failed entries individually (different data for each)
+    // Use Promise.all for concurrent updates instead of sequential
+    if (failedUpdates.length > 0) {
+      await Promise.all(
+        failedUpdates.map((update) =>
+          prisma.auditLogDLQ.update({
+            where: { id: update.id },
+            data: {
+              retryCount: update.retryCount,
+              lastRetryAt: new Date(),
+              error: update.error,
+            },
+          })
+        )
+      );
     }
   });
 }

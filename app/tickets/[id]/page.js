@@ -398,6 +398,34 @@ export default function TicketDetailPage({ params }) {
   }
 
   const handleUpdateTicket = async (field, value) => {
+    // Show confirmation dialog for status and assignee changes
+    if (field === 'status' || field === 'assigneeId') {
+      let confirmMessage = ''
+
+      if (field === 'status') {
+        const statusLabels = {
+          'NEW': 'New',
+          'OPEN': 'Open',
+          'PENDING': 'Pending',
+          'ON_HOLD': 'On Hold',
+          'SOLVED': 'Solved'
+        }
+        confirmMessage = `Are you sure you want to change the status to "${statusLabels[value] || value}"?`
+      } else if (field === 'assigneeId') {
+        if (value === null) {
+          confirmMessage = 'Are you sure you want to unassign this ticket?'
+        } else {
+          const assignee = users.find(u => u.id === value)
+          const assigneeName = assignee ? `${assignee.firstName} ${assignee.lastName}` : 'this person'
+          confirmMessage = `Are you sure you want to assign this ticket to ${assigneeName}?`
+        }
+      }
+
+      if (!confirm(confirmMessage)) {
+        return // User cancelled, don't proceed
+      }
+    }
+
     try {
       const response = await makeAuthenticatedRequest(`/api/tickets/${params.id}`, {
         method: 'PUT',

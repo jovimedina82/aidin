@@ -8,11 +8,9 @@
  */
 
 import { ConfidentialClientApplication } from '@azure/msal-node';
-import { PrismaClient } from '@/lib/generated/prisma';
+import { prisma } from '@/lib/prisma';
 import { classifyEmail, EmailClassificationResult } from './classification';
 import { extractTicketId } from '@/modules/tickets/subject';
-
-const prisma = new PrismaClient();
 
 export interface EmailPollingStats {
   total: number;
@@ -288,6 +286,46 @@ export class EmailPollingService {
     console.log(`📧 Processing new email from ${email.from.emailAddress.address}: ${email.subject}`);
 
     try {
+      // Early rejection for bounce/undeliverable messages
+      const senderEmail = email.from.emailAddress.address.toLowerCase();
+      const subject = (email.subject || '').toLowerCase();
+
+      // Detect bounce/undeliverable emails
+      const isBounce =
+        senderEmail.includes('postmaster@') ||
+        senderEmail.includes('mailer-daemon@') ||
+        senderEmail.includes('mailer@') ||
+        subject.startsWith('undeliverable:') ||
+        subject.startsWith('delivery status notification') ||
+        subject.startsWith('returned mail:') ||
+        subject.includes('mail delivery failed') ||
+        subject.includes('message could not be delivered') ||
+        subject.includes('delivery failure') ||
+        subject.includes('undeliverable: support ticket');
+
+      if (isBounce) {
+        console.log(`🚫 Rejecting bounce/undeliverable message: "${email.subject}"`);
+
+        // Log to DLQ for tracking
+        await prisma.emailDLQ.create({
+          data: {
+            messageId: email.internetMessageId || email.id,
+            from: email.from.emailAddress.address,
+            subject: email.subject || '',
+            error: 'REJECTED_BOUNCE_MESSAGE',
+            rawPayload: JSON.stringify({
+              reason: 'Bounce/undeliverable message automatically rejected',
+              sender: senderEmail,
+            }),
+          },
+        });
+
+        console.log(`✅ Bounce message rejected and logged`);
+        this.stats.vendor++;
+        this.stats.success++;
+        return; // Skip creating ticket
+      }
+
       // Classify email
       const classification: EmailClassificationResult = await classifyEmail({
         from: email.from.emailAddress.address,

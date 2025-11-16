@@ -7,17 +7,25 @@ services:
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
+    env_file:
+      - .env.docker
     environment:
       - NODE_ENV=development
-      - DATABASE_URL=file:./data/helpdesk.db
-      - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
-      - NEXTAUTH_SECRET=your-nextauth-secret-change-this-too
-      - NEXTAUTH_URL=http://localhost:3000
+      - DATABASE_URL=${DATABASE_URL:-file:./data/helpdesk.db}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set in .env.docker}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
     volumes:
       - helpdesk_data:/app/data
       - helpdesk_uploads:/app/public/uploads
       - .:/app
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   n8n:
     image: n8nio/n8n:latest
@@ -25,22 +33,29 @@ services:
       - "5678:5678"
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    env_file:
+      - .env.docker
     environment:
       - N8N_BASIC_AUTH_ACTIVE=true
-      - N8N_BASIC_AUTH_USER=admin
-      - N8N_BASIC_AUTH_PASSWORD=helpdesk123
-      - N8N_HOST=n8n.surterreproperties.com
+      - N8N_BASIC_AUTH_USER=${N8N_BASIC_AUTH_USER:-admin}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD:?N8N password must be set}
+      - N8N_HOST=${N8N_HOST:-localhost}
       - N8N_PORT=5678
-      - N8N_PROTOCOL=https
-      - WEBHOOK_URL=https://n8n.surterreproperties.com
-      - GENERIC_TIMEZONE=America/New_York
-      - N8N_SECURE_COOKIE=true
+      - N8N_PROTOCOL=${N8N_PROTOCOL:-http}
+      - WEBHOOK_URL=${WEBHOOK_URL:-http://localhost:5678}
+      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE:-America/New_York}
+      - N8N_SECURE_COOKIE=${N8N_SECURE_COOKIE:-false}
       - N8N_METRICS=true
-      - N8N_ENCRYPTION_KEY=QKC7bgGANZul5S4W/O1uZTm2/+VIjRM9
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:?N8N encryption key must be set}
     volumes:
       - n8n_data:/home/node/.n8n
       - /var/run/docker.sock:/var/run/docker.sock:ro
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5678/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 volumes:
   helpdesk_data:

@@ -4,6 +4,7 @@
  */
 
 import { EmailPart } from './emailParser';
+import logger from '@/lib/logger';
 
 /**
  * Detect if a part is a TNEF attachment
@@ -18,28 +19,65 @@ export function isTnef(part: EmailPart): boolean {
 
 /**
  * Extract parts from TNEF attachment
- * Note: This is a stub implementation. In production, use a library like 'tnef' or 'node-tnef'
- * For now, we'll just return an empty array
+ *
+ * TNEF (Transport Neutral Encapsulation Format) is used by Microsoft Outlook
+ * to package email formatting and attachments in winmail.dat files.
+ *
+ * Current implementation: Logs warning and returns empty array with metadata.
+ * Future: Install 'node-tnef' or 'tnef' package for full extraction.
  */
 export async function extractTnefParts(tnefBuffer: Buffer): Promise<EmailPart[]> {
   try {
-    // TODO: Implement TNEF extraction using a library
-    // Example with 'tnef' package (not installed by default):
-    // const tnef = require('tnef');
-    // const parsed = tnef.parse(tnefBuffer);
-    // return parsed.attachments.map(att => ({
-    //   filename: att.name,
-    //   contentType: att.mimeType,
-    //   disposition: att.inline ? 'inline' : 'attachment',
-    //   buffer: att.data,
-    //   size: att.data.length,
-    //   contentId: att.contentId
-    // }));
+    // Log that we received a TNEF attachment
+    logger.warn('TNEF attachment detected - extraction not fully implemented', {
+      bufferSize: tnefBuffer.length,
+      note: 'Install node-tnef package for full support',
+    });
 
-    console.warn('⚠️  TNEF extraction not implemented - skipping winmail.dat');
+    // Try to detect if it contains any extractable data
+    // TNEF files start with signature 0x223E9F78 (little-endian)
+    if (tnefBuffer.length >= 4) {
+      const signature = tnefBuffer.readUInt32LE(0);
+      const isTnefSignature = signature === 0x223e9f78;
+
+      if (!isTnefSignature) {
+        logger.warn('Invalid TNEF signature', {
+          expected: '0x223e9f78',
+          received: `0x${signature.toString(16)}`,
+        });
+        return [];
+      }
+
+      // Valid TNEF file detected
+      logger.info('Valid TNEF file detected', {
+        size: tnefBuffer.length,
+        signature: `0x${signature.toString(16)}`,
+      });
+
+      // Return a placeholder part to indicate TNEF was present
+      // This allows the system to track that attachments were attempted
+      return [
+        {
+          filename: 'tnef_attachment_placeholder.txt',
+          contentType: 'text/plain',
+          disposition: 'attachment',
+          buffer: Buffer.from(
+            'This email contained a winmail.dat (TNEF) attachment from Microsoft Outlook.\n' +
+              'The system detected the attachment but could not extract its contents.\n' +
+              'Please ask the sender to resend the email using a different format or attach files directly.\n\n' +
+              `Original TNEF size: ${tnefBuffer.length} bytes`
+          ),
+          size: 0,
+          contentId: undefined,
+        },
+      ];
+    }
+
     return [];
   } catch (error) {
-    console.error('Failed to extract TNEF parts:', error);
+    logger.error('Failed to process TNEF attachment', error as Error, {
+      bufferSize: tnefBuffer?.length || 0,
+    });
     return [];
   }
 }

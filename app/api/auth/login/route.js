@@ -4,6 +4,8 @@ import jwt from 'jsonwebtoken'
 import { prisma } from '@/lib/prisma'
 import { logEvent } from '@/lib/audit'
 import { checkRateLimit } from '@/lib/security/rate-limit'
+import logger from '@/lib/logger'
+import { refreshCSRFTokenOnLogin } from '@/lib/security/csrf'
 
 export async function POST(request) {
   let userEmail = null
@@ -123,6 +125,15 @@ export async function POST(request) {
       data: { lastLoginAt: new Date() }
     })
 
+    // SECURITY: Fail hard if JWT_SECRET not set
+    if (!process.env.JWT_SECRET) {
+      logger.error('JWT_SECRET not configured - cannot issue tokens')
+      return NextResponse.json(
+        { error: 'Server configuration error' },
+        { status: 500 }
+      )
+    }
+
     // Create JWT token
     const token = jwt.sign(
       {
@@ -132,7 +143,7 @@ export async function POST(request) {
         lastName: user.lastName,
         roles: user.roles.map(ur => ur.role.name)
       },
-      process.env.JWT_SECRET || 'your-secret-key',
+      process.env.JWT_SECRET,
       { expiresIn: '7d' }
     )
 
@@ -155,7 +166,12 @@ export async function POST(request) {
     // Remove password from user object
     const { password: _, ...userWithoutPassword } = user
 
-    return NextResponse.json({
+    logger.info('User logged in successfully', {
+      userId: user.id,
+      email: user.email
+    })
+
+    const response = NextResponse.json({
       success: true,
       token,
       user: {
@@ -164,8 +180,13 @@ export async function POST(request) {
       }
     })
 
+    // Refresh CSRF token on successful login
+    refreshCSRFTokenOnLogin(response)
+
+    return response
+
   } catch (error) {
-    console.error('Login error:', error)
+    logger.error('Login error', error)
 
     // Log login error
     if (userEmail) {

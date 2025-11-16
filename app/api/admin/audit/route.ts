@@ -5,10 +5,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { PrismaClient } from '@/lib/generated/prisma';
+import { prisma } from '@/lib/prisma';
 import { logEvent } from '@/lib/audit';
-
-const prisma = new PrismaClient();
+import { boundNumber } from '@/lib/utils/html-escape';
 
 /**
  * Check if user has admin role
@@ -41,8 +40,8 @@ export async function GET(request: NextRequest) {
 
     // Parse query parameters
     const { searchParams } = new URL(request.url);
-    const startDate = searchParams.get('startDate');
-    const endDate = searchParams.get('endDate');
+    const startDateStr = searchParams.get('startDate');
+    const endDateStr = searchParams.get('endDate');
     const action = searchParams.get('action');
     const actorEmail = searchParams.get('actorEmail');
     const actorType = searchParams.get('actorType');
@@ -51,19 +50,32 @@ export async function GET(request: NextRequest) {
     const correlationId = searchParams.get('correlationId');
     const requestId = searchParams.get('requestId');
     const searchTerm = searchParams.get('searchTerm');
-    const limit = parseInt(searchParams.get('limit') || '100', 10);
-    const offset = parseInt(searchParams.get('offset') || '0', 10);
+
+    // Validate and bound numeric parameters
+    const rawLimit = parseInt(searchParams.get('limit') || '100', 10);
+    const rawOffset = parseInt(searchParams.get('offset') || '0', 10);
+    const limit = boundNumber(rawLimit, 1, 1000, 100); // Max 1000 results
+    const offset = boundNumber(rawOffset, 0, 100000, 0); // Max offset 100k
 
     // Build where clause
     const where: any = {};
 
-    if (startDate || endDate) {
+    // Validate date parameters
+    if (startDateStr || endDateStr) {
       where.ts = {};
-      if (startDate) {
-        where.ts.gte = new Date(startDate);
+      if (startDateStr) {
+        const startDate = new Date(startDateStr);
+        if (isNaN(startDate.getTime())) {
+          return NextResponse.json({ error: 'Invalid startDate format' }, { status: 400 });
+        }
+        where.ts.gte = startDate;
       }
-      if (endDate) {
-        where.ts.lte = new Date(endDate);
+      if (endDateStr) {
+        const endDate = new Date(endDateStr);
+        if (isNaN(endDate.getTime())) {
+          return NextResponse.json({ error: 'Invalid endDate format' }, { status: 400 });
+        }
+        where.ts.lte = endDate;
       }
     }
 

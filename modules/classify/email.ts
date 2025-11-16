@@ -10,9 +10,7 @@
  */
 
 import OpenAI from 'openai';
-import { PrismaClient } from '@/lib/generated/prisma';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 let openai: OpenAI | null = null;
 function getOpenAI() {

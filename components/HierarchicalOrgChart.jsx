@@ -16,8 +16,8 @@ import {
   RotateCcw,
   Maximize,
   Minimize,
-  ChevronDown,
-  ChevronUp
+  ChevronRight,
+  ChevronLeft
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 
@@ -76,7 +76,7 @@ const HierarchicalOrgChart = ({ data }) => {
     return matchesSearch && matchesDepartment
   }
 
-  const EmployeeBox = ({ employee, level = 0, isLast = false }) => {
+  const EmployeeBox = ({ employee, level = 0, isFirst = false, isLast = false, siblingCount = 1 }) => {
     const hasDirectReports = employee.directReports && employee.directReports.length > 0
     const isExpanded = expandedNodes.has(employee.id)
     const filteredReports = hasDirectReports ? employee.directReports.filter(filterEmployee) : []
@@ -87,32 +87,31 @@ const HierarchicalOrgChart = ({ data }) => {
     }
 
     return (
-      <div className="flex flex-col items-center">
-        {/* Employee Box */}
-        <div className="relative mb-6">
-          {/* Connection lines to parent */}
-          {level > 0 && (
-            <>
-              {/* Vertical line from above */}
-              <div className="absolute -top-6 left-1/2 w-px h-6 bg-gray-400 transform -translate-x-1/2"></div>
-            </>
-          )}
+      <div className="flex items-start">
+        {/* Horizontal connector from parent */}
+        {level > 0 && (
+          <div className="flex items-center self-center">
+            {/* Horizontal line to this node */}
+            <div className="w-8 h-px bg-gray-400"></div>
+          </div>
+        )}
 
-          {/* Employee Card */}
+        {/* Employee Card */}
+        <div className="relative flex items-center">
           <Card
-            className="w-64 shadow-lg border-2 hover:shadow-xl transition-all duration-200"
+            className="w-56 shadow-lg border-2 hover:shadow-xl transition-all duration-200 flex-shrink-0"
             style={{ borderColor: employee.departmentColor }}
           >
-            <CardContent className="p-4">
-              <div className="flex items-start space-x-3">
+            <CardContent className="p-3">
+              <div className="flex items-start space-x-2">
                 {/* Avatar */}
                 <div className="relative flex-shrink-0">
                   <Avatar
-                    className="h-12 w-12 border-2"
+                    className="h-10 w-10 border-2"
                     style={{ borderColor: employee.departmentColor }}
                   >
                     <AvatarFallback
-                      className="text-sm font-bold text-white"
+                      className="text-xs font-bold text-white"
                       style={{ backgroundColor: employee.departmentColor }}
                     >
                       {employee.avatar}
@@ -121,7 +120,7 @@ const HierarchicalOrgChart = ({ data }) => {
 
                   {/* Role Icon */}
                   <div
-                    className="absolute -bottom-1 -right-1 bg-white rounded-full p-1 shadow border"
+                    className="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5 shadow border"
                     style={{ borderColor: employee.departmentColor }}
                   >
                     {getRoleIcon(employee.primaryRole)}
@@ -130,13 +129,13 @@ const HierarchicalOrgChart = ({ data }) => {
 
                 {/* Employee Info */}
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-gray-900 text-sm leading-tight mb-1">
+                  <h3 className="font-bold text-gray-900 text-xs leading-tight mb-0.5">
                     {employee.firstName} {employee.lastName}
                   </h3>
 
                   <Badge
                     variant="outline"
-                    className="text-xs mb-2"
+                    className="text-[10px] px-1 py-0 mb-1"
                     style={{
                       borderColor: employee.departmentColor,
                       color: employee.departmentColor
@@ -145,16 +144,12 @@ const HierarchicalOrgChart = ({ data }) => {
                     {employee.primaryRole}
                   </Badge>
 
-                  <p className="text-xs text-gray-600 mb-1">
+                  <p className="text-[10px] text-gray-600 leading-tight">
                     {employee.primaryDepartment}
                   </p>
 
-                  <p className="text-xs text-gray-500 truncate">
-                    {employee.email}
-                  </p>
-
                   {hasDirectReports && (
-                    <p className="text-xs text-blue-600 mt-2">
+                    <p className="text-[10px] text-blue-600 mt-1">
                       {employee.directReports.length} Report{employee.directReports.length !== 1 ? 's' : ''}
                     </p>
                   )}
@@ -166,49 +161,53 @@ const HierarchicalOrgChart = ({ data }) => {
                     variant="ghost"
                     size="sm"
                     onClick={() => toggleExpanded(employee.id)}
-                    className="h-8 w-8 p-0 flex-shrink-0"
+                    className="h-6 w-6 p-0 flex-shrink-0"
                   >
                     {isExpanded ? (
-                      <ChevronUp className="h-4 w-4" />
+                      <ChevronLeft className="h-4 w-4" />
                     ) : (
-                      <ChevronDown className="h-4 w-4" />
+                      <ChevronRight className="h-4 w-4" />
                     )}
                   </Button>
                 )}
               </div>
             </CardContent>
           </Card>
-
-          {/* Connection line to children */}
-          {hasFilteredReports && isExpanded && (
-            <div className="absolute -bottom-6 left-1/2 w-px h-6 bg-gray-400 transform -translate-x-1/2"></div>
-          )}
         </div>
 
-        {/* Direct Reports */}
+        {/* Direct Reports - positioned to the right */}
         {hasFilteredReports && isExpanded && (
-          <div className="relative">
-            {/* Horizontal line for multiple children */}
-            {filteredReports.length > 1 && (
-              <div
-                className="absolute top-0 bg-gray-400 h-px"
-                style={{
-                  left: `${(64 * filteredReports.length) / -2 + 128}px`,
-                  width: `${64 * filteredReports.length - 128}px`
-                }}
-              ></div>
-            )}
+          <div className="flex items-center">
+            {/* Horizontal connector to children */}
+            <div className="w-8 h-px bg-gray-400"></div>
 
-            {/* Children */}
-            <div className="flex justify-center items-start space-x-16">
-              {filteredReports.map((report, index) => (
-                <EmployeeBox
-                  key={report.id}
-                  employee={report}
-                  level={level + 1}
-                  isLast={index === filteredReports.length - 1}
-                />
-              ))}
+            {/* Children container with vertical line */}
+            <div className="relative">
+              {/* Vertical line connecting children */}
+              {filteredReports.length > 1 && (
+                <div
+                  className="absolute left-0 w-px bg-gray-400"
+                  style={{
+                    top: '50%',
+                    height: `calc(100% - 40px)`,
+                    transform: 'translateY(-50%)'
+                  }}
+                ></div>
+              )}
+
+              {/* Children stacked vertically */}
+              <div className="flex flex-col space-y-4">
+                {filteredReports.map((report, index) => (
+                  <EmployeeBox
+                    key={report.id}
+                    employee={report}
+                    level={level + 1}
+                    isFirst={index === 0}
+                    isLast={index === filteredReports.length - 1}
+                    siblingCount={filteredReports.length}
+                  />
+                ))}
+              </div>
             </div>
           </div>
         )}
@@ -217,7 +216,7 @@ const HierarchicalOrgChart = ({ data }) => {
   }
 
   const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.1, 2))
-  const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.1, 0.5))
+  const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.1, 0.3))
   const handleReset = () => setZoom(1)
   const handleFullscreen = () => setIsFullscreen(!isFullscreen)
 
@@ -347,7 +346,7 @@ const HierarchicalOrgChart = ({ data }) => {
         </div>
       </div>
 
-      {/* Hierarchical Chart */}
+      {/* Hierarchical Chart - Horizontal Layout */}
       <div className={`bg-white rounded-lg border p-6 overflow-auto ${isFullscreen ? 'flex-1' : ''}`}>
         {filteredHierarchy.length === 0 ? (
           <div className="text-center py-12">
@@ -358,8 +357,8 @@ const HierarchicalOrgChart = ({ data }) => {
         ) : (
           <div className={`${isFullscreen ? 'min-h-full' : 'min-h-[600px]'} bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-8 overflow-auto`}>
             <div
-              className="flex flex-col items-center space-y-8 transition-transform duration-200"
-              style={{ transform: `scale(${zoom})`, transformOrigin: 'top center' }}
+              className="inline-flex flex-col space-y-8 transition-transform duration-200"
+              style={{ transform: `scale(${zoom})`, transformOrigin: 'top left' }}
             >
               {filteredHierarchy.map(rootEmployee => (
                 <EmployeeBox key={rootEmployee.id} employee={rootEmployee} level={0} />
